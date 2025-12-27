@@ -1,0 +1,392 @@
+# =============================================================================
+# VIBOTAJ.COM .HTACCESS CONFIGURATION
+# =============================================================================
+# Version: 1.0.0
+# Last Updated: December 2024
+# Purpose: Security, redirects, caching, and performance optimization
+# 
+# IMPORTANT: Test changes on staging before deploying to production
+# Backup the existing .htaccess before applying changes
+# =============================================================================
+
+# Enable Rewrite Engine
+RewriteEngine On
+RewriteBase /
+
+# =============================================================================
+# SECTION 1: HTTPS AND WWW REDIRECTS
+# =============================================================================
+
+# Force HTTPS (HTTP to HTTPS redirect)
+RewriteCond %{HTTPS} !=on
+RewriteCond %{HTTP_HOST} ^(www\.)?vibotaj\.com$ [NC]
+RewriteRule ^(.*)$ https://vibotaj.com/$1 [R=301,L]
+
+# Redirect www to non-www (canonical domain)
+RewriteCond %{HTTP_HOST} ^www\.vibotaj\.com$ [NC]
+RewriteRule ^(.*)$ https://vibotaj.com/$1 [R=301,L]
+
+# Alternative: Redirect non-www to www (uncomment if preferred)
+# RewriteCond %{HTTP_HOST} ^vibotaj\.com$ [NC]
+# RewriteRule ^(.*)$ https://www.vibotaj.com/$1 [R=301,L]
+
+# =============================================================================
+# SECTION 2: SECURITY HEADERS
+# =============================================================================
+
+<IfModule mod_headers.c>
+    # HTTP Strict Transport Security (HSTS)
+    # Enforces HTTPS for 1 year, includes subdomains
+    Header always set Strict-Transport-Security "max-age=31536000; includeSubDomains; preload" env=HTTPS
+
+    # Prevent Clickjacking - X-Frame-Options
+    Header always set X-Frame-Options "SAMEORIGIN"
+
+    # Prevent MIME type sniffing
+    Header always set X-Content-Type-Options "nosniff"
+
+    # XSS Protection (legacy browsers)
+    Header always set X-XSS-Protection "1; mode=block"
+
+    # Referrer Policy - Control referrer information
+    Header always set Referrer-Policy "strict-origin-when-cross-origin"
+
+    # Permissions Policy (formerly Feature-Policy)
+    Header always set Permissions-Policy "accelerometer=(), camera=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), payment=(), usb=()"
+
+    # Content Security Policy - Adjust as needed for your site
+    # Start with report-only mode, then enforce after testing
+    # Header always set Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.googletagmanager.com https://www.google-analytics.com https://connect.facebook.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: https: blob:; font-src 'self' https://fonts.gstatic.com; connect-src 'self' https://www.google-analytics.com https://analytics.google.com; frame-src 'self' https://www.youtube.com https://www.facebook.com; object-src 'none'; base-uri 'self'; form-action 'self';"
+
+    # Remove X-Powered-By header (if PHP exposes it)
+    Header unset X-Powered-By
+
+    # Remove Server version info
+    Header unset Server
+
+    # Prevent IE from executing downloads in site's context
+    Header set X-Download-Options "noopen"
+</IfModule>
+
+# =============================================================================
+# SECTION 3: FILE PROTECTION
+# =============================================================================
+
+# Protect .htaccess file
+<Files .htaccess>
+    Order allow,deny
+    Deny from all
+</Files>
+
+# Protect wp-config.php
+<Files wp-config.php>
+    Order allow,deny
+    Deny from all
+</Files>
+
+# Protect readme.html (reveals WordPress version)
+<Files readme.html>
+    Order allow,deny
+    Deny from all
+</Files>
+
+# Protect license.txt
+<Files license.txt>
+    Order allow,deny
+    Deny from all
+</Files>
+
+# Protect debug.log
+<Files debug.log>
+    Order allow,deny
+    Deny from all
+</Files>
+
+# Protect all .log files
+<FilesMatch "\.log$">
+    Order allow,deny
+    Deny from all
+</FilesMatch>
+
+# Protect sensitive configuration files
+<FilesMatch "^(wp-config\.php|php\.ini|\.htpasswd|error_log|\.env)$">
+    Order allow,deny
+    Deny from all
+</FilesMatch>
+
+# Block access to hidden files (starting with .)
+<FilesMatch "^\.">
+    Order allow,deny
+    Deny from all
+</FilesMatch>
+
+# Block access to backup and source files
+<FilesMatch "(^#.*#|~$|\.sw[op]$|\.bak$|\.orig$|\.sql$|\.zip$|\.tar$|\.gz$)">
+    Order allow,deny
+    Deny from all
+</FilesMatch>
+
+# =============================================================================
+# SECTION 4: DIRECTORY PROTECTION
+# =============================================================================
+
+# Disable directory browsing
+Options -Indexes
+
+# Protect wp-includes
+<IfModule mod_rewrite.c>
+    RewriteRule ^wp-admin/includes/ - [F,L]
+    RewriteRule !^wp-includes/ - [S=3]
+    RewriteRule ^wp-includes/[^/]+\.php$ - [F,L]
+    RewriteRule ^wp-includes/js/tinymce/langs/.+\.php - [F,L]
+    RewriteRule ^wp-includes/theme-compat/ - [F,L]
+</IfModule>
+
+# Block access to xmlrpc.php (common attack vector)
+<Files xmlrpc.php>
+    Order deny,allow
+    Deny from all
+    # Allow specific IPs if needed for Jetpack/mobile apps
+    # Allow from 123.456.789.0
+</Files>
+
+# Protect uploads directory from PHP execution
+<IfModule mod_rewrite.c>
+    RewriteRule ^wp-content/uploads/.*\.php$ - [F,L]
+</IfModule>
+
+# =============================================================================
+# SECTION 5: CACHE CONTROL HEADERS
+# =============================================================================
+
+<IfModule mod_expires.c>
+    ExpiresActive On
+    ExpiresDefault "access plus 1 month"
+    
+    # HTML - No cache or short cache
+    ExpiresByType text/html "access plus 0 seconds"
+    ExpiresByType application/xhtml+xml "access plus 0 seconds"
+    
+    # CSS and JavaScript
+    ExpiresByType text/css "access plus 1 year"
+    ExpiresByType application/javascript "access plus 1 year"
+    ExpiresByType text/javascript "access plus 1 year"
+    
+    # Images
+    ExpiresByType image/jpeg "access plus 1 year"
+    ExpiresByType image/jpg "access plus 1 year"
+    ExpiresByType image/png "access plus 1 year"
+    ExpiresByType image/gif "access plus 1 year"
+    ExpiresByType image/webp "access plus 1 year"
+    ExpiresByType image/avif "access plus 1 year"
+    ExpiresByType image/svg+xml "access plus 1 year"
+    ExpiresByType image/x-icon "access plus 1 year"
+    ExpiresByType image/vnd.microsoft.icon "access plus 1 year"
+    
+    # Fonts
+    ExpiresByType font/woff "access plus 1 year"
+    ExpiresByType font/woff2 "access plus 1 year"
+    ExpiresByType font/ttf "access plus 1 year"
+    ExpiresByType font/otf "access plus 1 year"
+    ExpiresByType font/eot "access plus 1 year"
+    ExpiresByType application/font-woff "access plus 1 year"
+    ExpiresByType application/font-woff2 "access plus 1 year"
+    ExpiresByType application/vnd.ms-fontobject "access plus 1 year"
+    
+    # Audio/Video
+    ExpiresByType audio/ogg "access plus 1 year"
+    ExpiresByType video/mp4 "access plus 1 year"
+    ExpiresByType video/webm "access plus 1 year"
+    ExpiresByType video/ogg "access plus 1 year"
+    
+    # Documents
+    ExpiresByType application/pdf "access plus 1 month"
+    
+    # Data files
+    ExpiresByType application/json "access plus 0 seconds"
+    ExpiresByType application/xml "access plus 0 seconds"
+    ExpiresByType text/xml "access plus 0 seconds"
+    
+    # Manifest files
+    ExpiresByType application/manifest+json "access plus 1 week"
+    ExpiresByType text/cache-manifest "access plus 0 seconds"
+</IfModule>
+
+# Cache-Control Headers
+<IfModule mod_headers.c>
+    # Static assets - cache for 1 year
+    <FilesMatch "\.(ico|jpg|jpeg|png|gif|webp|avif|svg|css|js|woff|woff2|ttf|otf|eot)$">
+        Header set Cache-Control "public, max-age=31536000, immutable"
+    </FilesMatch>
+    
+    # HTML - no cache
+    <FilesMatch "\.(html|htm)$">
+        Header set Cache-Control "no-cache, no-store, must-revalidate"
+        Header set Pragma "no-cache"
+        Header set Expires "0"
+    </FilesMatch>
+    
+    # PHP - no cache
+    <FilesMatch "\.php$">
+        Header set Cache-Control "no-cache, no-store, must-revalidate"
+        Header set Pragma "no-cache"
+        Header set Expires "0"
+    </FilesMatch>
+</IfModule>
+
+# =============================================================================
+# SECTION 6: COMPRESSION
+# =============================================================================
+
+<IfModule mod_deflate.c>
+    # Enable compression
+    SetOutputFilter DEFLATE
+    
+    # Force compression for mangled Accept-Encoding headers
+    <IfModule mod_setenvif.c>
+        <IfModule mod_headers.c>
+            SetEnvIfNoCase ^(Accept-EncodXng|X-cept-Encoding|X{15}|~telebiern|Web\s*CapXure|X{15})$ ^((gzip|deflate)\s*,?\s*)+|[X~-]{4,13}$ HAVE_Accept-Encoding
+            RequestHeader append Accept-Encoding "gzip,deflate" env=HAVE_Accept-Encoding
+        </IfModule>
+    </IfModule>
+    
+    # Compress HTML, CSS, JavaScript, Text, XML and fonts
+    AddOutputFilterByType DEFLATE application/javascript
+    AddOutputFilterByType DEFLATE application/json
+    AddOutputFilterByType DEFLATE application/rss+xml
+    AddOutputFilterByType DEFLATE application/vnd.ms-fontobject
+    AddOutputFilterByType DEFLATE application/x-font
+    AddOutputFilterByType DEFLATE application/x-font-opentype
+    AddOutputFilterByType DEFLATE application/x-font-otf
+    AddOutputFilterByType DEFLATE application/x-font-truetype
+    AddOutputFilterByType DEFLATE application/x-font-ttf
+    AddOutputFilterByType DEFLATE application/x-javascript
+    AddOutputFilterByType DEFLATE application/xhtml+xml
+    AddOutputFilterByType DEFLATE application/xml
+    AddOutputFilterByType DEFLATE font/opentype
+    AddOutputFilterByType DEFLATE font/otf
+    AddOutputFilterByType DEFLATE font/ttf
+    AddOutputFilterByType DEFLATE image/svg+xml
+    AddOutputFilterByType DEFLATE image/x-icon
+    AddOutputFilterByType DEFLATE text/css
+    AddOutputFilterByType DEFLATE text/html
+    AddOutputFilterByType DEFLATE text/javascript
+    AddOutputFilterByType DEFLATE text/plain
+    AddOutputFilterByType DEFLATE text/xml
+    
+    # Don't compress already-compressed files
+    SetEnvIfNoCase Request_URI \.(?:gif|jpe?g|png|webp|avif|zip|gz|rar|mp4|webm|ogg|mp3)$ no-gzip dont-vary
+    
+    # Remove browser bugs
+    BrowserMatch ^Mozilla/4 gzip-only-text/html
+    BrowserMatch ^Mozilla/4\.0[678] no-gzip
+    BrowserMatch \bMSIE !no-gzip !gzip-only-text/html
+    Header append Vary User-Agent env=!dont-vary
+</IfModule>
+
+# =============================================================================
+# SECTION 7: HOTLINK PROTECTION
+# =============================================================================
+
+<IfModule mod_rewrite.c>
+    RewriteCond %{HTTP_REFERER} !^$
+    RewriteCond %{HTTP_REFERER} !^https?://(www\.)?vibotaj\.com [NC]
+    RewriteCond %{HTTP_REFERER} !^https?://(www\.)?google\. [NC]
+    RewriteCond %{HTTP_REFERER} !^https?://(www\.)?facebook\. [NC]
+    RewriteCond %{HTTP_REFERER} !^https?://(www\.)?twitter\. [NC]
+    RewriteCond %{HTTP_REFERER} !^https?://(www\.)?pinterest\. [NC]
+    RewriteCond %{HTTP_REFERER} !^https?://(www\.)?instagram\. [NC]
+    RewriteRule \.(jpg|jpeg|png|gif|webp|svg)$ - [F,NC,L]
+</IfModule>
+
+# =============================================================================
+# SECTION 8: BOT AND SPAM PROTECTION
+# =============================================================================
+
+# Block common bad bots
+<IfModule mod_rewrite.c>
+    RewriteCond %{HTTP_USER_AGENT} (ahrefs|alexibot|majestic|mj12bot|rogerbot|semrush|screaming|seokicks|spbot|blexbot|dotbot|petalbot) [NC]
+    RewriteRule .* - [F,L]
+</IfModule>
+
+# Block empty user agents
+<IfModule mod_rewrite.c>
+    RewriteCond %{HTTP_USER_AGENT} ^$ [NC]
+    RewriteRule .* - [F,L]
+</IfModule>
+
+# Limit file upload size (adjust as needed for WooCommerce)
+LimitRequestBody 10485760
+
+# =============================================================================
+# SECTION 9: WORDPRESS SPECIFIC
+# =============================================================================
+
+# BEGIN WordPress
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
+    RewriteBase /
+    RewriteRule ^index\.php$ - [L]
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteRule . /index.php [L]
+</IfModule>
+# END WordPress
+
+# =============================================================================
+# SECTION 10: WOOCOMMERCE SPECIFIC
+# =============================================================================
+
+# Prevent caching of WooCommerce pages
+<IfModule mod_headers.c>
+    <If "%{REQUEST_URI} =~ m#^/(cart|checkout|my-account)#">
+        Header set Cache-Control "no-cache, no-store, must-revalidate, private"
+        Header set Pragma "no-cache"
+        Header set Expires "0"
+    </If>
+</IfModule>
+
+# Increase timeout for WooCommerce operations
+<IfModule mod_php.c>
+    php_value max_execution_time 300
+    php_value max_input_time 300
+    php_value memory_limit 256M
+    php_value post_max_size 64M
+    php_value upload_max_filesize 64M
+</IfModule>
+
+# =============================================================================
+# SECTION 11: ERROR DOCUMENTS
+# =============================================================================
+
+ErrorDocument 400 /index.php
+ErrorDocument 401 /index.php
+ErrorDocument 403 /index.php
+ErrorDocument 404 /index.php
+ErrorDocument 500 /index.php
+
+# =============================================================================
+# DEPLOYMENT NOTES
+# =============================================================================
+#
+# 1. BACKUP: Always backup existing .htaccess before changes
+#    cp public_html/.htaccess public_html/.htaccess.backup
+#
+# 2. TESTING: Test each section incrementally
+#    - Start with redirects
+#    - Add security headers
+#    - Enable caching
+#    - Test WooCommerce checkout flow
+#
+# 3. TROUBLESHOOTING:
+#    - 500 Error: Check Apache error logs, comment out sections
+#    - Redirect loops: Check for conflicting rules in wp-config.php
+#    - Cache issues: Clear browser cache and CDN if applicable
+#
+# 4. VALIDATION:
+#    - Security headers: https://securityheaders.com
+#    - SSL: https://www.ssllabs.com/ssltest/
+#    - Performance: https://gtmetrix.com
+#
+# =============================================================================
