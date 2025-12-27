@@ -12,6 +12,9 @@
 # Hidden secrets directory
 .secrets/
 
+# Claude AI agents (local only)
+.claude/
+
 # ===========================================
 # API KEYS & CREDENTIALS
 # ===========================================
