@@ -1,0 +1,214 @@
+# ===========================================
+# ENVIRONMENT & SECRETS - CRITICAL
+# ===========================================
+.env
+.env.local
+.env.development
+.env.production
+.env.staging
+.env*.local
+*.env
+
+# Hidden secrets directory
+.secrets/
+
+# ===========================================
+# API KEYS & CREDENTIALS
+# ===========================================
+**/secrets/
+**/credentials/
+*.pem
+*.key
+*.crt
+*.pfx
+*.p12
+id_rsa
+id_dsa
+*.ppk
+
+# ===========================================
+# WORDPRESS
+# ===========================================
+/wp-admin/
+/wp-includes/
+/wp-*.php
+/index.php
+/license.txt
+/readme.html
+/xmlrpc.php
+
+# WordPress uploads
+/wp-content/uploads/
+/wp-content/upgrade/
+/wp-content/backup-db/
+/wp-content/backups/
+/wp-content/blogs.dir/
+/wp-content/cache/
+/wp-content/updraft/
+
+# WordPress debug log
+/wp-content/debug.log
+debug.log
+error_log
+
+# WordPress config (contains DB credentials)
+wp-config.php
+wp-config-local.php
+
+# WordPress security
+.htaccess
+*.htpasswd
+
+# ===========================================
+# WOOCOMMERCE
+# ===========================================
+/wp-content/uploads/woocommerce_uploads/
+/wp-content/wflogs/
+
+# ===========================================
+# NODE.JS / REACT FRONTEND
+# ===========================================
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# Build outputs
+/src/frontend/build/
+/src/frontend/dist/
+/build/
+/dist/
+
+# ===========================================
+# PHP / COMPOSER
+# ===========================================
+/vendor/
+composer.lock
+*.phar
+
+# ===========================================
+# IDE & EDITORS
+# ===========================================
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.project
+.settings/
+*.sublime-project
+*.sublime-workspace
+.atom/
+
+# ===========================================
+# OPERATING SYSTEM
+# ===========================================
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+.Spotlight-V100
+.Trashes
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+*.cab
+*.msi
+*.msm
+*.msp
+*.lnk
+
+# Linux
+*~
+
+# ===========================================
+# LOGS & TEMPORARY FILES
+# ===========================================
+*.log
+logs/
+/tmp/
+/temp/
+*.tmp
+*.temp
+*.bak
+*.backup
+*.old
+
+# ===========================================
+# DATABASE
+# ===========================================
+*.sql
+*.sql.gz
+*.sqlite
+*.sqlite3
+*.db
+/database/dumps/
+/database/backups/
+
+# ===========================================
+# TESTING
+# ===========================================
+/coverage/
+.nyc_output/
+*.lcov
+/tests/output/
+/tests/screenshots/
+/cypress/videos/
+/cypress/screenshots/
+
+# ===========================================
+# DEPLOYMENT & CI/CD
+# ===========================================
+.deploy/
+.deployments/
+.serverless/
+*.tfstate
+*.tfstate.*
+.terraform/
+
+# ===========================================
+# BACKUP & ARCHIVES
+# ===========================================
+/backups/
+*.bak
+*.backup
+*_backup*
+*-backup*
+/updraft/
+*.zip
+*.tar.gz
+*.rar
+
+# ===========================================
+# CACHE
+# ===========================================
+.cache/
+*.cache
+/wp-content/cache/
+/wp-content/w3tc-config/
+/wp-content/advanced-cache.php
+/wp-content/object-cache.php
+
+# ===========================================
+# HOSTINGER SPECIFIC
+# ===========================================
+hostinger-*.json
+.hostinger/
+
+# ===========================================
+# LOCAL DEVELOPMENT OVERRIDES
+# ===========================================
+*.local.php
+*.local.js
+*.local.json
+local-config.php
+
+# Private notes
+/private/
+/notes/
+*.private.*
