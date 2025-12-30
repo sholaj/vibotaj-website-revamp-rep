@@ -48,13 +48,23 @@ WordPress Site
 | Service | Location |
 |---------|----------|
 | Hostinger API Token | `.secrets/hostinger.env` |
-| Hostinger MCP Server | `websites-agents.hostinger.com/vibotaj.com/mcp` |
+| Hostinger MCP Config | `.mcp.json` (git-ignored) |
 | FTP Credentials | `.secrets/ftp.env` |
 | Squarespace | Manual login required |
 
+### MCP Server Configuration
+
+The Hostinger MCP server is configured in `.mcp.json` for direct API access:
+- **DNS Management** - Add/update/delete DNS records
+- **SSL Operations** - Manage SSL certificates
+- **WordPress** - Deploy plugins, themes, manage WordPress
+- **Hosting** - File operations, backups, hosting settings
+
+**Note:** Restart Claude Code after modifying `.mcp.json` to activate changes.
+
 ---
 
-## �🎯 PROJECT OVERVIEW
+## 🎯 PROJECT OVERVIEW
 
 Transform VIBOTAJ Global's website from a static information site into a dynamic customer portal with real-time container tracking, document management, and AI-powered features.
 

@@ -15,6 +15,9 @@
 # Claude AI agents (local only)
 .claude/
 
+# MCP configuration (contains API tokens)
+.mcp.json
+
 # ===========================================
 # API KEYS & CREDENTIALS
 # ===========================================
