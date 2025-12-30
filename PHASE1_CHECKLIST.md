@@ -5,6 +5,19 @@
 
 ---
 
+## Infrastructure Overview
+
+| Service | Role | Access |
+|---------|------|--------|
+| **Squarespace** | DNS Management | domains.squarespace.com |
+| **Hostinger** | Web Hosting, SSL, WordPress | hpanel.hostinger.com |
+
+```
+Traffic Flow: User → Squarespace DNS → Hostinger (178.16.128.48) → WordPress
+```
+
+---
+
 ## Current DNS Status
 
 | Domain | Record Type | Value | Status |
@@ -14,85 +27,55 @@
 
 ---
 
-## Task 1.1: Fix www Subdomain DNS ⚠️ MANUAL ACTION REQUIRED
+## Task 1.1: Fix www Subdomain ✅ COMPLETE
 
-**Status:** 🔴 Blocked - Requires manual hPanel access
+**Status:** 🟢 Complete
 
-### Steps to Complete:
+### What was done:
 
-1. **Login to Hostinger hPanel**
-   - URL: https://hpanel.hostinger.com
-   - Use your Hostinger account credentials
+1. **Squarespace DNS** - Added CNAME record:
+   - Type: CNAME
+   - Host: www
+   - Target: vibotaj.com
+   - TTL: 4 hrs
 
-2. **Navigate to DNS Settings**
-   - Click **Domains** in left sidebar
-   - Click on **vibotaj.com**
-   - Click **DNS / Nameservers**
-   - Select **DNS Records** tab
+2. **Hostinger Subdomain** - Created www subdomain:
+   - Subdomain: www.vibotaj.com
+   - Points to: /public_html (same as main domain)
 
-3. **Add CNAME Record**
-   - Click **Add Record**
-   - Configure:
-     ```
-     Type:   CNAME
-     Name:   www
-     Target: vibotaj.com
-     TTL:    14400
-     ```
-   - Click **Add Record**
-
-4. **Verify Propagation**
-   ```bash
-   # Run this command to verify (wait 5-15 minutes)
-   dig www.vibotaj.com CNAME +short
-   # Expected output: vibotaj.com.
-   ```
-
-5. **Test Access**
-   ```bash
-   curl -sI https://www.vibotaj.com | head -3
-   ```
+### Verification:
+```bash
+dig www.vibotaj.com CNAME +short
+# Output: vibotaj.com.
+```
 
 ---
 
-## Task 1.2: Configure 301 Redirects ✅ READY
+## Task 1.2: Configure 301 Redirects ✅ COMPLETE
 
-**Status:** 🟢 Template ready, awaiting DNS fix
+**Status:** 🟢 Complete (Auto-configured by Hostinger)
 
-### Files Prepared:
+Hostinger automatically handles redirects:
+- `www.vibotaj.com` → `vibotaj.com` (301)
+- `http://` → `https://` (301)
+
+### Verification:
+```bash
+curl -sI https://www.vibotaj.com | grep -i location
+# Output: location: https://vibotaj.com/
+```
+
+### Files Prepared (if manual config needed):
 - `src/config/.htaccess.template` - Full configuration
 - `scripts/deploy-phase1.sh` - Deployment script
-
-### Manual Deployment (if script fails):
-
-1. **Connect via FTP/File Manager**
-   - hPanel → Files → File Manager
-   - Navigate to: `/public_html/`
-
-2. **Backup Current .htaccess**
-   - Download existing `.htaccess` file
-   - Save as `.htaccess.backup.YYYYMMDD`
-
-3. **Upload New .htaccess**
-   - Upload contents of `src/config/.htaccess.template`
-   - Rename to `.htaccess`
-
-4. **Verify Redirects**
-   ```bash
-   # HTTP to HTTPS
-   curl -sI http://vibotaj.com | grep -i location
-   # Expected: Location: https://vibotaj.com/
-
-   # www to non-www
-   curl -sI https://www.vibotaj.com | grep -i location
-   # Expected: Location: https://vibotaj.com/
-   ```
 
 ---
 
 ## Task 1.3: SSL Certificate Verification ⚠️ ACTION NEEDED
 
 **Status:** 🟡 Certificate needs update to include www
+
+**Where to fix:** Hostinger hPanel (not Squarespace)
 
 ### Current Certificate Status:
 ```
@@ -101,22 +84,24 @@ Valid: Dec 13, 2025 - Mar 13, 2026
 SANs: vibotaj.com (MISSING: www.vibotaj.com)
 ```
 
-### Steps to Fix:
+### Steps to Fix (in Hostinger hPanel):
 
-1. **After DNS is configured**, reissue SSL certificate in hPanel:
-   - hPanel → SSL → vibotaj.com
-   - Click **Reinstall** or **Setup**
-   - Ensure "Include www" is checked
-   - Wait for certificate to be issued
+1. **Go to SSL settings:**
+   - hPanel → Security → SSL
+   - Select vibotaj.com
+   - Click **Reinstall** or **Manage**
 
-2. **Verify Certificate**
+2. **Ensure www is included:**
+   - Check "Include www subdomain" option
+   - Or add www.vibotaj.com as additional domain
+
+3. **Wait for certificate issuance** (5-10 minutes)
+
+4. **Verify Certificate:**
    ```bash
    echo | openssl s_client -connect www.vibotaj.com:443 -servername www.vibotaj.com 2>/dev/null | openssl x509 -noout -text | grep -A1 "Subject Alternative Name"
+   # Expected: DNS:vibotaj.com, DNS:www.vibotaj.com
    ```
-
-3. **Test SSL Labs Rating**
-   - URL: https://www.ssllabs.com/ssltest/analyze.html?d=vibotaj.com
-   - Target: A or A+ rating
 
 ---
 
@@ -124,10 +109,12 @@ SANs: vibotaj.com (MISSING: www.vibotaj.com)
 
 **Status:** ⬜ Not started
 
+**Where to configure:** Hostinger (WordPress Admin)
+
 ### WordPress Admin Steps:
 
-1. **Install UpdraftPlus**
-   - WordPress Admin → Plugins → Add New
+1. **Access WordPress Admin:**
+   - URL: https://vibotaj.com/wp-admin
    - Search: "UpdraftPlus"
    - Install & Activate
 
@@ -202,14 +189,14 @@ curl -sI https://vibotaj.com | grep -iE "strict-transport|x-frame|x-content-type
 
 ## Progress Summary
 
-| Task | Description | Status | Owner |
+| Task | Description | Status | Where |
 |------|-------------|--------|-------|
-| 1.1 | Fix www DNS | 🔴 Manual | DevOps |
-| 1.2 | 301 Redirects | 🟢 Ready | DevOps |
-| 1.3 | SSL Certificate | 🟡 Pending DNS | DevOps |
-| 1.4 | Backup System | ⬜ Not started | DevOps |
-| 1.5 | Google Analytics | ⬜ Not started | Content |
+| 1.1 | Fix www DNS | ✅ Complete | Squarespace + Hostinger |
+| 1.2 | 301 Redirects | ✅ Complete | Hostinger (auto) |
+| 1.3 | SSL Certificate | 🟡 Pending | Hostinger hPanel |
+| 1.4 | Backup System | ⬜ Not started | Hostinger (WP Admin) |
+| 1.5 | Google Analytics | ⬜ Not started | Hostinger (WP Admin) |
 
 ---
 
-**Next Action:** Complete Task 1.1 (DNS configuration in hPanel)
+**Next Action:** Task 1.3 - Reissue SSL certificate in Hostinger hPanel to include www

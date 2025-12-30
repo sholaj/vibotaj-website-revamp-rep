@@ -9,7 +9,51 @@
 
 ---
 
-## 🎯 PROJECT OVERVIEW
+## � INFRASTRUCTURE CONTEXT
+
+### Service Architecture
+
+| Service | Role | URL |
+|---------|------|-----|
+| **Squarespace** | DNS Management & Domain Registrar | domains.squarespace.com |
+| **Hostinger** | Web Hosting (WordPress, SSL, Files) | hpanel.hostinger.com |
+
+### How Traffic Flows
+
+```
+User Request
+    ↓
+Squarespace DNS (vibotaj.com)
+    ↓ A Record → 178.16.128.48
+    ↓ CNAME: www → vibotaj.com
+Hostinger Server
+    ↓
+WordPress Site
+```
+
+### Configuration Responsibilities
+
+| Task | Where to Configure |
+|------|-------------------|
+| DNS Records (A, CNAME, MX, TXT) | **Squarespace** |
+| Subdomain Server Config | **Hostinger** (hPanel → Subdomains) |
+| SSL Certificates | **Hostinger** (hPanel → SSL) |
+| .htaccess / Redirects | **Hostinger** (File Manager) |
+| WordPress Admin | **Hostinger** (vibotaj.com/wp-admin) |
+| FTP/SFTP Access | **Hostinger** (hPanel → Files) |
+| Backups | **Hostinger** (UpdraftPlus plugin) |
+
+### Access Credentials
+
+| Service | Location |
+|---------|----------|
+| Hostinger API Token | `.secrets/hostinger.env` |
+| FTP Credentials | `.secrets/ftp.env` |
+| Squarespace | Manual login required |
+
+---
+
+## �🎯 PROJECT OVERVIEW
 
 Transform VIBOTAJ Global's website from a static information site into a dynamic customer portal with real-time container tracking, document management, and AI-powered features.
 
