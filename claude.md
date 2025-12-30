@@ -48,6 +48,7 @@ WordPress Site
 | Service | Location |
 |---------|----------|
 | Hostinger API Token | `.secrets/hostinger.env` |
+| Hostinger MCP Server | `websites-agents.hostinger.com/vibotaj.com/mcp` |
 | FTP Credentials | `.secrets/ftp.env` |
 | Squarespace | Manual login required |
 
