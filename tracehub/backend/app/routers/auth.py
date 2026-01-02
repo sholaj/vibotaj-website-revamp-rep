@@ -17,10 +17,11 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
 
 # Simple in-memory user for POC (replace with database in production)
+# Pre-computed hash for "tracehub2026" to avoid bcrypt version issues
 POC_USER = {
     "username": "demo",
     "email": "demo@vibotaj.com",
-    "hashed_password": pwd_context.hash("tracehub2026"),
+    "hashed_password": "$2b$12$zV4i8zLotDMj7.aO5Cbga.CCaiO6FXrNwbxL1wofLQoywCbynZr1y",
     "full_name": "Demo User"
 }
 

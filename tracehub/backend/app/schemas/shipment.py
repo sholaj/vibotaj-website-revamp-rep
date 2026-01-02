@@ -1,7 +1,7 @@
 """Shipment schemas for API responses."""
 
 from pydantic import BaseModel
-from typing import Optional, List, Any
+from typing import Optional, List
 from uuid import UUID
 from datetime import datetime
 
@@ -36,8 +36,24 @@ class EventInfo(BaseModel):
     id: UUID
     event_type: str
     event_timestamp: datetime
+    location_code: Optional[str] = None
     location_name: Optional[str] = None
     vessel_name: Optional[str] = None
+    voyage_number: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
+
+class DocumentInfo(BaseModel):
+    """Document information in responses."""
+    id: UUID
+    document_type: str
+    name: str
+    status: str
+    reference_number: Optional[str] = None
+    issue_date: Optional[datetime] = None
+    file_path: Optional[str] = None
 
     class Config:
         from_attributes = True
@@ -91,9 +107,9 @@ class ShipmentListResponse(BaseModel):
 
 class ShipmentDetailResponse(BaseModel):
     """Detailed shipment response with related entities."""
-    shipment: Any  # Shipment ORM object
-    latest_event: Optional[Any] = None
-    documents: List[Any] = []
+    shipment: ShipmentResponse
+    latest_event: Optional[EventInfo] = None
+    documents: List[DocumentInfo] = []
     document_summary: DocumentSummary
 
     class Config:

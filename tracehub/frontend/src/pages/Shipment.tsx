@@ -298,8 +298,8 @@ export default function Shipment() {
                 <div>
                   <p className="text-sm text-gray-500">Route</p>
                   <p className="font-medium">
-                    {shipment.pol_name || shipment.pol_code || 'Origin'} ->
-                    {' '}{shipment.pod_name || shipment.pod_code || 'Destination'}
+                    {shipment.pol_name || shipment.pol_code || 'Origin'} →{' '}
+                    {shipment.pod_name || shipment.pod_code || 'Destination'}
                   </p>
                 </div>
               </div>
@@ -309,8 +309,8 @@ export default function Shipment() {
                 <div>
                   <p className="text-sm text-gray-500">ETD / ETA</p>
                   <p className="font-medium">
-                    {shipment.etd ? format(new Date(shipment.etd), 'MMM d') : '-'} ->
-                    {' '}{shipment.eta ? format(new Date(shipment.eta), 'MMM d, yyyy') : '-'}
+                    {shipment.etd ? format(new Date(shipment.etd), 'MMM d') : '-'} →{' '}
+                    {shipment.eta ? format(new Date(shipment.eta), 'MMM d, yyyy') : '-'}
                   </p>
                   {shipment.eta && (
                     <p className="text-xs text-gray-500">
