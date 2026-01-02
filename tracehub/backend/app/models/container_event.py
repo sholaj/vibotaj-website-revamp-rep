@@ -22,6 +22,8 @@ class EventType(str, enum.Enum):
     DELIVERED = "delivered"
     CUSTOMS_HOLD = "customs_hold"
     CUSTOMS_RELEASED = "customs_released"
+    EMPTY_RETURN = "empty_return"
+    UNKNOWN = "unknown"
 
 
 class ContainerEvent(Base):

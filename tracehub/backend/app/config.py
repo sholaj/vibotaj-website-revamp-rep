@@ -19,7 +19,11 @@ class Settings(BaseSettings):
     jwt_algorithm: str = "HS256"
     jwt_expiration_hours: int = 24
 
-    # Vizion API
+    # Container Tracking API (JSONCargo - primary)
+    jsoncargo_api_key: str = ""
+    jsoncargo_api_url: str = "https://api.jsoncargo.com/api/v1"
+
+    # Vizion API (legacy/backup)
     vizion_api_key: str = ""
     vizion_api_url: str = "https://api.vizionapi.com/v2"
 
