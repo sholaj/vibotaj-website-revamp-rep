@@ -124,7 +124,7 @@ tracehub/
 | Variable | Description | Default |
 |----------|-------------|---------|
 | `DATABASE_URL` | PostgreSQL connection string | `postgresql://tracehub:tracehub@localhost:5432/tracehub` |
-| `VIZION_API_KEY` | Vizion API key for tracking | (empty - mock mode) |
+| `JSONCARGO_API_KEY` | JSONCargo API key for container tracking | (empty - mock mode) |
 | `JWT_SECRET` | Secret for JWT tokens | Change in production! |
 | `DEBUG` | Enable debug mode | `true` |
 
@@ -150,7 +150,7 @@ alembic upgrade head
 ## Sprint Progress
 
 - [x] **Sprint 1**: Backend foundation, models, Docker setup
-- [ ] **Sprint 2**: Vizion API integration
+- [x] **Sprint 2**: JSONCargo API integration (live container tracking)
 - [ ] **Sprint 3**: React frontend
 - [ ] **Sprint 4**: Audit pack, polish
 
