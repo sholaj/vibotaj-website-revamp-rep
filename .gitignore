@@ -94,6 +94,34 @@ composer.lock
 *.phar
 
 # ===========================================
+# PYTHON
+# ===========================================
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+ENV/
+env/
+.venv/
+pip-log.txt
+pip-delete-this-directory.txt
+.pytest_cache/
+.mypy_cache/
+*.egg-info/
+dist/
+eggs/
+*.egg
+
+# ===========================================
+# TRACEHUB
+# ===========================================
+tracehub/uploads/
+tracehub/backend/.env
+tracehub/.env
+
+# ===========================================
 # IDE & EDITORS
 # ===========================================
 .idea/
@@ -218,3 +246,7 @@ local-config.php
 /private/
 /notes/
 *.private.*
+
+# Sensitive business documents
+BILL OF LADING*.pdf
+*.B_L.pdf
