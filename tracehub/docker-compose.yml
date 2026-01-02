@@ -1,0 +1,42 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:15
+    container_name: tracehub-db
+    environment:
+      POSTGRES_USER: tracehub
+      POSTGRES_PASSWORD: tracehub
+      POSTGRES_DB: tracehub
+    ports:
+      - "5432:5432"
+    volumes:
+      - tracehub_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U tracehub"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: tracehub-backend
+    environment:
+      DATABASE_URL: postgresql://tracehub:tracehub@db:5432/tracehub
+      DEBUG: "true"
+      VIZION_API_KEY: ${VIZION_API_KEY:-}
+      JWT_SECRET: ${JWT_SECRET:-your-secret-key-change-in-production}
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app
+      - ./uploads:/app/uploads
+    depends_on:
+      db:
+        condition: service_healthy
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+
+volumes:
+  tracehub_postgres_data:
