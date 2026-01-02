@@ -1,9 +1,24 @@
-import { useState } from 'react'
-import { Package, Eye, EyeOff } from 'lucide-react'
-import api from '../api/client'
+/**
+ * Login Page Component
+ *
+ * Handles user authentication with:
+ * - Form validation
+ * - Error handling
+ * - Loading states
+ * - Secure credential handling
+ */
+
+import { useState, useCallback } from 'react'
+import { useLocation, useNavigate } from 'react-router-dom'
+import { Package, Eye, EyeOff, AlertCircle } from 'lucide-react'
+import api, { ApiClientError, NetworkError, AuthenticationError } from '../api/client'
 
 interface LoginProps {
   onLogin: (token: string) => void
+}
+
+interface LocationState {
+  from?: { pathname: string }
 }
 
 export default function Login({ onLogin }: LoginProps) {
@@ -13,20 +28,53 @@ export default function Login({ onLogin }: LoginProps) {
   const [error, setError] = useState('')
   const [isLoading, setIsLoading] = useState(false)
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const location = useLocation()
+  const navigate = useNavigate()
+
+  // Get the intended destination if redirected from protected route
+  const from = (location.state as LocationState)?.from?.pathname || '/dashboard'
+
+  const handleSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
+
+    // Basic validation
+    if (!username.trim()) {
+      setError('Username is required')
+      return
+    }
+
+    if (!password) {
+      setError('Password is required')
+      return
+    }
+
     setIsLoading(true)
 
     try {
-      const response = await api.login({ username, password })
+      const response = await api.login({ username: username.trim(), password })
+
+      // Notify parent component of successful login
       onLogin(response.access_token)
+
+      // Navigate to the originally intended destination
+      navigate(from, { replace: true })
     } catch (err) {
-      setError('Invalid username or password')
+      console.error('Login failed:', err)
+
+      if (err instanceof AuthenticationError) {
+        setError('Invalid username or password')
+      } else if (err instanceof NetworkError) {
+        setError('Unable to connect to the server. Please check your internet connection.')
+      } else if (err instanceof ApiClientError) {
+        setError(err.message || 'Login failed. Please try again.')
+      } else {
+        setError('An unexpected error occurred. Please try again.')
+      }
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [username, password, onLogin, navigate, from])
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary-50 to-primary-100 py-12 px-4 sm:px-6 lg:px-8">
@@ -34,7 +82,7 @@ export default function Login({ onLogin }: LoginProps) {
         {/* Logo and Title */}
         <div className="text-center mb-8">
           <div className="flex justify-center">
-            <div className="bg-primary-600 p-3 rounded-xl">
+            <div className="bg-primary-600 p-3 rounded-xl shadow-lg">
               <Package className="h-10 w-10 text-white" />
             </div>
           </div>
@@ -45,14 +93,17 @@ export default function Login({ onLogin }: LoginProps) {
         </div>
 
         {/* Login Card */}
-        <div className="card p-8">
+        <div className="card p-8 shadow-xl">
           <form onSubmit={handleSubmit} className="space-y-6">
+            {/* Error Alert */}
             {error && (
-              <div className="bg-danger-50 border border-danger-200 text-danger-600 px-4 py-3 rounded-md text-sm">
-                {error}
+              <div className="bg-danger-50 border border-danger-200 text-danger-700 px-4 py-3 rounded-md text-sm flex items-start">
+                <AlertCircle className="h-5 w-5 mr-2 flex-shrink-0 mt-0.5" />
+                <span>{error}</span>
               </div>
             )}
 
+            {/* Username Field */}
             <div>
               <label htmlFor="username" className="label">
                 Username
@@ -66,9 +117,12 @@ export default function Login({ onLogin }: LoginProps) {
                 placeholder="Enter your username"
                 required
                 autoComplete="username"
+                disabled={isLoading}
+                autoFocus
               />
             </div>
 
+            {/* Password Field */}
             <div>
               <label htmlFor="password" className="label">
                 Password
@@ -83,11 +137,14 @@ export default function Login({ onLogin }: LoginProps) {
                   placeholder="Enter your password"
                   required
                   autoComplete="current-password"
+                  disabled={isLoading}
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-gray-600"
+                  className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-gray-600 transition-colors"
+                  tabIndex={-1}
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
                 >
                   {showPassword ? (
                     <EyeOff className="h-4 w-4" />
@@ -98,10 +155,11 @@ export default function Login({ onLogin }: LoginProps) {
               </div>
             </div>
 
+            {/* Submit Button */}
             <button
               type="submit"
               disabled={isLoading}
-              className="btn-primary w-full py-3"
+              className="btn-primary w-full py-3 relative"
             >
               {isLoading ? (
                 <div className="flex items-center justify-center">
@@ -117,7 +175,10 @@ export default function Login({ onLogin }: LoginProps) {
           {/* Demo credentials hint */}
           <div className="mt-6 pt-6 border-t border-gray-200">
             <p className="text-xs text-gray-500 text-center">
-              Demo credentials: <span className="font-mono">demo</span> / <span className="font-mono">tracehub2026</span>
+              Demo credentials:{' '}
+              <span className="font-mono bg-gray-100 px-1 py-0.5 rounded">demo</span>
+              {' / '}
+              <span className="font-mono bg-gray-100 px-1 py-0.5 rounded">tracehub2026</span>
             </p>
           </div>
         </div>

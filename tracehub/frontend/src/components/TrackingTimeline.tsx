@@ -19,6 +19,8 @@ const EVENT_CONFIG: Record<EventType, { icon: typeof Ship; color: string; label:
   delivered: { icon: MapPin, color: 'bg-success-100 text-success-600', label: 'Delivered' },
   customs_hold: { icon: Clock, color: 'bg-danger-100 text-danger-600', label: 'Customs Hold' },
   customs_released: { icon: Clock, color: 'bg-success-100 text-success-600', label: 'Customs Released' },
+  empty_return: { icon: Package, color: 'bg-gray-100 text-gray-600', label: 'Empty Container Returned' },
+  unknown: { icon: Clock, color: 'bg-gray-100 text-gray-600', label: 'Unknown Event' },
 }
 
 export default function TrackingTimeline({ events, currentStatus }: TrackingTimelineProps) {

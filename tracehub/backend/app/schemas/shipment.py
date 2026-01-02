@@ -59,14 +59,18 @@ class ShipmentResponse(BaseModel):
     reference: str
     container_number: str
     bl_number: Optional[str] = None
+    booking_reference: Optional[str] = None
     vessel_name: Optional[str] = None
     voyage_number: Optional[str] = None
     etd: Optional[datetime] = None
     eta: Optional[datetime] = None
+    atd: Optional[datetime] = None
+    ata: Optional[datetime] = None
     pol_code: Optional[str] = None
     pol_name: Optional[str] = None
     pod_code: Optional[str] = None
     pod_name: Optional[str] = None
+    final_destination: Optional[str] = None
     incoterms: Optional[str] = None
     status: ShipmentStatus
     created_at: datetime
@@ -74,6 +78,15 @@ class ShipmentResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class ShipmentListResponse(BaseModel):
+    """Response for paginated shipment list."""
+    items: List[ShipmentResponse]
+    total: int
+    page: int
+    limit: int
+    pages: int
 
 
 class ShipmentDetailResponse(BaseModel):

@@ -14,8 +14,10 @@ const DOCUMENT_LABELS: Record<DocumentType, string> = {
   fumigation_certificate: 'Fumigation Certificate',
   sanitary_certificate: 'Sanitary Certificate',
   insurance_certificate: 'Insurance Certificate',
-  eudr_declaration: 'EUDR Declaration',
   customs_declaration: 'Customs Declaration',
+  contract: 'Contract',
+  eudr_due_diligence: 'EUDR Due Diligence',
+  quality_certificate: 'Quality Certificate',
   other: 'Other Document',
 }
 

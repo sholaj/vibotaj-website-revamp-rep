@@ -17,8 +17,10 @@ const DOCUMENT_LABELS: Record<DocumentType, string> = {
   fumigation_certificate: 'Fumigation Certificate',
   sanitary_certificate: 'Sanitary Certificate',
   insurance_certificate: 'Insurance Certificate',
-  eudr_declaration: 'EUDR Declaration',
   customs_declaration: 'Customs Declaration',
+  contract: 'Contract',
+  eudr_due_diligence: 'EUDR Due Diligence',
+  quality_certificate: 'Quality Certificate',
   other: 'Other Document',
 }
 
@@ -27,7 +29,7 @@ const STATUS_CONFIG: Record<DocumentStatus, { icon: typeof CheckCircle; color: s
   uploaded: { icon: Clock, color: 'text-warning-500', label: 'Pending Review' },
   validated: { icon: CheckCircle, color: 'text-success-500', label: 'Validated' },
   compliance_ok: { icon: CheckCircle, color: 'text-success-500', label: 'Compliant' },
-  compliance_fail: { icon: AlertCircle, color: 'text-danger-500', label: 'Issues Found' },
+  compliance_failed: { icon: AlertCircle, color: 'text-danger-500', label: 'Issues Found' },
   linked: { icon: CheckCircle, color: 'text-primary-500', label: 'Linked' },
   archived: { icon: CheckCircle, color: 'text-gray-400', label: 'Archived' },
 }
