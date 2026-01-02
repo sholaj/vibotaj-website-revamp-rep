@@ -1,450 +1,285 @@
-# VIBOTAJ Global - Website Revamp & Customer Portal
+# VIBOTAJ TraceHub
 
-> Transform your agro-export business with an AI-powered customer portal featuring real-time container tracking, automated document management, and intelligent features.
+> Container tracking and documentation compliance platform for agro-export operations, designed to give German buyers and African suppliers complete shipment visibility and audit-ready records.
 
-[![Project Status](https://img.shields.io/badge/status-in%20development-yellow)]()
-[![WordPress](https://img.shields.io/badge/WordPress-6.4.7-blue)]()
-[![WooCommerce](https://img.shields.io/badge/WooCommerce-8.7.2-purple)]()
-[![PHP](https://img.shields.io/badge/PHP-8.1.33-blue)]()
-[![React](https://img.shields.io/badge/React-18.x-blue)]()
+[![Project Status](https://img.shields.io/badge/status-POC%20Development-yellow)]()
+[![Phase](https://img.shields.io/badge/phase-Single%20Shipment%20POC-blue)]()
 
 ---
 
-## 📋 Table of Contents
+## Table of Contents
 
 - [About](#about)
-- [Features](#features)
+- [Three Pillars](#three-pillars)
 - [Project Structure](#project-structure)
+- [Documentation](#documentation)
 - [Getting Started](#getting-started)
 - [Development Workflow](#development-workflow)
-- [Sub-Agent Architecture](#sub-agent-architecture)
 - [Roadmap](#roadmap)
-- [Contributing](#contributing)
-- [License](#license)
+- [Team](#team)
 
 ---
 
-## 🎯 About
+## About
 
-VIBOTAJ Global Nigeria Ltd (EU TRACES: RC1479592) is an established agro-export company specializing in horn and hoof processing for European markets. This project aims to transform the company's static website into a dynamic, AI-powered customer portal.
+**VIBOTAJ Global Nigeria Ltd** (EU TRACES: RC1479592) is an established agro-export company specializing in horn and hoof processing for European markets. TraceHub is our platform for solving the core pain points identified by our German buyers and African suppliers:
 
-**Business Challenge:**
-- Manual order tracking and document sharing
-- Time-consuming customer support
-- Inefficient communication processes
-- Lack of real-time visibility for customers
+| Problem | Impact |
+|---------|--------|
+| **Documentation gaps** | Missing or incomplete export documentation delays shipments |
+| **Inconsistent visibility** | Buyers can't track container status in real-time |
+| **Audit-readiness** | No consolidated, EUDR-compliant record bundles for regulatory review |
 
-**Solution:**
-A comprehensive customer portal with:
-- Real-time container tracking via Maersk API
-- Automated document management
-- AI-powered features (OCR, chatbot, predictive analytics)
-- Multi-language support (English, German, French)
-- Mobile-first responsive design
+**TraceHub Solution**: A decoupled platform that provides real-time container tracking linked to complete document sets, enabling anyone to answer "Where is my container?" and "Are all documents complete?" within 30 seconds.
 
 ---
 
-## ✨ Features
-
-### Core Features (Phase 3 - MVP)
-- 🔐 **Secure Authentication** - Role-based access control for different user types
-- 📦 **Order Management** - Complete order lifecycle tracking
-- 🚢 **Container Tracking** - Real-time tracking integration with Maersk API
-- 📄 **Document Management** - Centralized document library with categorization
-- 📧 **Email Notifications** - Automated status updates at every milestone
-- 📊 **Dashboard** - Personalized dashboard for each user role
-- 📱 **Mobile Responsive** - Optimized for mobile devices
-
-### Advanced Features (Phase 4)
-- 🤖 **AI Document OCR** - Automatic data extraction from certificates
-- 💬 **Customer Support Chatbot** - 24/7 automated support
-- 📈 **Predictive Analytics** - ETA predictions and demand forecasting
-- 🌍 **Multi-language** - English, German, French support
-- 🔗 **CRM Integration** - HubSpot/Zoho integration
-
-### Infrastructure & Security
-- 🛡️ **Security Hardening** - Wordfence, 2FA, security headers
-- ⚡ **Performance Optimization** - CDN, caching, image optimization
-- 🔄 **Automated Backups** - Daily backups with off-site storage
-- 📊 **Analytics** - Google Analytics 4 integration
-- 🔍 **SEO Optimized** - Structured data, XML sitemaps
-
----
-
-## 🏗️ Project Structure
+## Three Pillars
 
 ```
-vibotaj-website-revamp/
-├── README.md
-├── claude.md                 # AI agent task breakdown
-├── TECHNICAL_AUDIT_REPORT.md # Comprehensive audit findings
-├── docs/                     # All documentation
-│   ├── requirements/
++------------------------------------------------------------------+
+|                        VIBOTAJ TraceHub                           |
++------------------------------------------------------------------+
+|                                                                   |
+|  +-----------------+  +-------------------+  +------------------+ |
+|  |   REAL-TIME     |  |    DOCUMENT       |  |  BUYER/SUPPLIER  | |
+|  |   CONTAINER     |  |    LIFECYCLE &    |  |  EXPERIENCE      | |
+|  |   TRACKING      |  |    COMPLIANCE     |  |                  | |
+|  +-----------------+  +-------------------+  +------------------+ |
+|  | - Carrier API   |  | - State machine   |  | - Role-based     | |
+|  |   integration   |  | - EUDR compliance |  |   dashboards     | |
+|  | - Event ingest  |  | - Metadata model  |  | - Upload portal  | |
+|  | - ETD/ETA       |  | - Audit bundles   |  | - Doc status     | |
+|  | - Port events   |  | - Validation      |  | - Tracking view  | |
+|  +-----------------+  +-------------------+  +------------------+ |
+|                                                                   |
++------------------------------------------------------------------+
+```
+
+### 1. Real-Time Container Tracking
+- Integration with carrier-agnostic tracking APIs (ShipsGo/Vizion)
+- Standardized container events: loaded, departed, arrived, discharged, delivered
+- Live status linked directly to documentation set
+
+### 2. Document Lifecycle & Compliance
+- State machine: Draft -> Uploaded -> Validated -> Compliance Check -> Linked -> Archived
+- EUDR-compliant metadata: farm/plot IDs, geolocation, production dates
+- Required document matrix by product type and destination
+
+### 3. Buyer & Supplier Experience
+- WordPress as public portal/UI layer (decoupled from core logic)
+- Buyers: see live containers + complete doc packs per shipment
+- Suppliers: see required docs, upload status, missing items
+- One-click "Download Audit Pack" for regulatory review
+
+---
+
+## Project Structure
+
+```
+vibotaj-website-revamp-rep/
+├── README.md                           # This file
+├── claude.md                           # CEO's directional task request
+├── HOSTINGER_CONFIG.md                 # Hostinger API configuration
+├── VIBOTAJ_TECHNICAL_AUDIT_REPORT.md   # Technical audit findings
+│
+├── docs/
 │   ├── architecture/
+│   │   └── tracehub-architecture.md    # Full architecture document (5-7 pages)
+│   ├── strategy/
+│   │   └── tracehub-poc-plan.md        # POC implementation plan
+│   ├── design/
+│   │   └── design-system.md            # Brand colors, typography, components
 │   ├── infrastructure/
-│   ├── database/
-│   ├── portal/
-│   ├── security/
-│   ├── testing/
-│   └── deployment/
-├── designs/                  # UI/UX designs
-│   ├── portal/
-│   └── assets/
-├── src/                      # Source code
-│   ├── frontend/            # React frontend
-│   └── backend/             # WordPress plugin
-├── integrations/            # Third-party integrations
-│   ├── maersk/
-│   ├── crm/
-│   └── email-service/
-├── ai/                      # AI/ML features
-│   ├── ocr/
-│   ├── chatbot/
-│   └── analytics/
-├── templates/               # Email & PDF templates
-├── tests/                   # Test suites
-├── tools/                   # Utility scripts
-└── languages/               # Translation files
+│   │   ├── ssl-configuration.md        # SSL/TLS setup
+│   │   ├── dns-configuration.md        # DNS records & CNAME
+│   │   └── backup-strategy.md          # Backup procedures
+│   └── _archive/
+│       └── pre-tracehub/               # Previous phase documentation
+│
+├── .claude/
+│   ├── agents/                         # AI agent role definitions
+│   └── skills/                         # Skill configurations
+│
+├── scripts/
+│   └── deploy-phase1.sh                # Deployment automation
+│
+├── src/
+│   └── config/
+│       └── .htaccess.template          # Apache configuration
+│
+├── .secrets/                           # Environment credentials (git-ignored)
+└── backups/                            # Local backup storage
 ```
 
 ---
 
-## 🚀 Getting Started
+## Documentation
+
+| Document | Description |
+|----------|-------------|
+| [Architecture](docs/architecture/tracehub-architecture.md) | Full system architecture, data model, API design, lifecycle diagrams |
+| [POC Plan](docs/strategy/tracehub-poc-plan.md) | Single-shipment POC implementation plan |
+| [Design System](docs/design/design-system.md) | Brand colors, typography, components |
+| [CEO Vision](claude.md) | Directional task request from leadership |
+
+### Key Architecture Concepts
+
+**Decoupled Design**:
+- WordPress = UI shell (customer portal, login, dashboards)
+- TraceHub Core = separate backend service (Node.js/Python + PostgreSQL)
+- Integration layer for container tracking APIs
+
+**Data Model Entities**:
+- `Shipment`: container, BL, vessel, ETD/ETA, ports, incoterms
+- `Product`: HS code, quantities, packaging, batch/lot
+- `Origin`: farm/plot ID, geolocation, EUDR compliance fields
+- `Document`: type, state, file, validation status
+- `ContainerEvent`: tracking events from carrier APIs
+- `Party`: buyers, suppliers, agents
+
+**Lifecycle States**:
+- Documents: Draft -> Uploaded -> Validated -> Compliance_OK/Fail -> Linked -> Archived
+- Shipments: Created -> Docs_Pending -> Docs_Complete -> In_Transit -> Arrived -> Delivered -> Closed
+
+---
+
+## Getting Started
 
 ### Prerequisites
 
-- **Local Development:**
-  - PHP 8.1+
-  - MySQL 5.7+
-  - Node.js 18+
-  - npm or yarn
-  - WordPress 6.4+
-  
-- **Recommended Tools:**
-  - Local by Flywheel (WordPress local dev)
-  - VS Code with extensions
-  - Git
-  - Postman (API testing)
+- Node.js 20+ or Python 3.11+
+- PostgreSQL 15+
+- WordPress 6.x (for portal UI)
+- Container tracking API key (ShipsGo or Vizion)
 
-### Installation
+### POC Development Setup
 
-1. **Clone the repository:**
-   ```bash
-   git clone https://github.com/vibotaj/vibotaj-website-revamp.git
-   cd vibotaj-website-revamp
-   ```
+```bash
+# Clone repository
+git clone https://github.com/vibotaj/vibotaj-website-revamp-rep.git
+cd vibotaj-website-revamp-rep
 
-2. **Set up WordPress locally:**
-   - Install Local by Flywheel or XAMPP
-   - Create new WordPress site
-   - Import existing vibotaj.com database (if available)
+# Backend setup (when implemented)
+cd backend
+npm install  # or pip install -r requirements.txt
+cp .env.example .env
+# Edit .env with credentials
+npm run dev
 
-3. **Install dependencies:**
-   ```bash
-   # Frontend dependencies
-   cd src/frontend
-   npm install
-   
-   # Backend - install WordPress plugins manually
-   ```
-
-4. **Configure environment:**
-   ```bash
-   # Copy example env file
-   cp .env.example .env
-   
-   # Edit .env with your local settings
-   ```
-
-5. **Run development server:**
-   ```bash
-   # Frontend
-   cd src/frontend
-   npm run dev
-   
-   # Backend - use Local by Flywheel server
-   ```
-
-6. **Access the site:**
-   - Frontend: http://localhost:3000
-   - WordPress Admin: http://localhost/wp-admin
+# Database
+docker run -d --name tracehub-db \
+  -e POSTGRES_DB=tracehub \
+  -e POSTGRES_USER=tracehub \
+  -e POSTGRES_PASSWORD=your_password \
+  -p 5432:5432 \
+  postgres:15
+```
 
 ---
 
-## 🔄 Development Workflow
+## Development Workflow
 
-### 1. Pick a Task
-- Review [`claude.md`](claude.md) for task breakdown
-- Choose a task assigned to your agent role
-- Create a GitHub Issue for the task (if not exists)
+### Branch Strategy
 
-### 2. Create Feature Branch
 ```bash
+# Main branch: stable, production-ready
+# Feature branches: feature/<task-name>
+# Current: feature/security-setup
+
 git checkout main
 git pull origin main
-git checkout -b feature/task-name
+git checkout -b feature/tracehub-backend
 ```
 
-### 3. Develop & Test
-- Write code following project standards
-- Write unit tests
-- Test locally
-- Document your code
+### Commit Convention
 
-### 4. Commit Changes
-```bash
-git add .
-git commit -m "feat: descriptive commit message"
-```
-
-**Commit Message Format:**
 - `feat:` New feature
 - `fix:` Bug fix
 - `docs:` Documentation changes
-- `style:` Code style changes
 - `refactor:` Code refactoring
-- `test:` Test additions/changes
 - `chore:` Build/config changes
 
-### 5. Create Pull Request
-- Push branch to GitHub
-- Create Pull Request
-- Request review from appropriate agent
-- Address review comments
+---
 
-### 6. Merge
-- Once approved, merge to main
-- Delete feature branch
+## Roadmap
+
+### Current Phase: Single-Shipment POC
+
+**Objective**: Demonstrate end-to-end TraceHub concept with ONE real shipment to Germany.
+
+| Sprint | Focus | Deliverables |
+|--------|-------|--------------|
+| **Sprint 1** | Data & Backend | PostgreSQL schema, core entities, basic APIs |
+| **Sprint 2** | Tracking Integration | ShipsGo/Vizion API, event persistence, webhooks |
+| **Sprint 3** | UI & Documents | WordPress integration, buyer dashboard, document upload |
+| **Sprint 4** | Polish & Delivery | Audit pack export, testing, documentation |
+
+**Success Criteria**:
+- [ ] Single shipment visible with all metadata
+- [ ] Live container tracking displayed
+- [ ] Documents with complete/missing indicators
+- [ ] "Download Audit Pack" exports ZIP with PDF index
+- [ ] Non-technical user answers key questions in <30 seconds
+
+### Future Phases
+
+| Phase | Description |
+|-------|-------------|
+| **Full VIBOTAJ Rollout** | All shipments on TraceHub, all products |
+| **AI Enhancement** | Document OCR, discrepancy detection, auto-summaries |
+| **Multi-Tenant SaaS** | Onboard other exporters, subscription model |
 
 ---
 
-## 🤖 Sub-Agent Architecture
+## Team
 
-This project uses specialized AI sub-agents for different aspects of development:
-
-| Agent | Role | Responsibilities |
-|-------|------|------------------|
-| **PROJECT MANAGER AGENT** | Orchestrator | Requirements, planning, coordination |
-| **INFRASTRUCTURE AGENT** | DevOps | DNS, hosting, backups, deployments |
-| **BACKEND AGENT** | Server-side | API development, integrations |
-| **FRONTEND AGENT** | UI/UX | React development, responsive design |
-| **DATABASE AGENT** | Data Architecture | Schema design, migrations, optimization |
-| **SECURITY AGENT** | Cybersecurity | Security hardening, audits, compliance |
-| **QA AGENT** | Testing | Test plans, automation, quality assurance |
-| **CONTENT AGENT** | Content & SEO | Analytics, SEO, translations, emails |
-| **AI/ML AGENT** | Intelligent Features | OCR, chatbot, predictive analytics |
-
-**See [`claude.md`](claude.md) for detailed task breakdown by agent.**
-
----
-
-## 🗺️ Roadmap
-
-### Phase 1: Critical Fixes (Week 1) ✅ Ready to Start
-- [ ] Fix www subdomain DNS issue
-- [ ] Configure 301 redirects
-- [ ] Verify SSL certificate
-- [ ] Set up automated backups
-- [ ] Configure Google Analytics
-
-**Timeline:** 1 week  
-**Priority:** 🔴 CRITICAL
-
----
-
-### Phase 2: Foundation & Security (Weeks 2-4)
-- [ ] Security hardening (Wordfence, 2FA)
-- [ ] Performance optimization
-- [ ] Mobile responsiveness fixes
-- [ ] SEO foundation
-- [ ] Email system setup
-
-**Timeline:** 3 weeks  
-**Priority:** 🟡 HIGH
-
----
-
-### Phase 3: Customer Portal MVP (Weeks 5-12)
-- [ ] Portal UI/UX design
-- [ ] Frontend development (React)
-- [ ] Backend API development
-- [ ] Maersk API integration
-- [ ] Document management system
-- [ ] Email notifications
-
-**Timeline:** 8 weeks  
-**Priority:** 🟡 HIGH
-
----
-
-### Phase 4: Advanced Features (Weeks 13-16)
-- [ ] AI document OCR
-- [ ] Customer support chatbot
-- [ ] Predictive analytics
-- [ ] Multi-language support
-- [ ] CRM integration
-
-**Timeline:** 4 weeks  
-**Priority:** 🟢 MEDIUM
-
----
-
-### Phase 5: Launch & Optimization (Weeks 17-20)
-- [ ] Pre-launch testing
-- [ ] Production deployment
-- [ ] Post-launch optimization
-- [ ] Continuous improvement
-
-**Timeline:** 4 weeks  
-**Priority:** 🟡 HIGH
-
-**Total Project Duration:** 16-20 weeks
-
----
-
-## 🎨 Design System
-
-### Brand Colors
-```css
-/* Primary Colors */
---vibotaj-green: #8bc34a;
---vibotaj-dark-green: #6a9739;
-
-/* Neutral Colors */
---vibotaj-dark: #333333;
---vibotaj-light: #f8f6f3;
---vibotaj-white: #ffffff;
-
-/* Accent Colors */
---vibotaj-accent-1: #001524;
---vibotaj-accent-2: #f8f6f3;
-```
-
-### Typography
-- **Headings:** Merriweather, serif
-- **Body:** Open Sans, sans-serif
-
-### Responsive Breakpoints
-- Mobile: < 544px
-- Tablet: 544px - 921px
-- Desktop: > 921px
-
----
-
-## 🧪 Testing
-
-### Running Tests
-
-```bash
-# Backend (PHPUnit)
-cd plugins/vibotaj-portal
-composer test
-
-# Frontend (Jest)
-cd src/frontend
-npm test
-
-# E2E (Cypress)
-npm run cypress:open
-```
-
-### Test Coverage Goals
-- Unit Tests: 80%+
-- Integration Tests: 70%+
-- E2E Tests: Critical user flows
-
----
-
-## 📚 Documentation
-
-- **[Technical Audit Report](TECHNICAL_AUDIT_REPORT.md)** - Comprehensive findings
-- **[Agent Task Breakdown](claude.md)** - Detailed task assignments
-- **[Requirements](/docs/requirements/)** - Functional & non-functional requirements
-- **[Architecture](/docs/architecture/)** - System architecture & data models
-- **[API Documentation](/docs/architecture/api-documentation.md)** - REST API reference
-- **[Deployment Guide](/docs/deployment/)** - Deployment procedures
-
----
-
-## 🤝 Contributing
-
-We welcome contributions! Please follow these steps:
-
-1. **Fork the repository**
-2. **Create feature branch** (`git checkout -b feature/AmazingFeature`)
-3. **Commit changes** (`git commit -m 'feat: Add AmazingFeature'`)
-4. **Push to branch** (`git push origin feature/AmazingFeature`)
-5. **Open Pull Request**
-
-### Contribution Guidelines
-- Follow existing code style
-- Write tests for new features
-- Update documentation
-- Ensure all tests pass
-- Request review from appropriate agent
-
----
-
-## 👥 Team
-
-**Project Stakeholders:**
+**Project Stakeholders**
 - **Shola** - CEO, VIBOTAJ Global
 - **Bolaji Jibodu** - COO, VIBOTAJ Global (bolaji@vibotaj.com)
 
-**Development Team:**
-- Project Manager Agent
-- Infrastructure Agent
-- Backend Agent
-- Frontend Agent
-- Database Agent
-- Security Agent
-- QA Agent
-- Content Agent
-- AI/ML Agent
+**AI Agent Roles**
+| Agent | Responsibility |
+|-------|----------------|
+| Product Strategist | Requirements, roadmap, prioritization |
+| Microservices Architect | System design, APIs, data model |
+| Full-Stack Developer | Frontend & backend implementation |
+| DevOps Engineer | Infrastructure, CI/CD, deployment |
+| API Designer | API specifications, integrations |
+| UI/UX Designer | Design system, user experience |
 
 ---
 
-## 📄 License
+## Infrastructure
 
-This project is proprietary and confidential.  
-© 2025 VIBOTAJ Global Nigeria Ltd. All rights reserved.
+**Current Setup**:
+- Domain Management: Squarespace DNS
+- Web Hosting: Hostinger
+- CMS: WordPress 6.4.7 + WooCommerce 8.7.2
+- PHP: 8.1.33
+
+**TraceHub Backend** (POC):
+- Runtime: Node.js 20 or Python 3.11
+- Database: PostgreSQL 15
+- Container Tracking: ShipsGo API
+- File Storage: Local (POC) / S3 (Production)
 
 ---
 
-## 📞 Contact
+## License
 
-**VIBOTAJ Global Nigeria Ltd**  
-EU TRACES NUMBER: RC1479592  
+This project is proprietary and confidential.
+Copyright 2025-2026 VIBOTAJ Global Nigeria Ltd. All rights reserved.
+
+---
+
+## Contact
+
+**VIBOTAJ Global Nigeria Ltd**
+EU TRACES NUMBER: RC1479592
 Website: https://vibotaj.com
 
-**Project Repository:**  
-https://github.com/vibotaj/vibotaj-website-revamp
-
-**Issues & Questions:**  
-https://github.com/vibotaj/vibotaj-website-revamp/issues
-
 ---
 
-## 🙏 Acknowledgments
-
-- WordPress & WooCommerce communities
-- Astra Theme & Elementor
-- React.js community
-- All open-source contributors
-
----
-
-**Built with ❤️ for the future of agro-export**
-
----
-
-## 📊 Project Status
-
-![Phase 1](https://img.shields.io/badge/Phase%201-Not%20Started-red)
-![Phase 2](https://img.shields.io/badge/Phase%202-Not%20Started-red)
-![Phase 3](https://img.shields.io/badge/Phase%203-Not%20Started-red)
-![Phase 4](https://img.shields.io/badge/Phase%204-Not%20Started-red)
-![Phase 5](https://img.shields.io/badge/Phase%205-Not%20Started-red)
-
-**Last Updated:** December 27, 2025  
-**Next Review:** January 3, 2026
+**Last Updated:** January 2, 2026
+**Current Branch:** `feature/security-setup`
