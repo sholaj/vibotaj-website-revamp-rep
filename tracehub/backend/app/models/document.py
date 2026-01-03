@@ -73,7 +73,7 @@ class Document(Base):
     validated_by = Column(String(100))
 
     # Additional metadata (flexible)
-    metadata = Column(JSONB, default={})
+    extra_data = Column(JSONB, default={})
 
     # Timestamps
     created_at = Column(DateTime, default=datetime.utcnow)

@@ -32,7 +32,7 @@ class Settings(BaseSettings):
     max_upload_size_mb: int = 50
 
     # CORS
-    cors_origins: list[str] = ["http://localhost:3000", "http://localhost:5173"]
+    cors_origins: list[str] = ["http://localhost:3000", "http://localhost:5173", "http://localhost:5174"]
 
     class Config:
         env_file = ".env"

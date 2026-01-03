@@ -16,6 +16,10 @@ from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, Tabl
 
 from ..models import Shipment, Document, ContainerEvent, Product
 from .compliance import get_required_documents, check_document_completeness, DOCUMENT_NAMES
+from ..config import get_settings
+
+# Base directory for uploads (tracehub/ - parent of backend/)
+UPLOAD_BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 
 def generate_audit_pack(shipment: Shipment, db: Session) -> io.BytesIO:
@@ -39,11 +43,14 @@ def generate_audit_pack(shipment: Shipment, db: Session) -> io.BytesIO:
         # 2. Add documents
         documents = db.query(Document).filter(Document.shipment_id == shipment.id).all()
         for i, doc in enumerate(documents, 1):
-            if doc.file_path and os.path.exists(doc.file_path):
-                # Get file extension
-                ext = os.path.splitext(doc.file_name or doc.file_path)[1]
-                filename = f"{i:02d}-{doc.document_type.value}{ext}"
-                zip_file.write(doc.file_path, filename)
+            if doc.file_path:
+                # Resolve full path from relative path
+                full_path = os.path.join(UPLOAD_BASE_DIR, doc.file_path)
+                if os.path.exists(full_path):
+                    # Get file extension
+                    ext = os.path.splitext(doc.file_name or doc.file_path)[1]
+                    filename = f"{i:02d}-{doc.document_type.value}{ext}"
+                    zip_file.write(full_path, filename)
 
         # 3. Add tracking log JSON
         events = (
@@ -120,7 +127,7 @@ def generate_summary_pdf(shipment: Shipment, db: Session) -> io.BytesIO:
         BytesIO containing the PDF
     """
     buffer = io.BytesIO()
-    doc = SimpleDocTemplate(
+    pdf_doc = SimpleDocTemplate(
         buffer,
         pagesize=A4,
         rightMargin=20*mm,
@@ -265,6 +272,6 @@ def generate_summary_pdf(shipment: Shipment, db: Session) -> io.BytesIO:
         ParagraphStyle('Footer', parent=normal_style, fontSize=8, textColor=colors.grey)
     ))
 
-    doc.build(story)
+    pdf_doc.build(story)
     buffer.seek(0)
     return buffer
