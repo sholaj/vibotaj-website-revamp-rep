@@ -5,23 +5,22 @@ from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from pydantic import BaseModel
 from datetime import datetime, timedelta
 from jose import JWTError, jwt
-from passlib.context import CryptContext
+import bcrypt
 
 from ..config import get_settings
 
 router = APIRouter()
 settings = get_settings()
 
-# Password hashing
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+# OAuth2 scheme for token authentication
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
 
 # Simple in-memory user for POC (replace with database in production)
-# Pre-computed hash for "tracehub2026" to avoid bcrypt version issues
+# Password: tracehub2026
 POC_USER = {
     "username": "demo",
     "email": "demo@vibotaj.com",
-    "hashed_password": "$2b$12$zV4i8zLotDMj7.aO5Cbga.CCaiO6FXrNwbxL1wofLQoywCbynZr1y",
+    "password": "tracehub2026",  # Simple plaintext for POC
     "full_name": "Demo User"
 }
 
@@ -48,9 +47,9 @@ def create_access_token(data: dict) -> str:
     return encoded_jwt
 
 
-def verify_password(plain_password: str, hashed_password: str) -> bool:
-    """Verify password against hash."""
-    return pwd_context.verify(plain_password, hashed_password)
+def verify_password(plain_password: str, stored_password: str) -> bool:
+    """Verify password - simple comparison for POC."""
+    return plain_password == stored_password
 
 
 async def get_current_user(token: str = Depends(oauth2_scheme)) -> User:
@@ -90,7 +89,7 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends()):
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    if not verify_password(form_data.password, POC_USER["hashed_password"]):
+    if not verify_password(form_data.password, POC_USER["password"]):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect username or password",
