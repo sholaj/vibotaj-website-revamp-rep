@@ -91,6 +91,20 @@ ROLE_PERMISSIONS: dict[UserRole, Set[Permission]] = {
         Permission.TRACKING_REFRESH,
         Permission.AUDIT_PACK_DOWNLOAD,
     },
+    UserRole.LOGISTICS_AGENT: {
+        # Logistics agent: schedule containers, upload ALL documents, manage shipments
+        Permission.SHIPMENTS_CREATE,
+        Permission.SHIPMENTS_READ,
+        Permission.SHIPMENTS_UPDATE,
+        Permission.SHIPMENTS_LIST,
+        Permission.DOCUMENTS_CREATE,
+        Permission.DOCUMENTS_READ,
+        Permission.DOCUMENTS_UPDATE,
+        Permission.DOCUMENTS_UPLOAD,
+        Permission.TRACKING_READ,
+        Permission.TRACKING_REFRESH,
+        Permission.AUDIT_PACK_DOWNLOAD,
+    },
     UserRole.BUYER: {
         # Buyer has read-only access to their shipments and documents
         Permission.SHIPMENTS_READ,
@@ -246,6 +260,7 @@ def get_permission_matrix() -> dict:
 ROLE_HIERARCHY = {
     UserRole.ADMIN: 5,
     UserRole.COMPLIANCE: 4,
+    UserRole.LOGISTICS_AGENT: 3,
     UserRole.BUYER: 2,
     UserRole.SUPPLIER: 2,
     UserRole.VIEWER: 1,

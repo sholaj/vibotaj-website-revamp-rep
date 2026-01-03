@@ -18,7 +18,7 @@ export interface LoginResponse {
 }
 
 // User roles aligned with backend UserRole enum
-export type UserRole = 'admin' | 'compliance' | 'buyer' | 'supplier' | 'viewer'
+export type UserRole = 'admin' | 'compliance' | 'logistics_agent' | 'buyer' | 'supplier' | 'viewer'
 
 export interface User {
   username: string
@@ -157,6 +157,7 @@ export interface Document {
   id: string
   shipment_id: string
   document_type: DocumentType
+  document_types?: string[]  // Multiple document types when PDF contains several docs
   name: string
   file_name?: string
   file_path?: string
@@ -390,6 +391,7 @@ export interface PaginatedResponse<T> {
 export interface DocumentUploadRequest {
   shipment_id: string
   document_type: DocumentType
+  document_types?: string[]  // Additional types if PDF contains multiple docs
   file: File
   reference_number?: string
   issue_date?: string

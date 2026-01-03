@@ -46,7 +46,8 @@ class Document(Base):
     shipment_id = Column(UUID(as_uuid=True), ForeignKey("shipments.id"), nullable=False)
 
     # Document classification
-    document_type = Column(Enum(DocumentType), nullable=False)
+    document_type = Column(Enum(DocumentType), nullable=False)  # Primary type
+    document_types = Column(JSONB, default=[])  # Multiple types when PDF contains several docs
     name = Column(String(255), nullable=False)
 
     # File information

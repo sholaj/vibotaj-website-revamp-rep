@@ -1,7 +1,7 @@
 """Document schemas for API responses."""
 
 from pydantic import BaseModel
-from typing import Optional
+from typing import Optional, List
 from uuid import UUID
 from datetime import datetime, date
 
@@ -13,6 +13,7 @@ class DocumentResponse(BaseModel):
     id: UUID
     shipment_id: UUID
     document_type: DocumentType
+    document_types: List[str] = []  # Multiple document types in single PDF
     name: str
     file_name: Optional[str] = None
     file_size_bytes: Optional[int] = None
@@ -37,7 +38,8 @@ class DocumentResponse(BaseModel):
 class DocumentUploadRequest(BaseModel):
     """Document upload request."""
     shipment_id: UUID
-    document_type: DocumentType
+    document_type: DocumentType  # Primary type
+    document_types: Optional[List[str]] = None  # Additional types if PDF contains multiple docs
     reference_number: Optional[str] = None
     issue_date: Optional[date] = None
     expiry_date: Optional[date] = None

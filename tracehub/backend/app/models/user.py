@@ -14,12 +14,14 @@ class UserRole(str, enum.Enum):
     Role hierarchy (highest to lowest):
     - admin: Full access to everything
     - compliance: Can validate/approve documents, view all shipments
+    - logistics_agent: Schedule containers, upload ALL documents, manage shipments
     - buyer: Read-only view of their shipments and documents
-    - supplier: Can upload documents, view assigned shipments
+    - supplier: Upload origin certificates, provide geolocation data
     - viewer: Read-only access to all data
     """
     ADMIN = "admin"
     COMPLIANCE = "compliance"
+    LOGISTICS_AGENT = "logistics_agent"
     BUYER = "buyer"
     SUPPLIER = "supplier"
     VIEWER = "viewer"

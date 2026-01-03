@@ -416,8 +416,9 @@ def _get_role_description(role: UserRole) -> str:
     descriptions = {
         UserRole.ADMIN: "Full access to all features including user management",
         UserRole.COMPLIANCE: "Can validate and approve documents, view all shipments",
+        UserRole.LOGISTICS_AGENT: "Schedule containers, upload all documents, manage shipments",
         UserRole.BUYER: "Read-only access to their assigned shipments and documents",
-        UserRole.SUPPLIER: "Can upload documents and view assigned shipments",
+        UserRole.SUPPLIER: "Upload origin certificates, provide geolocation data",
         UserRole.VIEWER: "Read-only access to all shipment and document data"
     }
     return descriptions.get(role, "")
