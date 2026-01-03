@@ -67,7 +67,7 @@ EFFORT          |  Pack PDF     |    Validate   |   Platform| EFFORT
 
 | ID | Feature | Description | Business Value | Effort | Sprint |
 |----|---------|-------------|----------------|--------|--------|
-| M1 | **Live Container Tracking (Vizion API)** | Replace/enhance JSONCargo with Vizion API for real-time webhook-based tracking. Critical for buyer visibility. | Very High | Medium | 6 |
+| M1 | **Enhanced Container Tracking** | Enhance JSONCargo integration with real-time webhook-based tracking. Add dual-provider support for redundancy. | Very High | Medium | 6 |
 | M2 | **Email Notifications** | Send critical notifications via email (shipment departed, arrived, documents missing, compliance alerts). | High | Medium | 6 |
 | M3 | **Mobile Responsive UI** | Ensure frontend works well on tablets and phones for field suppliers and traveling buyers. | High | Low | 6 |
 | M4 | **Buyer Dashboard View** | Simplified read-only view for German buyers showing shipments, ETA, and document completeness at a glance. | High | Medium | 7 |
@@ -134,14 +134,14 @@ EFFORT          |  Pack PDF     |    Validate   |   Platform| EFFORT
 **Risks:**
 | Risk | Impact | Mitigation |
 |------|--------|------------|
-| Vizion API approval delay | High | Keep JSONCargo as fallback; dual-provider architecture |
+| Tracking API reliability | Medium | Dual-provider architecture with JSONCargo primary |
 | Email deliverability issues | Medium | Use established ESP (SendGrid); implement SPF/DKIM |
 | Mobile layout breaks | Low | Test early with Tailwind responsive utilities |
 
 **Resource Needs:**
 - 1 Full-stack developer (primary)
 - 0.5 DevOps engineer (CI/CD)
-- Access to Vizion sandbox + SendGrid account
+- JSONCargo API access + SendGrid account
 
 ---
 
@@ -292,8 +292,8 @@ EFFORT          |  Pack PDF     |    Validate   |   Platform| EFFORT
               +-------------+ +------------+
                      |
               +------v------+
-              |   Vizion    |     +------------+
-              |  Webhooks   |<----| Vizion API |
+              |  JSONCargo  |     +------------+
+              |  Webhooks   |<----| JSONCargo  |
               +-------------+     +------------+
                                        |
               +-------------+     +----v-------+
@@ -356,7 +356,7 @@ class Tenant(Base):
 
 | Service | Sprint 6 | Sprint 7 | Sprint 8 | Sprint 9 |
 |---------|----------|----------|----------|----------|
-| Vizion API | $200 | $200 | $200 | $200 |
+| JSONCargo API | $200 | $200 | $200 | $200 |
 | SendGrid | $20 | $20 | $20 | $20 |
 | OpenAI API | - | - | $300 | $200 |
 | AWS Textract | - | - | $100 | $100 |
@@ -398,7 +398,7 @@ class Tenant(Base):
 
 | Risk | Probability | Impact | Mitigation Strategy |
 |------|-------------|--------|---------------------|
-| Vizion API contract delays | Medium | High | Maintain JSONCargo; modular tracking service |
+| Tracking API changes | Medium | Medium | Modular tracking service architecture |
 | AI features underperform | Medium | Medium | Human oversight; gradual rollout; feedback loop |
 | Buyer adoption resistance | Low | High | Early engagement; training; feedback incorporation |
 | Resource constraints | Medium | Medium | Prioritize MUST-HAVE; defer COULD-HAVE |
@@ -447,12 +447,12 @@ class Tenant(Base):
 
 ### C. Integration Specifications
 
-**Vizion API Integration (Sprint 6)**
+**JSONCargo API Integration (Active)**
 ```
 Endpoints:
-- POST /shipments/{id}/subscribe - Start tracking
-- POST /webhooks/vizion - Receive events
-- GET /tracking/live/{container} - On-demand status
+- POST /api/tracking/subscribe/{shipment_id} - Start tracking
+- POST /api/webhooks/jsoncargo - Receive events
+- GET /api/shipments/{id}/events - Container event history
 
 Event Types:
 - container_loaded

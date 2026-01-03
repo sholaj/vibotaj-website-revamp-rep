@@ -14,7 +14,7 @@
 
 ---
 
-#### STORY 6.1: Live Container Tracking (Vizion API)
+#### STORY 6.1: Enhanced Container Tracking
 **Priority:** MUST HAVE
 **Story Points:** 13
 **Assignee:** Backend Developer
@@ -25,29 +25,29 @@
 - [ ] Container events appear within 15 minutes of carrier update
 - [ ] ETA updates reflect on shipment detail page
 - [ ] Historical tracking events are preserved
-- [ ] Fallback to JSONCargo if Vizion unavailable
+- [ ] Dual-provider support for redundancy
 
 **Tasks:**
 
 | Task | Estimate | Status |
 |------|----------|--------|
-| T6.1.1: Research Vizion API authentication and endpoints | 2h | TODO |
+| T6.1.1: Review JSONCargo API capabilities and rate limits | 2h | TODO |
 | T6.1.2: Create `TrackingProvider` abstract interface | 2h | TODO |
-| T6.1.3: Implement `VizionTrackingProvider` class | 4h | TODO |
-| T6.1.4: Create webhook endpoint `/api/webhooks/vizion` | 3h | TODO |
+| T6.1.3: Refactor existing JSONCargo client to provider pattern | 4h | TODO |
+| T6.1.4: Enhance webhook endpoint `/api/webhooks/jsoncargo` | 3h | TODO |
 | T6.1.5: Add `TrackingSubscription` model for tracking state | 2h | TODO |
 | T6.1.6: Implement subscription management (subscribe/unsubscribe) | 3h | TODO |
-| T6.1.7: Map Vizion events to `ContainerEvent` model | 2h | TODO |
-| T6.1.8: Update shipment ETA when Vizion provides updates | 2h | TODO |
-| T6.1.9: Add provider failover logic (Vizion -> JSONCargo) | 3h | TODO |
-| T6.1.10: Write integration tests with mock Vizion responses | 3h | TODO |
-| T6.1.11: Update tracking router to use new provider interface | 2h | TODO |
-| T6.1.12: Add Vizion API key to environment configuration | 1h | TODO |
+| T6.1.7: Improve event mapping to `ContainerEvent` model | 2h | TODO |
+| T6.1.8: Update shipment ETA automatically from tracking events | 2h | TODO |
+| T6.1.9: Add provider failover logic for redundancy | 3h | TODO |
+| T6.1.10: Write integration tests with mock responses | 3h | TODO |
+| T6.1.11: Update tracking router to use provider interface | 2h | TODO |
+| T6.1.12: Document tracking API configuration | 1h | TODO |
 
 **Technical Notes:**
 - Use adapter pattern for provider abstraction
-- Store Vizion subscription_id in `TrackingSubscription` table
-- Webhook security: verify Vizion signature header
+- Store subscription_id in `TrackingSubscription` table
+- Webhook security: verify JSONCargo signature header
 
 ---
 
