@@ -127,7 +127,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     verifyAuth()
   }, [fetchUserDetails])
 
-  const login = useCallback(async (token: string) => {
+  const login = useCallback(async (_token: string) => {
     // Token is already stored by api.login()
     await fetchUserDetails()
     setError(null)

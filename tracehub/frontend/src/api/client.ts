@@ -46,7 +46,6 @@ import type {
   WorkflowSummaryResponse,
   NotificationListResponse,
   UnreadCountResponse,
-  Notification,
   DashboardStats,
   ShipmentStats,
   ShipmentTrendsResponse,

@@ -257,9 +257,9 @@ export default function NotificationBell() {
                         <p className="mt-0.5 text-sm text-gray-500 line-clamp-2">
                           {notification.message}
                         </p>
-                        {notification.data.shipment_reference && (
+                        {typeof notification.data?.shipment_reference === 'string' && (
                           <p className="mt-1 text-xs text-gray-400">
-                            Shipment: {notification.data.shipment_reference as string}
+                            Shipment: {notification.data.shipment_reference}
                           </p>
                         )}
                       </div>

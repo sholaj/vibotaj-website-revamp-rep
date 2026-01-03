@@ -17,7 +17,6 @@ import {
   AlertTriangle,
   CheckCircle,
   XCircle,
-  Info,
   RefreshCw,
   Download,
   MapPin,

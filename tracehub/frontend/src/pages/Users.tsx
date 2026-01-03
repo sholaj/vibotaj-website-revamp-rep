@@ -5,7 +5,7 @@
  */
 
 import { useState, useEffect, useCallback } from 'react'
-import { Users as UsersIcon, Plus, Search, Shield, Edit, Trash2, Check, X, RefreshCw, UserPlus } from 'lucide-react'
+import { Users as UsersIcon, Plus, Search, Shield, Check, X, RefreshCw, UserPlus } from 'lucide-react'
 import api from '../api/client'
 import { useAuth, Permission } from '../contexts/AuthContext'
 import PermissionGuard from '../components/PermissionGuard'
