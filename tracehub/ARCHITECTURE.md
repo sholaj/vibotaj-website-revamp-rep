@@ -109,7 +109,7 @@
 Backend Container
    ↓ HTTPS
 External APIs
-   - Vizion API (container tracking)
+   - JSONCargo API (container tracking)
    - Future: Other logistics APIs
 ```
 
@@ -155,7 +155,7 @@ tracehub_postgres_data →         /var/lib/postgresql/data (db)
 │  .env (Root)                                                    │
 │  ├── DB_USER, DB_PASSWORD, DB_NAME                             │
 │  ├── JWT_SECRET                                                 │
-│  ├── VIZION_API_KEY                                             │
+│  ├── JSONCARGO_API_KEY                                          │
 │  └── CORS_ORIGINS                                               │
 │                                                                  │
 │  frontend/.env.production                                       │
