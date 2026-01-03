@@ -5,16 +5,83 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 from typing import Optional, List
 from uuid import UUID
+from datetime import datetime
 import io
 
 from ..database import get_db
 from ..models import Shipment, Document, ContainerEvent, Product, Party
-from ..schemas.shipment import ShipmentResponse, ShipmentDetailResponse, ShipmentListResponse
-from ..routers.auth import get_current_user, User
+from ..models.shipment import ShipmentStatus
+from ..schemas.shipment import ShipmentResponse, ShipmentDetailResponse, ShipmentListResponse, ShipmentCreate
+from ..schemas.user import CurrentUser
+from ..routers.auth import get_current_user, get_current_active_user, User
 from ..services.compliance import get_required_documents, check_document_completeness
 from ..services.audit_pack import generate_audit_pack
+from ..services.permissions import Permission, has_permission
 
 router = APIRouter()
+
+
+def check_permission(user: CurrentUser, permission: Permission) -> None:
+    """Check if user has the required permission, raise 403 if not."""
+    if not has_permission(user.role, permission):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"Permission denied. Required: {permission.value}"
+        )
+
+
+@router.post("", response_model=ShipmentResponse, status_code=status.HTTP_201_CREATED)
+async def create_shipment(
+    shipment_data: ShipmentCreate,
+    db: Session = Depends(get_db),
+    current_user: CurrentUser = Depends(get_current_active_user)
+):
+    """Create a new shipment.
+
+    Requires: shipments:create permission (admin, logistics_agent roles)
+
+    For historical/completed shipments, set is_historical=True and status accordingly.
+    This allows uploading documentation for past trades.
+    """
+    # Check permission
+    check_permission(current_user, Permission.SHIPMENTS_CREATE)
+
+    # Check for duplicate reference
+    existing = db.query(Shipment).filter(Shipment.reference == shipment_data.reference).first()
+    if existing:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"A shipment with reference '{shipment_data.reference}' already exists"
+        )
+
+    # Create the shipment
+    shipment = Shipment(
+        reference=shipment_data.reference,
+        container_number=shipment_data.container_number,
+        bl_number=shipment_data.bl_number,
+        booking_reference=shipment_data.booking_reference,
+        vessel_name=shipment_data.vessel_name,
+        voyage_number=shipment_data.voyage_number,
+        etd=shipment_data.etd,
+        eta=shipment_data.eta,
+        atd=shipment_data.atd,
+        ata=shipment_data.ata,
+        pol_code=shipment_data.pol_code,
+        pol_name=shipment_data.pol_name,
+        pod_code=shipment_data.pod_code,
+        pod_name=shipment_data.pod_name,
+        final_destination=shipment_data.final_destination,
+        incoterms=shipment_data.incoterms,
+        status=shipment_data.status or ShipmentStatus.IN_TRANSIT,
+        created_at=datetime.utcnow(),
+        updated_at=datetime.utcnow()
+    )
+
+    db.add(shipment)
+    db.commit()
+    db.refresh(shipment)
+
+    return shipment
 
 
 @router.get("", response_model=List[ShipmentResponse])

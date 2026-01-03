@@ -3,9 +3,33 @@
 from pydantic import BaseModel
 from typing import Optional, List
 from uuid import UUID
-from datetime import datetime
+from datetime import datetime, date
 
 from ..models.shipment import ShipmentStatus
+
+
+class ShipmentCreate(BaseModel):
+    """Schema for creating a new shipment."""
+    reference: str
+    container_number: str
+    bl_number: Optional[str] = None
+    booking_reference: Optional[str] = None
+    vessel_name: Optional[str] = None
+    voyage_number: Optional[str] = None
+    etd: Optional[datetime] = None
+    eta: Optional[datetime] = None
+    atd: Optional[datetime] = None
+    ata: Optional[datetime] = None
+    pol_code: Optional[str] = None
+    pol_name: Optional[str] = None
+    pod_code: Optional[str] = None
+    pod_name: Optional[str] = None
+    final_destination: Optional[str] = None
+    incoterms: Optional[str] = None
+    status: Optional[ShipmentStatus] = ShipmentStatus.IN_TRANSIT
+    # For historical shipments, set is_historical=True
+    is_historical: Optional[bool] = False
+    notes: Optional[str] = None
 
 
 class PartyInfo(BaseModel):
