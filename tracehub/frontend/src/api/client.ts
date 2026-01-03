@@ -190,8 +190,6 @@ function getRetryDelay(retryCount: number): number {
 class ApiClient {
   private client: AxiosInstance
   private cache: SimpleCache
-  private _isRefreshing: boolean = false
-  private _refreshSubscribers: Array<(token: string) => void> = []
 
   constructor() {
     this.cache = new SimpleCache()
