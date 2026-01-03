@@ -1,0 +1,499 @@
+openapi: 3.1.0
+info:
+  title: TraceHub Notifications API
+  version: 0.3.0
+  description: Email notifications and user preference management
+
+servers:
+  - url: /api
+    description: API base path
+
+tags:
+  - name: Email Notifications
+    description: Email sending and management
+  - name: Preferences
+    description: User notification preferences
+
+paths:
+  /notifications/email/send:
+    post:
+      summary: Send email notification
+      description: Send a templated email notification (admin only)
+      operationId: sendEmail
+      tags:
+        - Email Notifications
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SendEmailRequest'
+      responses:
+        '202':
+          description: Email queued for sending
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SendEmailResponse'
+        '400':
+          description: Invalid request
+        '403':
+          description: Admin access required
+
+  /notifications/email/test:
+    post:
+      summary: Send test email
+      description: Send a test email to verify configuration
+      operationId: sendTestEmail
+      tags:
+        - Email Notifications
+      security:
+        - bearerAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - recipient
+              properties:
+                recipient:
+                  type: string
+                  format: email
+      responses:
+        '200':
+          description: Test email sent
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  sent_to:
+                    type: string
+
+  /notifications/email/templates:
+    get:
+      summary: List email templates
+      description: Get available email templates and their variables
+      operationId: listEmailTemplates
+      tags:
+        - Email Notifications
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: List of templates
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TemplateListResponse'
+
+  /notifications/email/templates/{template_id}/preview:
+    get:
+      summary: Preview email template
+      description: Get HTML preview of an email template with sample data
+      operationId: previewEmailTemplate
+      tags:
+        - Email Notifications
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: template_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Template preview
+          content:
+            text/html:
+              schema:
+                type: string
+        '404':
+          description: Template not found
+
+  /notifications/email/logs:
+    get:
+      summary: Get email logs
+      description: View email sending history and delivery status
+      operationId: getEmailLogs
+      tags:
+        - Email Notifications
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [queued, sent, delivered, bounced, failed]
+        - name: template
+          in: query
+          schema:
+            type: string
+        - name: from
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: to
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+      responses:
+        '200':
+          description: Email logs
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmailLogListResponse'
+
+  /notifications/preferences:
+    get:
+      summary: Get notification preferences
+      description: Get current user's notification preferences
+      operationId: getPreferences
+      tags:
+        - Preferences
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: User preferences
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationPreferences'
+
+    put:
+      summary: Update notification preferences
+      description: Update current user's notification preferences
+      operationId: updatePreferences
+      tags:
+        - Preferences
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NotificationPreferencesUpdate'
+      responses:
+        '200':
+          description: Preferences updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  preferences:
+                    $ref: '#/components/schemas/NotificationPreferences'
+
+  /notifications/digest/preview:
+    get:
+      summary: Preview notification digest
+      description: Preview what a digest email would contain
+      operationId: previewDigest
+      tags:
+        - Preferences
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: period
+          in: query
+          schema:
+            type: string
+            enum: [daily, weekly]
+            default: daily
+      responses:
+        '200':
+          description: Digest preview
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DigestPreview'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    SendEmailRequest:
+      type: object
+      required:
+        - recipients
+        - template
+        - template_data
+      properties:
+        recipients:
+          type: array
+          items:
+            type: string
+            format: email
+          minItems: 1
+          maxItems: 50
+        cc:
+          type: array
+          items:
+            type: string
+            format: email
+        bcc:
+          type: array
+          items:
+            type: string
+            format: email
+        template:
+          type: string
+          description: Template ID
+          example: shipment_status_update
+        template_data:
+          type: object
+          additionalProperties: true
+          example:
+            shipment_reference: VIBO-2026-001
+            status: in_transit
+            eta: "2026-01-15T12:00:00Z"
+        priority:
+          type: string
+          enum: [low, normal, high]
+          default: normal
+        schedule_at:
+          type: string
+          format: date-time
+          description: Schedule for later delivery
+
+    SendEmailResponse:
+      type: object
+      properties:
+        message_id:
+          type: string
+        status:
+          type: string
+          enum: [queued, scheduled, sent]
+        recipients:
+          type: array
+          items:
+            type: string
+        template:
+          type: string
+        scheduled_at:
+          type: string
+          format: date-time
+
+    TemplateListResponse:
+      type: object
+      properties:
+        templates:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+              name:
+                type: string
+              description:
+                type: string
+              variables:
+                type: array
+                items:
+                  type: string
+              preview_url:
+                type: string
+              category:
+                type: string
+                enum: [shipment, document, compliance, system]
+
+    EmailLogListResponse:
+      type: object
+      properties:
+        total:
+          type: integer
+        logs:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+              message_id:
+                type: string
+              recipient:
+                type: string
+                description: Email address (partially masked for privacy)
+              template:
+                type: string
+              subject:
+                type: string
+              status:
+                type: string
+                enum: [queued, sent, delivered, bounced, failed]
+              sent_at:
+                type: string
+                format: date-time
+              delivered_at:
+                type: string
+                format: date-time
+              opened_at:
+                type: string
+                format: date-time
+              error_message:
+                type: string
+
+    NotificationPreferences:
+      type: object
+      properties:
+        user_id:
+          type: string
+        email_enabled:
+          type: boolean
+        in_app_enabled:
+          type: boolean
+        email_address:
+          type: string
+          format: email
+        preferences:
+          type: object
+          properties:
+            shipment_departed:
+              $ref: '#/components/schemas/ChannelPreference'
+            shipment_arrived:
+              $ref: '#/components/schemas/ChannelPreference'
+            shipment_delivered:
+              $ref: '#/components/schemas/ChannelPreference'
+            eta_changed:
+              $ref: '#/components/schemas/ChannelPreference'
+            document_uploaded:
+              $ref: '#/components/schemas/ChannelPreference'
+            document_validated:
+              $ref: '#/components/schemas/ChannelPreference'
+            document_rejected:
+              $ref: '#/components/schemas/ChannelPreference'
+            compliance_alert:
+              $ref: '#/components/schemas/ChannelPreference'
+            expiry_warning:
+              $ref: '#/components/schemas/ChannelPreference'
+        digest_frequency:
+          type: string
+          enum: [immediate, daily, weekly]
+        quiet_hours:
+          type: object
+          properties:
+            enabled:
+              type: boolean
+            start:
+              type: string
+              example: "22:00"
+            end:
+              type: string
+              example: "08:00"
+            timezone:
+              type: string
+              example: Europe/Berlin
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    ChannelPreference:
+      type: object
+      properties:
+        email:
+          type: boolean
+        in_app:
+          type: boolean
+
+    NotificationPreferencesUpdate:
+      type: object
+      properties:
+        email_enabled:
+          type: boolean
+        in_app_enabled:
+          type: boolean
+        email_address:
+          type: string
+          format: email
+        preferences:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/ChannelPreference'
+        digest_frequency:
+          type: string
+          enum: [immediate, daily, weekly]
+        quiet_hours:
+          type: object
+          properties:
+            enabled:
+              type: boolean
+            start:
+              type: string
+            end:
+              type: string
+            timezone:
+              type: string
+
+    DigestPreview:
+      type: object
+      properties:
+        period:
+          type: string
+        period_start:
+          type: string
+          format: date-time
+        period_end:
+          type: string
+          format: date-time
+        summary:
+          type: object
+          properties:
+            total_notifications:
+              type: integer
+            shipment_updates:
+              type: integer
+            document_updates:
+              type: integer
+            compliance_alerts:
+              type: integer
+        notifications:
+          type: array
+          items:
+            type: object
+            properties:
+              type:
+                type: string
+              title:
+                type: string
+              message:
+                type: string
+              timestamp:
+                type: string
+                format: date-time
+              shipment_reference:
+                type: string
+        would_send_email:
+          type: boolean
+          description: Whether this digest would trigger an email based on preferences

@@ -1,0 +1,168 @@
+name: Deploy to Staging
+
+on:
+  push:
+    branches: [develop]
+  workflow_dispatch:
+
+env:
+  REGISTRY: ghcr.io
+  BACKEND_IMAGE_NAME: ${{ github.repository }}/tracehub-backend
+  FRONTEND_IMAGE_NAME: ${{ github.repository }}/tracehub-frontend
+
+jobs:
+  deploy:
+    name: Deploy to Staging Environment
+    runs-on: ubuntu-latest
+    environment: staging
+    concurrency:
+      group: staging-deployment
+      cancel-in-progress: false
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup SSH
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.STAGING_SSH_KEY }}
+
+      - name: Add VPS to known hosts
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan -H ${{ secrets.STAGING_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Create deployment directory
+        run: |
+          ssh ${{ secrets.STAGING_USER }}@${{ secrets.STAGING_HOST }} "mkdir -p /home/tracehub/staging"
+
+      - name: Copy deployment files
+        run: |
+          scp -r ./tracehub/docker-compose.prod.yml \
+            ${{ secrets.STAGING_USER }}@${{ secrets.STAGING_HOST }}:/home/tracehub/staging/docker-compose.yml
+          scp -r ./tracehub/scripts/* \
+            ${{ secrets.STAGING_USER }}@${{ secrets.STAGING_HOST }}:/home/tracehub/staging/scripts/
+
+      - name: Create .env file
+        run: |
+          ssh ${{ secrets.STAGING_USER }}@${{ secrets.STAGING_HOST }} << 'ENDSSH'
+            cd /home/tracehub/staging
+            cat > .env << EOF
+          ENVIRONMENT=staging
+          DB_USER=tracehub_staging
+          DB_PASSWORD=${{ secrets.STAGING_DB_PASSWORD }}
+          DB_NAME=tracehub_staging
+          JWT_SECRET=${{ secrets.STAGING_JWT_SECRET }}
+          VIZION_API_KEY=${{ secrets.VIZION_API_KEY }}
+          DEMO_PASSWORD=${{ secrets.DEMO_PASSWORD }}
+          CORS_ORIGINS=https://staging.tracehub.vibotaj.com
+          BACKEND_PORT=8100
+          FRONTEND_PORT=3100
+          DB_PORT=5532
+          DOCKER_BACKEND_IMAGE=${{ env.REGISTRY }}/${{ env.BACKEND_IMAGE_NAME }}:develop-${{ github.sha }}
+          DOCKER_FRONTEND_IMAGE=${{ env.REGISTRY }}/${{ env.FRONTEND_IMAGE_NAME }}:develop-${{ github.sha }}
+          EOF
+          ENDSSH
+
+      - name: Login to GitHub Container Registry
+        run: |
+          ssh ${{ secrets.STAGING_USER }}@${{ secrets.STAGING_HOST }} << 'ENDSSH'
+            echo ${{ secrets.GITHUB_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+          ENDSSH
+
+      - name: Pull latest images
+        run: |
+          ssh ${{ secrets.STAGING_USER }}@${{ secrets.STAGING_HOST }} << 'ENDSSH'
+            cd /home/tracehub/staging
+            source .env
+            docker pull ${DOCKER_BACKEND_IMAGE}
+            docker pull ${DOCKER_FRONTEND_IMAGE}
+          ENDSSH
+
+      - name: Create database backup
+        run: |
+          ssh ${{ secrets.STAGING_USER }}@${{ secrets.STAGING_HOST }} << 'ENDSSH'
+            cd /home/tracehub/staging
+            mkdir -p backups
+            if docker ps | grep -q tracehub-db-staging; then
+              docker exec tracehub-db-staging pg_dump -U tracehub_staging tracehub_staging > backups/backup_$(date +%Y%m%d_%H%M%S).sql || echo "Backup failed or DB not running"
+            fi
+          ENDSSH
+
+      - name: Stop existing containers
+        run: |
+          ssh ${{ secrets.STAGING_USER }}@${{ secrets.STAGING_HOST }} << 'ENDSSH'
+            cd /home/tracehub/staging
+            docker-compose down || echo "No containers to stop"
+          ENDSSH
+
+      - name: Start new containers
+        run: |
+          ssh ${{ secrets.STAGING_USER }}@${{ secrets.STAGING_HOST }} << 'ENDSSH'
+            cd /home/tracehub/staging
+            docker-compose up -d
+          ENDSSH
+
+      - name: Wait for services to be healthy
+        run: |
+          ssh ${{ secrets.STAGING_USER }}@${{ secrets.STAGING_HOST }} << 'ENDSSH'
+            cd /home/tracehub/staging
+            echo "Waiting for services to be healthy..."
+            for i in {1..30}; do
+              if docker-compose ps | grep -q healthy; then
+                echo "Services are healthy!"
+                break
+              fi
+              echo "Waiting... ($i/30)"
+              sleep 5
+            done
+          ENDSSH
+
+      - name: Run database migrations
+        run: |
+          ssh ${{ secrets.STAGING_USER }}@${{ secrets.STAGING_HOST }} << 'ENDSSH'
+            cd /home/tracehub/staging
+            docker-compose exec -T backend alembic upgrade head
+          ENDSSH
+
+      - name: Run smoke tests
+        run: |
+          ssh ${{ secrets.STAGING_USER }}@${{ secrets.STAGING_HOST }} << 'ENDSSH'
+            # Test backend health
+            curl -f http://localhost:8100/health || exit 1
+
+            # Test frontend
+            curl -f http://localhost:3100/ || exit 1
+
+            echo "Smoke tests passed!"
+          ENDSSH
+
+      - name: Clean up old images
+        run: |
+          ssh ${{ secrets.STAGING_USER }}@${{ secrets.STAGING_HOST }} << 'ENDSSH'
+            docker image prune -f
+          ENDSSH
+
+      - name: Deployment summary
+        run: |
+          echo "## Staging Deployment Successful" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Commit**: ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Branch**: develop" >> $GITHUB_STEP_SUMMARY
+          echo "- **Environment**: staging" >> $GITHUB_STEP_SUMMARY
+          echo "- **URL**: https://staging.tracehub.vibotaj.com" >> $GITHUB_STEP_SUMMARY
+          echo "- **Deployed by**: ${{ github.actor }}" >> $GITHUB_STEP_SUMMARY
+
+      - name: Notify on failure
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: 'Staging Deployment Failed',
+              body: `Staging deployment failed for commit ${context.sha}\n\nWorkflow: ${context.workflow}\nRun: ${context.runNumber}`,
+              labels: ['deployment', 'staging', 'bug']
+            })

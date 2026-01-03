@@ -1,0 +1,670 @@
+openapi: 3.1.0
+info:
+  title: TraceHub AI Analysis API
+  version: 0.3.0
+  description: AI-powered document analysis and compliance checking endpoints
+
+servers:
+  - url: /api
+    description: API base path
+
+tags:
+  - name: AI Analysis
+    description: AI-powered document and shipment analysis
+
+paths:
+  /ai/analyze/shipment/{shipment_id}:
+    post:
+      summary: Comprehensive shipment analysis
+      description: Run AI-powered analysis on all shipment documents and data
+      operationId: analyzeShipment
+      tags:
+        - AI Analysis
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: shipment_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AnalysisRequest'
+      responses:
+        '200':
+          description: Analysis completed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShipmentAnalysisResponse'
+        '404':
+          description: Shipment not found
+        '429':
+          description: AI quota exceeded
+        '504':
+          description: Analysis timeout
+
+  /ai/analyze/document/{document_id}:
+    post:
+      summary: Analyze single document
+      description: AI analysis of a specific document for validation and extraction
+      operationId: analyzeDocument
+      tags:
+        - AI Analysis
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: document_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                extract_fields:
+                  type: boolean
+                  default: true
+                validate_format:
+                  type: boolean
+                  default: true
+                check_legibility:
+                  type: boolean
+                  default: true
+      responses:
+        '200':
+          description: Document analysis completed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DocumentAnalysisResponse'
+
+  /ai/check/completeness/{shipment_id}:
+    post:
+      summary: Check document completeness
+      description: Verify all required documents are present for the shipment
+      operationId: checkCompleteness
+      tags:
+        - AI Analysis
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: shipment_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CompletenessCheckRequest'
+      responses:
+        '200':
+          description: Completeness check result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CompletenessCheckResponse'
+
+  /ai/check/discrepancies/{shipment_id}:
+    post:
+      summary: Detect data discrepancies
+      description: Compare data across documents to find inconsistencies
+      operationId: checkDiscrepancies
+      tags:
+        - AI Analysis
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: shipment_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Discrepancy check result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DiscrepancyCheckResponse'
+
+  /ai/generate/summary/{shipment_id}:
+    post:
+      summary: Generate shipment summary
+      description: Generate a human-readable summary of the shipment status
+      operationId: generateSummary
+      tags:
+        - AI Analysis
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: shipment_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SummaryRequest'
+      responses:
+        '200':
+          description: Summary generated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SummaryResponse'
+
+  /ai/analyses:
+    get:
+      summary: List past analyses
+      description: Retrieve history of AI analyses
+      operationId: listAnalyses
+      tags:
+        - AI Analysis
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: shipment_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+          description: Filter by shipment
+        - name: analysis_type
+          in: query
+          schema:
+            type: string
+            enum: [full_analysis, completeness, discrepancies, summary]
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+      responses:
+        '200':
+          description: List of analyses
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnalysisListResponse'
+
+  /ai/usage:
+    get:
+      summary: Get AI usage statistics
+      description: View AI token usage and costs
+      operationId: getAIUsage
+      tags:
+        - AI Analysis
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: period
+          in: query
+          schema:
+            type: string
+            enum: [day, week, month]
+            default: month
+      responses:
+        '200':
+          description: Usage statistics
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UsageResponse'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    AnalysisRequest:
+      type: object
+      properties:
+        analysis_types:
+          type: array
+          items:
+            type: string
+            enum:
+              - document_completeness
+              - data_consistency
+              - compliance_check
+              - risk_assessment
+          default: [document_completeness, data_consistency]
+        include_recommendations:
+          type: boolean
+          default: true
+        language:
+          type: string
+          default: en
+          enum: [en, de, fr]
+
+    ShipmentAnalysisResponse:
+      type: object
+      properties:
+        analysis_id:
+          type: string
+        shipment_id:
+          type: string
+          format: uuid
+        shipment_reference:
+          type: string
+        analyzed_at:
+          type: string
+          format: date-time
+        model_used:
+          type: string
+          example: claude-3-haiku
+        analysis_results:
+          type: object
+          properties:
+            document_completeness:
+              $ref: '#/components/schemas/CompletenessResult'
+            data_consistency:
+              $ref: '#/components/schemas/ConsistencyResult'
+            compliance_check:
+              $ref: '#/components/schemas/ComplianceResult'
+            risk_assessment:
+              $ref: '#/components/schemas/RiskResult'
+        human_readable_summary:
+          type: string
+        recommendations:
+          type: array
+          items:
+            type: object
+            properties:
+              priority:
+                type: integer
+              action:
+                type: string
+              deadline:
+                type: string
+        tokens_used:
+          type: object
+          properties:
+            input:
+              type: integer
+            output:
+              type: integer
+
+    CompletenessResult:
+      type: object
+      properties:
+        score:
+          type: integer
+          minimum: 0
+          maximum: 100
+        status:
+          type: string
+          enum: [complete, mostly_complete, incomplete, critical_missing]
+        present_documents:
+          type: array
+          items:
+            type: string
+        missing_documents:
+          type: array
+          items:
+            type: object
+            properties:
+              type:
+                type: string
+              required_for:
+                type: string
+              criticality:
+                type: string
+                enum: [low, medium, high, critical]
+              recommendation:
+                type: string
+        optional_documents_missing:
+          type: array
+          items:
+            type: string
+
+    ConsistencyResult:
+      type: object
+      properties:
+        score:
+          type: integer
+        discrepancies_found:
+          type: integer
+        discrepancies:
+          type: array
+          items:
+            $ref: '#/components/schemas/Discrepancy'
+
+    Discrepancy:
+      type: object
+      properties:
+        id:
+          type: string
+        type:
+          type: string
+          enum:
+            - quantity_mismatch
+            - hs_code_mismatch
+            - date_inconsistency
+            - name_mismatch
+            - address_mismatch
+            - container_mismatch
+        severity:
+          type: string
+          enum: [info, warning, error, critical]
+        description:
+          type: string
+        documents_involved:
+          type: array
+          items:
+            type: string
+        recommendation:
+          type: string
+
+    ComplianceResult:
+      type: object
+      properties:
+        eudr_status:
+          type: string
+          enum: [compliant, incomplete, non_compliant, not_applicable]
+        issues:
+          type: array
+          items:
+            type: object
+            properties:
+              regulation:
+                type: string
+              article:
+                type: string
+              issue:
+                type: string
+              criticality:
+                type: string
+
+    RiskResult:
+      type: object
+      properties:
+        overall_risk:
+          type: string
+          enum: [low, medium, high, critical]
+        risk_factors:
+          type: array
+          items:
+            type: object
+            properties:
+              factor:
+                type: string
+              risk_level:
+                type: string
+              impact:
+                type: string
+
+    DocumentAnalysisResponse:
+      type: object
+      properties:
+        document_id:
+          type: string
+          format: uuid
+        document_type:
+          type: string
+        analysis_result:
+          type: object
+          properties:
+            is_valid:
+              type: boolean
+            confidence:
+              type: number
+            extracted_fields:
+              type: object
+              additionalProperties: true
+            validation_issues:
+              type: array
+              items:
+                type: string
+            legibility_score:
+              type: integer
+        analyzed_at:
+          type: string
+          format: date-time
+
+    CompletenessCheckRequest:
+      type: object
+      properties:
+        destination_country:
+          type: string
+          description: ISO 2-letter country code
+          example: DE
+        product_hs_codes:
+          type: array
+          items:
+            type: string
+          example: ["050400"]
+        incoterms:
+          type: string
+          example: CIF
+
+    CompletenessCheckResponse:
+      type: object
+      properties:
+        shipment_id:
+          type: string
+          format: uuid
+        is_complete:
+          type: boolean
+        completeness_score:
+          type: integer
+        required_documents:
+          type: object
+          properties:
+            total:
+              type: integer
+            present:
+              type: integer
+            missing:
+              type: integer
+            invalid:
+              type: integer
+        missing:
+          type: array
+          items:
+            type: object
+            properties:
+              document_type:
+                type: string
+              reason:
+                type: string
+              regulation:
+                type: string
+        checked_at:
+          type: string
+          format: date-time
+
+    DiscrepancyCheckResponse:
+      type: object
+      properties:
+        shipment_id:
+          type: string
+          format: uuid
+        discrepancies_found:
+          type: boolean
+        total_discrepancies:
+          type: integer
+        discrepancies:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+              type:
+                type: string
+              severity:
+                type: string
+              field:
+                type: string
+              values:
+                type: object
+                additionalProperties: true
+              expected_consistency:
+                type: boolean
+              recommendation:
+                type: string
+        fields_checked:
+          type: array
+          items:
+            type: string
+        checked_at:
+          type: string
+          format: date-time
+
+    SummaryRequest:
+      type: object
+      properties:
+        audience:
+          type: string
+          enum: [buyer, supplier, compliance, internal]
+          default: buyer
+        format:
+          type: string
+          enum: [paragraph, bullet_points]
+          default: paragraph
+        include_sections:
+          type: array
+          items:
+            type: string
+            enum: [status, documents, compliance, timeline, financials]
+          default: [status, documents, compliance, timeline]
+        language:
+          type: string
+          default: en
+
+    SummaryResponse:
+      type: object
+      properties:
+        shipment_id:
+          type: string
+          format: uuid
+        shipment_reference:
+          type: string
+        summary:
+          type: string
+        key_facts:
+          type: object
+          properties:
+            container:
+              type: string
+            product:
+              type: string
+            origin:
+              type: string
+            destination:
+              type: string
+            eta:
+              type: string
+            status:
+              type: string
+            documents_complete:
+              type: string
+            compliance_flags:
+              type: integer
+        generated_at:
+          type: string
+          format: date-time
+        tokens_used:
+          type: integer
+
+    AnalysisListResponse:
+      type: object
+      properties:
+        total:
+          type: integer
+        analyses:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+              shipment_id:
+                type: string
+                format: uuid
+              shipment_reference:
+                type: string
+              analysis_type:
+                type: string
+              model_used:
+                type: string
+              tokens_used:
+                type: integer
+              created_at:
+                type: string
+                format: date-time
+              requested_by:
+                type: string
+
+    UsageResponse:
+      type: object
+      properties:
+        period:
+          type: string
+        period_start:
+          type: string
+          format: date-time
+        period_end:
+          type: string
+          format: date-time
+        usage:
+          type: object
+          properties:
+            total_requests:
+              type: integer
+            total_tokens:
+              type: integer
+            input_tokens:
+              type: integer
+            output_tokens:
+              type: integer
+            estimated_cost_usd:
+              type: number
+        by_endpoint:
+          type: array
+          items:
+            type: object
+            properties:
+              endpoint:
+                type: string
+              requests:
+                type: integer
+              tokens:
+                type: integer
+        by_user:
+          type: array
+          items:
+            type: object
+            properties:
+              user:
+                type: string
+              requests:
+                type: integer
+              tokens:
+                type: integer

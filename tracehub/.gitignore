@@ -2,6 +2,10 @@
 .env
 .env.local
 .env.*.local
+.env.production
+.env.staging
+*.env.production
+*.env.staging
 
 # Database
 *.db
@@ -61,3 +65,13 @@ htmlcov/
 tmp/
 temp/
 *.tmp
+
+# CI/CD and deployment
+docker-compose.blue.yml
+docker-compose.green.yml
+*.pem
+*.key
+!public.key
+
+# Alembic
+alembic/versions/*.pyc

@@ -1,0 +1,242 @@
+name: Deploy to Production
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      skip_backup:
+        description: 'Skip database backup'
+        required: false
+        default: 'false'
+
+env:
+  REGISTRY: ghcr.io
+  BACKEND_IMAGE_NAME: ${{ github.repository }}/tracehub-backend
+  FRONTEND_IMAGE_NAME: ${{ github.repository }}/tracehub-frontend
+
+jobs:
+  deploy:
+    name: Deploy to Production Environment
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: https://tracehub.vibotaj.com
+    concurrency:
+      group: production-deployment
+      cancel-in-progress: false
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup SSH
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.PRODUCTION_SSH_KEY }}
+
+      - name: Add VPS to known hosts
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan -H ${{ secrets.PRODUCTION_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Create deployment directory
+        run: |
+          ssh ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }} "mkdir -p /home/tracehub/production"
+
+      - name: Copy deployment files
+        run: |
+          scp -r ./tracehub/docker-compose.prod.yml \
+            ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }}:/home/tracehub/production/docker-compose.yml
+          scp -r ./tracehub/scripts/* \
+            ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }}:/home/tracehub/production/scripts/
+
+      - name: Create .env file
+        run: |
+          ssh ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }} << 'ENDSSH'
+            cd /home/tracehub/production
+            cat > .env << EOF
+          ENVIRONMENT=production
+          DB_USER=tracehub
+          DB_PASSWORD=${{ secrets.PRODUCTION_DB_PASSWORD }}
+          DB_NAME=tracehub
+          JWT_SECRET=${{ secrets.PRODUCTION_JWT_SECRET }}
+          VIZION_API_KEY=${{ secrets.VIZION_API_KEY }}
+          DEMO_PASSWORD=${{ secrets.DEMO_PASSWORD }}
+          CORS_ORIGINS=https://tracehub.vibotaj.com
+          BACKEND_PORT=8000
+          FRONTEND_PORT=3000
+          DB_PORT=5432
+          DOCKER_BACKEND_IMAGE=${{ env.REGISTRY }}/${{ env.BACKEND_IMAGE_NAME }}:main-${{ github.sha }}
+          DOCKER_FRONTEND_IMAGE=${{ env.REGISTRY }}/${{ env.FRONTEND_IMAGE_NAME }}:main-${{ github.sha }}
+          EOF
+          ENDSSH
+
+      - name: Login to GitHub Container Registry
+        run: |
+          ssh ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }} << 'ENDSSH'
+            echo ${{ secrets.GITHUB_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+          ENDSSH
+
+      - name: Pull latest images
+        run: |
+          ssh ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }} << 'ENDSSH'
+            cd /home/tracehub/production
+            source .env
+            docker pull ${DOCKER_BACKEND_IMAGE}
+            docker pull ${DOCKER_FRONTEND_IMAGE}
+          ENDSSH
+
+      - name: Create database backup
+        if: github.event.inputs.skip_backup != 'true'
+        run: |
+          ssh ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }} << 'ENDSSH'
+            cd /home/tracehub/production
+            mkdir -p backups
+            BACKUP_FILE=backups/backup_$(date +%Y%m%d_%H%M%S).sql
+            if docker ps | grep -q tracehub-db-prod; then
+              docker exec tracehub-db-prod pg_dump -U tracehub tracehub > ${BACKUP_FILE}
+              echo "Backup created: ${BACKUP_FILE}"
+
+              # Keep only last 10 backups
+              ls -t backups/backup_*.sql | tail -n +11 | xargs -r rm
+            else
+              echo "Database not running, skipping backup"
+            fi
+          ENDSSH
+
+      - name: Blue-Green Deployment - Deploy Green
+        run: |
+          ssh ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }} << 'ENDSSH'
+            cd /home/tracehub/production
+
+            # Tag new deployment as "green"
+            export DEPLOYMENT_COLOR=green
+
+            # Create green compose file
+            cat docker-compose.yml | sed 's/tracehub-/tracehub-green-/g' > docker-compose.green.yml
+
+            # Start green deployment
+            docker-compose -f docker-compose.green.yml up -d
+          ENDSSH
+
+      - name: Wait for green deployment to be healthy
+        run: |
+          ssh ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }} << 'ENDSSH'
+            cd /home/tracehub/production
+            echo "Waiting for green deployment to be healthy..."
+            for i in {1..60}; do
+              if docker-compose -f docker-compose.green.yml ps | grep -q healthy; then
+                echo "Green deployment is healthy!"
+                break
+              fi
+              if [ $i -eq 60 ]; then
+                echo "Green deployment failed to become healthy"
+                docker-compose -f docker-compose.green.yml logs
+                exit 1
+              fi
+              echo "Waiting... ($i/60)"
+              sleep 5
+            done
+          ENDSSH
+
+      - name: Run database migrations on green
+        run: |
+          ssh ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }} << 'ENDSSH'
+            cd /home/tracehub/production
+            docker-compose -f docker-compose.green.yml exec -T backend alembic upgrade head
+          ENDSSH
+
+      - name: Run smoke tests on green deployment
+        run: |
+          ssh ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }} << 'ENDSSH'
+            # Get green backend port
+            GREEN_BACKEND_PORT=$(docker port tracehub-green-backend-prod 8000 | cut -d: -f2)
+            GREEN_FRONTEND_PORT=$(docker port tracehub-green-frontend-prod 80 | cut -d: -f2)
+
+            # Test backend health
+            curl -f http://localhost:${GREEN_BACKEND_PORT}/health || exit 1
+
+            # Test API endpoints
+            curl -f http://localhost:${GREEN_BACKEND_PORT}/api/shipments || exit 1
+
+            # Test frontend
+            curl -f http://localhost:${GREEN_FRONTEND_PORT}/ || exit 1
+
+            echo "Green deployment smoke tests passed!"
+          ENDSSH
+
+      - name: Switch traffic to green (Blue-Green cutover)
+        run: |
+          ssh ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }} << 'ENDSSH'
+            cd /home/tracehub/production
+
+            # Stop blue deployment
+            docker-compose down
+
+            # Rename green to production
+            docker-compose -f docker-compose.green.yml down
+            mv docker-compose.green.yml docker-compose.blue.yml
+
+            # Start production with new images
+            docker-compose up -d
+
+            echo "Traffic switched to new deployment!"
+          ENDSSH
+
+      - name: Wait for production to be stable
+        run: |
+          ssh ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }} << 'ENDSSH'
+            cd /home/tracehub/production
+            sleep 30
+
+            # Verify production is healthy
+            if ! docker-compose ps | grep -q healthy; then
+              echo "Production deployment is not healthy! Rolling back..."
+              docker-compose down
+              docker-compose -f docker-compose.blue.yml up -d
+              exit 1
+            fi
+
+            echo "Production is stable!"
+          ENDSSH
+
+      - name: Clean up old blue deployment
+        run: |
+          ssh ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }} << 'ENDSSH'
+            cd /home/tracehub/production
+            rm -f docker-compose.blue.yml
+            docker image prune -f
+          ENDSSH
+
+      - name: Run production health checks
+        run: |
+          # External health check
+          curl -f https://tracehub.vibotaj.com/health || exit 1
+          curl -f https://tracehub.vibotaj.com/api/health || exit 1
+
+          echo "Production health checks passed!"
+
+      - name: Deployment summary
+        run: |
+          echo "## Production Deployment Successful" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Commit**: ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Branch**: main" >> $GITHUB_STEP_SUMMARY
+          echo "- **Environment**: production" >> $GITHUB_STEP_SUMMARY
+          echo "- **URL**: https://tracehub.vibotaj.com" >> $GITHUB_STEP_SUMMARY
+          echo "- **Deployed by**: ${{ github.actor }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Deployment strategy**: Blue-Green" >> $GITHUB_STEP_SUMMARY
+
+      - name: Notify on failure
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: 'Production Deployment Failed - URGENT',
+              body: `Production deployment failed for commit ${context.sha}\n\nWorkflow: ${context.workflow}\nRun: ${context.runNumber}\n\n**Action Required**: Check logs and consider rollback.`,
+              labels: ['deployment', 'production', 'critical', 'bug']
+            })

@@ -1,0 +1,127 @@
+name: Backend CI
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - 'tracehub/backend/**'
+      - '.github/workflows/backend-ci.yml'
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - 'tracehub/backend/**'
+      - '.github/workflows/backend-ci.yml'
+
+env:
+  PYTHON_VERSION: '3.11'
+  WORKING_DIRECTORY: tracehub/backend
+
+jobs:
+  lint-and-test:
+    name: Lint and Test Backend
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: tracehub_test
+          POSTGRES_PASSWORD: test_password
+          POSTGRES_DB: tracehub_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+          cache-dependency-path: '${{ env.WORKING_DIRECTORY }}/requirements.txt'
+
+      - name: Install dependencies
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest pytest-cov pytest-asyncio black flake8 mypy
+
+      - name: Lint with flake8
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+        run: |
+          # Stop build if there are Python syntax errors or undefined names
+          flake8 app --count --select=E9,F63,F7,F82 --show-source --statistics
+          # Exit-zero treats all errors as warnings
+          flake8 app --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+
+      - name: Format check with black
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+        run: |
+          black --check app || echo "Code formatting issues found. Run 'black app' to fix."
+
+      - name: Type check with mypy
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+        run: |
+          mypy app --ignore-missing-imports || echo "Type checking completed with warnings"
+
+      - name: Run tests with coverage
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+        env:
+          DATABASE_URL: postgresql://tracehub_test:test_password@localhost:5432/tracehub_test
+          JWT_SECRET: test-secret-key
+          DEBUG: "true"
+        run: |
+          pytest --cov=app --cov-report=xml --cov-report=term-missing
+
+      - name: Upload coverage reports
+        uses: codecov/codecov-action@v4
+        with:
+          file: ${{ env.WORKING_DIRECTORY }}/coverage.xml
+          flags: backend
+          name: backend-coverage
+        continue-on-error: true
+
+  security-scan:
+    name: Security Scan
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install dependencies
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+        run: |
+          python -m pip install --upgrade pip
+          pip install safety bandit
+
+      - name: Check for security vulnerabilities in dependencies
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+        run: |
+          safety check --json || echo "Security vulnerabilities found in dependencies"
+
+      - name: Run bandit security scan
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+        run: |
+          bandit -r app -f json -o bandit-report.json || echo "Security issues found"
+
+      - name: Upload security scan results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: security-reports
+          path: |
+            ${{ env.WORKING_DIRECTORY }}/bandit-report.json

@@ -1,0 +1,414 @@
+openapi: 3.1.0
+info:
+  title: TraceHub Tracking API
+  version: 0.3.0
+  description: Container tracking subscription and management endpoints
+
+servers:
+  - url: /api
+    description: API base path
+
+tags:
+  - name: Tracking
+    description: Container tracking subscription management
+
+paths:
+  /tracking/subscribe/{shipment_id}:
+    post:
+      summary: Subscribe container for tracking
+      description: Subscribe a shipment's container to receive real-time tracking updates via webhook
+      operationId: subscribeContainer
+      tags:
+        - Tracking
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: shipment_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Shipment UUID
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SubscriptionRequest'
+      responses:
+        '201':
+          description: Subscription created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SubscriptionResponse'
+        '400':
+          description: Invalid request or carrier not supported
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Shipment not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Container already subscribed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConflictResponse'
+
+  /tracking/unsubscribe/{shipment_id}:
+    delete:
+      summary: Unsubscribe container from tracking
+      description: Cancel tracking subscription for a shipment's container
+      operationId: unsubscribeContainer
+      tags:
+        - Tracking
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: shipment_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Shipment UUID
+      responses:
+        '200':
+          description: Unsubscribed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UnsubscribeResponse'
+        '404':
+          description: Subscription not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /tracking/subscriptions:
+    get:
+      summary: List active subscriptions
+      description: List all active tracking subscriptions for the current tenant
+      operationId: listSubscriptions
+      tags:
+        - Tracking
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [active, paused, error, cancelled]
+          description: Filter by subscription status
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 50
+          description: Maximum results to return
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+          description: Number of results to skip
+      responses:
+        '200':
+          description: List of subscriptions
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SubscriptionListResponse'
+
+  /tracking/poll/{shipment_id}:
+    post:
+      summary: Poll for tracking updates
+      description: Manually trigger a tracking data refresh for shipments without webhook support
+      operationId: pollTracking
+      tags:
+        - Tracking
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: shipment_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Shipment UUID
+      responses:
+        '200':
+          description: Polling completed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PollResponse'
+        '404':
+          description: Shipment not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: Rate limit exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /tracking/carriers:
+    get:
+      summary: List supported carriers
+      description: Get list of supported shipping carriers and their capabilities
+      operationId: listCarriers
+      tags:
+        - Tracking
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: List of carriers
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CarrierListResponse'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    SubscriptionRequest:
+      type: object
+      properties:
+        carrier_code:
+          type: string
+          description: SCAC carrier code (auto-detected if not provided)
+          example: MAEU
+        webhook_url_override:
+          type: string
+          format: uri
+          description: Custom webhook URL (optional)
+        notification_preferences:
+          type: object
+          properties:
+            on_departure:
+              type: boolean
+              default: true
+            on_arrival:
+              type: boolean
+              default: true
+            on_delay:
+              type: boolean
+              default: true
+            eta_threshold_hours:
+              type: integer
+              default: 24
+              description: Notify when ETA changes by more than this many hours
+
+    SubscriptionResponse:
+      type: object
+      required:
+        - subscription_id
+        - shipment_id
+        - container_number
+        - status
+        - subscribed_at
+      properties:
+        subscription_id:
+          type: string
+          description: Internal subscription ID
+          example: sub_abc123
+        shipment_id:
+          type: string
+          format: uuid
+        container_number:
+          type: string
+          example: MRSU3452572
+        status:
+          type: string
+          enum: [active, pending, error]
+        carrier:
+          type: object
+          properties:
+            code:
+              type: string
+              example: MAEU
+            name:
+              type: string
+              example: Maersk
+        subscribed_at:
+          type: string
+          format: date-time
+        webhook_configured:
+          type: boolean
+
+    ConflictResponse:
+      type: object
+      properties:
+        error:
+          type: string
+          example: already_subscribed
+        message:
+          type: string
+          example: Container is already subscribed for tracking
+        existing_subscription_id:
+          type: string
+
+    UnsubscribeResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          example: Unsubscribed successfully
+        subscription_id:
+          type: string
+        container_number:
+          type: string
+        unsubscribed_at:
+          type: string
+          format: date-time
+        final_status:
+          type: string
+
+    SubscriptionListResponse:
+      type: object
+      properties:
+        total:
+          type: integer
+        active:
+          type: integer
+        paused:
+          type: integer
+        subscriptions:
+          type: array
+          items:
+            type: object
+            properties:
+              subscription_id:
+                type: string
+              shipment_id:
+                type: string
+                format: uuid
+              shipment_reference:
+                type: string
+              container_number:
+                type: string
+              carrier:
+                type: string
+              status:
+                type: string
+                enum: [active, paused, error, cancelled]
+              last_event:
+                type: object
+                properties:
+                  type:
+                    type: string
+                  timestamp:
+                    type: string
+                    format: date-time
+                  location:
+                    type: string
+              eta:
+                type: string
+                format: date-time
+
+    PollResponse:
+      type: object
+      properties:
+        shipment_id:
+          type: string
+          format: uuid
+        container_number:
+          type: string
+        polling_result:
+          type: string
+          enum: [updated, no_changes, error]
+        events_added:
+          type: integer
+        new_events:
+          type: array
+          items:
+            type: object
+            properties:
+              type:
+                type: string
+              timestamp:
+                type: string
+                format: date-time
+              location:
+                type: string
+        current_status:
+          type: string
+        eta:
+          type: string
+          format: date-time
+
+    CarrierListResponse:
+      type: object
+      properties:
+        carriers:
+          type: array
+          items:
+            type: object
+            properties:
+              code:
+                type: string
+                example: MAEU
+              name:
+                type: string
+                example: Maersk
+              container_prefixes:
+                type: array
+                items:
+                  type: string
+                example: [MRSU, MSKU, MAEU]
+              tracking_supported:
+                type: boolean
+              webhook_supported:
+                type: boolean
+              bol_lookup:
+                type: boolean
+
+    ErrorResponse:
+      type: object
+      properties:
+        detail:
+          type: object
+          properties:
+            error_code:
+              type: string
+            message:
+              type: string
+            errors:
+              type: array
+              items:
+                type: object
+                properties:
+                  field:
+                    type: string
+                  message:
+                    type: string
+                  value:
+                    type: string
+            request_id:
+              type: string
+            timestamp:
+              type: string
+              format: date-time

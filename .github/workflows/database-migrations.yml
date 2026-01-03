@@ -1,0 +1,139 @@
+name: Database Migrations CI
+
+on:
+  pull_request:
+    paths:
+      - 'tracehub/backend/alembic/**'
+      - 'tracehub/backend/app/models/**'
+  push:
+    branches: [main, develop]
+    paths:
+      - 'tracehub/backend/alembic/**'
+      - 'tracehub/backend/app/models/**'
+
+env:
+  PYTHON_VERSION: '3.11'
+  WORKING_DIRECTORY: tracehub/backend
+
+jobs:
+  validate-migrations:
+    name: Validate Database Migrations
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: tracehub_test
+          POSTGRES_PASSWORD: test_password
+          POSTGRES_DB: tracehub_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+          cache-dependency-path: '${{ env.WORKING_DIRECTORY }}/requirements.txt'
+
+      - name: Install dependencies
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Check if migrations are up to date with models
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+        env:
+          DATABASE_URL: postgresql://tracehub_test:test_password@localhost:5432/tracehub_test
+        run: |
+          # Run existing migrations
+          alembic upgrade head
+
+          # Check if any model changes need new migrations
+          alembic check || echo "::warning::Model changes detected that may need a new migration"
+
+      - name: Test migrations are reversible
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+        env:
+          DATABASE_URL: postgresql://tracehub_test:test_password@localhost:5432/tracehub_test
+        run: |
+          # Get current revision
+          CURRENT_REV=$(alembic current | head -n1 | awk '{print $1}')
+          echo "Current revision: $CURRENT_REV"
+
+          # Try to downgrade one step
+          alembic downgrade -1 || echo "::warning::Migration downgrade failed"
+
+          # Upgrade back to head
+          alembic upgrade head
+
+      - name: Test migrations from scratch
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+        env:
+          DATABASE_URL: postgresql://tracehub_test:test_password@localhost:5432/tracehub_test_fresh
+        run: |
+          # Create fresh database
+          PGPASSWORD=test_password psql -h localhost -U tracehub_test -d postgres -c "DROP DATABASE IF EXISTS tracehub_test_fresh;"
+          PGPASSWORD=test_password psql -h localhost -U tracehub_test -d postgres -c "CREATE DATABASE tracehub_test_fresh;"
+
+          # Run all migrations on fresh database
+          alembic upgrade head
+
+          echo "All migrations applied successfully to fresh database"
+
+  migration-summary:
+    name: Generate Migration Summary
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install dependencies
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: List new migrations
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+        run: |
+          echo "## Database Migration Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          # List migration files changed in this PR
+          CHANGED_MIGRATIONS=$(git diff --name-only origin/${{ github.base_ref }}...HEAD | grep "alembic/versions/" || echo "")
+
+          if [ -z "$CHANGED_MIGRATIONS" ]; then
+            echo "No new migrations in this PR" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "### New/Modified Migrations:" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            for migration in $CHANGED_MIGRATIONS; do
+              echo "- \`$migration\`" >> $GITHUB_STEP_SUMMARY
+            done
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "**Please ensure:**" >> $GITHUB_STEP_SUMMARY
+            echo "- Migrations are tested locally" >> $GITHUB_STEP_SUMMARY
+            echo "- Migrations are reversible (have downgrade)" >> $GITHUB_STEP_SUMMARY
+            echo "- Database backup will be taken before deployment" >> $GITHUB_STEP_SUMMARY
+          fi
