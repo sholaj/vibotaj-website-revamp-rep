@@ -17,11 +17,75 @@ export interface LoginResponse {
   token_type: string
 }
 
+// User roles aligned with backend UserRole enum
+export type UserRole = 'admin' | 'compliance' | 'buyer' | 'supplier' | 'viewer'
+
 export interface User {
   username: string
   email: string
   full_name: string
-  role?: 'admin' | 'user' | 'buyer' | 'supplier'
+  role?: UserRole
+}
+
+// Current user with full details and permissions
+export interface CurrentUser {
+  id: string
+  email: string
+  full_name: string
+  role: UserRole
+  is_active: boolean
+  permissions: string[]
+}
+
+// User management types
+export interface UserCreate {
+  email: string
+  full_name: string
+  password: string
+  role: UserRole
+}
+
+export interface UserUpdate {
+  email?: string
+  full_name?: string
+  role?: UserRole
+  is_active?: boolean
+}
+
+export interface UserResponse {
+  id: string
+  email: string
+  full_name: string
+  role: UserRole
+  is_active: boolean
+  created_at: string
+  updated_at?: string
+  last_login?: string
+}
+
+export interface UserListResponse {
+  items: UserResponse[]
+  total: number
+  page: number
+  limit: number
+  pages: number
+}
+
+export interface RoleInfo {
+  value: UserRole
+  name: string
+  description: string
+  can_assign: boolean
+}
+
+export interface RolesResponse {
+  roles: RoleInfo[]
+}
+
+export interface PermissionsResponse {
+  user_id: string
+  role: UserRole
+  permissions: string[]
 }
 
 // ============================================
@@ -427,4 +491,381 @@ export interface WorkflowSummaryResponse {
   workflow_summary: WorkflowSummary
   expiring_soon: number
   expiring_documents: ExpiringDocument[]
+}
+
+// ============================================
+// Notification Types
+// ============================================
+
+export type NotificationType =
+  | 'document_uploaded'
+  | 'document_validated'
+  | 'document_rejected'
+  | 'eta_changed'
+  | 'shipment_arrived'
+  | 'shipment_departed'
+  | 'shipment_delivered'
+  | 'compliance_alert'
+  | 'expiry_warning'
+  | 'system_alert'
+
+export interface Notification {
+  id: string
+  user_id: string
+  type: NotificationType
+  title: string
+  message: string
+  data: Record<string, unknown>
+  read: boolean
+  read_at: string | null
+  created_at: string
+}
+
+export interface NotificationListResponse {
+  notifications: Notification[]
+  total: number
+  unread_count: number
+}
+
+export interface UnreadCountResponse {
+  unread_count: number
+}
+
+export interface NotificationTypeInfo {
+  name: string
+  description: string
+  icon: string
+  color: string
+}
+
+// ============================================
+// Analytics Types
+// ============================================
+
+export interface DashboardStats {
+  shipments: {
+    total: number
+    in_transit: number
+    delivered_this_month: number
+    with_delays: number
+  }
+  documents: {
+    total: number
+    pending_validation: number
+    completion_rate: number
+    expiring_soon: number
+  }
+  compliance: {
+    rate: number
+    eudr_coverage: number
+    needing_attention: number
+  }
+  tracking: {
+    events_today: number
+    delays_detected: number
+    containers_tracked: number
+  }
+  generated_at: string
+}
+
+export interface ShipmentStats {
+  total: number
+  by_status: Record<ShipmentStatus, number>
+  avg_transit_days: number | null
+  recent_shipments: number
+  in_transit_count: number
+  completed_this_month: number
+  delayed_count: number
+}
+
+export interface DocumentStats {
+  total: number
+  by_status: Record<DocumentStatus, number>
+  by_type: Record<DocumentType, number>
+  completion_rate: number
+  pending_validation: number
+  expiring_soon: number
+  recently_uploaded: number
+}
+
+export interface ComplianceMetrics {
+  compliant_rate: number
+  eudr_coverage: number
+  shipments_needing_attention: number
+  failed_documents: number
+  issues_summary: {
+    missing_documents: number
+    failed_validation: number
+    expiring_certificates: number
+  }
+}
+
+export interface TrackingStats {
+  total_events: number
+  events_by_type: Record<EventType, number>
+  delays_detected: number
+  avg_delay_hours: number
+  recent_events_24h: number
+  api_calls_today: number
+  containers_tracked: number
+}
+
+export interface ShipmentTrendData {
+  date: string
+  count: number
+}
+
+export interface ShipmentTrendsResponse {
+  period_days: number
+  group_by: string
+  data: ShipmentTrendData[]
+}
+
+export interface DocumentDistribution {
+  status: DocumentStatus
+  count: number
+}
+
+export interface DocumentDistributionResponse {
+  data: DocumentDistribution[]
+}
+
+export interface ActivityItem {
+  id: string
+  action: string
+  username: string
+  resource_type: string | null
+  resource_id: string | null
+  timestamp: string
+  details: Record<string, unknown>
+}
+
+export interface RecentActivityResponse {
+  activities: ActivityItem[]
+}
+
+// ============================================
+// Health Check Types
+// ============================================
+
+export interface HealthStatus {
+  status: 'healthy' | 'degraded' | 'unhealthy'
+  timestamp: string
+  version: string
+  components: {
+    api: {
+      status: string
+      uptime_seconds: number | null
+    }
+    database: {
+      status: string
+      latency_ms: number | null
+    }
+    tracking: {
+      last_sync: string | null
+    }
+  }
+}
+
+// ============================================
+// EUDR Compliance Types
+// ============================================
+
+export type RiskLevel = 'low' | 'medium' | 'high' | 'unknown'
+
+export type EUDRValidationStatus = 'compliant' | 'non_compliant' | 'pending' | 'incomplete'
+
+export type VerificationMethod =
+  | 'document_review'
+  | 'supplier_attestation'
+  | 'on_site_inspection'
+  | 'satellite_verification'
+  | 'third_party_audit'
+  | 'self_declaration'
+
+export interface EUDRChecklistItem {
+  item: string
+  passed: boolean
+  details: string
+}
+
+export interface EUDRValidationCheck {
+  name: string
+  passed: boolean
+  message: string
+  severity: 'error' | 'warning' | 'info'
+}
+
+export interface EUDROriginValidation {
+  origin_id: string
+  farm_plot_id: string
+  country: string
+  validation: {
+    is_valid: boolean
+    status: EUDRValidationStatus
+    risk_level: RiskLevel
+    risk_score: number
+    checks: EUDRValidationCheck[]
+    missing_fields: string[]
+    warnings: string[]
+    errors: string[]
+    total_checks: number
+    passed_checks: number
+  }
+  risk: EUDRRiskAssessment
+}
+
+export interface EUDRRiskAssessment {
+  risk_level: RiskLevel
+  country_risk: RiskLevel
+  coordinates: {
+    lat: number | null
+    lng: number | null
+  }
+  satellite_check: {
+    available: boolean
+    provider: string | null
+    last_checked: string | null
+    forest_loss_detected: boolean | null
+    message: string
+  }
+  recommendations: string[]
+  eudr_article: string
+  assessed_at: string
+}
+
+export interface EUDRComplianceSummary {
+  total_origins: number
+  compliant_origins: number
+  has_eudr_document: boolean
+  passed_checks: number
+  total_checks: number
+}
+
+export interface EUDRStatusResponse {
+  shipment_id: string
+  shipment_reference: string
+  overall_status: EUDRValidationStatus
+  overall_risk_level: RiskLevel
+  is_compliant: boolean
+  checklist: EUDRChecklistItem[]
+  summary: EUDRComplianceSummary
+  origin_validations: EUDROriginValidation[]
+  cutoff_date: string
+  assessed_at: string
+}
+
+export interface EUDRActionItem {
+  action: string
+  details: string
+  priority: 'high' | 'medium' | 'low'
+}
+
+export interface EUDRValidationResponse {
+  shipment_id: string
+  validation_result: EUDRStatusResponse
+  action_items: EUDRActionItem[]
+  validated_at: string
+  validated_by: string
+}
+
+export interface EUDROriginVerificationRequest {
+  farm_plot_identifier?: string
+  geolocation_lat?: number
+  geolocation_lng?: number
+  country?: string
+  region?: string
+  district?: string
+  production_start_date?: string
+  production_end_date?: string
+  supplier_attestation_date?: string
+  supplier_attestation_reference?: string
+  deforestation_free_statement?: string
+  verification_method?: VerificationMethod
+}
+
+export interface EUDROriginValidationResponse {
+  origin_id: string
+  is_valid: boolean
+  status: EUDRValidationStatus
+  risk_level: RiskLevel
+  risk_score: number
+  checks: EUDRValidationCheck[]
+  missing_fields: string[]
+  warnings: string[]
+  errors: string[]
+}
+
+export interface EUDRGeolocationCheckRequest {
+  lat: number
+  lng: number
+  country: string
+}
+
+export interface EUDRGeolocationCheckResponse {
+  coordinates: {
+    lat: number
+    lng: number
+  }
+  country: string
+  validation: {
+    is_valid: boolean
+    status: EUDRValidationStatus
+    risk_level: RiskLevel
+    risk_score: number
+    checks: EUDRValidationCheck[]
+    missing_fields: string[]
+    warnings: string[]
+    errors: string[]
+  }
+  risk_assessment: EUDRRiskAssessment
+}
+
+export interface EUDRProductionDateCheckRequest {
+  production_date: string
+}
+
+export interface EUDRProductionDateCheckResponse {
+  production_date: string
+  cutoff_date: string
+  is_valid: boolean
+  message: string
+  days_after_cutoff: number | null
+}
+
+export interface EUDRCountryRiskLevels {
+  risk_levels: Record<string, RiskLevel>
+  risk_categories: {
+    low: string[]
+    medium: string[]
+    high: string[]
+  }
+  source: string
+  last_updated: string
+}
+
+export interface EUDRRegulationInfo {
+  regulation: {
+    name: string
+    official_name: string
+    short_name: string
+    entry_into_force: string
+    applicable_from_large_operators: string
+    applicable_from_sme: string
+  }
+  key_dates: {
+    cutoff_date: string
+    cutoff_description: string
+  }
+  covered_commodities: Array<{
+    name: string
+    hs_codes: string[]
+  }>
+  requirements: {
+    geolocation: string
+    production_date: string
+    due_diligence: string
+    traceability: string
+  }
+  compliance_checklist: string[]
 }

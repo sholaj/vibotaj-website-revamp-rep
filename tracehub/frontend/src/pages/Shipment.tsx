@@ -39,6 +39,7 @@ import TrackingTimeline from '../components/TrackingTimeline'
 import ComplianceStatusComponent from '../components/ComplianceStatus'
 import DocumentUploadModal from '../components/DocumentUploadModal'
 import DocumentReviewPanel from '../components/DocumentReviewPanel'
+import EUDRStatusCard from '../components/EUDRStatusCard'
 import { format, formatDistanceToNow } from 'date-fns'
 
 // Status badge configuration
@@ -425,9 +426,17 @@ export default function Shipment() {
 
         {/* Right Column - Compliance & Live Status */}
         <div className="space-y-6">
-          {/* Compliance Card */}
+          {/* EUDR Compliance Card */}
+          {id && (
+            <EUDRStatusCard
+              shipmentId={id}
+              onValidationComplete={fetchData}
+            />
+          )}
+
+          {/* Document Compliance Card */}
           <div className="card p-6">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">Compliance Status</h2>
+            <h2 className="text-lg font-semibold text-gray-900 mb-4">Document Status</h2>
             {compliance && <ComplianceStatusComponent compliance={compliance} />}
           </div>
 

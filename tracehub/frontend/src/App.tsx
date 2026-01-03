@@ -2,18 +2,20 @@
  * TraceHub Application Root Component
  *
  * Implements:
- * - Protected route handling
+ * - Protected route handling with role-based access
  * - Token validation on app load
  * - Proper authentication state management
+ * - Permission-based UI rendering
  */
 
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom'
-import { useState, useEffect, useCallback } from 'react'
 import Login from './pages/Login'
 import Shipment from './pages/Shipment'
 import Dashboard from './pages/Dashboard'
+import Analytics from './pages/Analytics'
+import Users from './pages/Users'
 import Layout from './components/Layout'
-import api from './api/client'
+import { AuthProvider, useAuth } from './contexts/AuthContext'
 
 // Loading spinner component for consistent UI
 function LoadingSpinner() {
@@ -50,9 +52,14 @@ function AuthError({ message, onRetry }: { message: string; onRetry: () => void 
   )
 }
 
-// Protected route wrapper
-function ProtectedRoute({ children, isAuthenticated }: { children: React.ReactNode; isAuthenticated: boolean }) {
+// Protected route wrapper that uses AuthContext
+function ProtectedRoute({ children }: { children: React.ReactNode }) {
+  const { isAuthenticated, isLoading } = useAuth()
   const location = useLocation()
+
+  if (isLoading) {
+    return <LoadingSpinner />
+  }
 
   if (!isAuthenticated) {
     // Redirect to login, preserving the intended destination
@@ -62,65 +69,24 @@ function ProtectedRoute({ children, isAuthenticated }: { children: React.ReactNo
   return <>{children}</>
 }
 
-function App() {
-  const [isAuthenticated, setIsAuthenticated] = useState(false)
-  const [isLoading, setIsLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-
-  // Verify token on app load
-  const verifyAuthentication = useCallback(async () => {
-    setIsLoading(true)
-    setError(null)
-
-    try {
-      // Check if we have a stored token that hasn't expired
-      if (api.isAuthenticated()) {
-        // Verify token is still valid with backend
-        const isValid = await api.verifyToken()
-        setIsAuthenticated(isValid)
-
-        if (!isValid) {
-          // Token was invalid, clear it
-          api.logout()
-        }
-      } else {
-        setIsAuthenticated(false)
-      }
-    } catch (err) {
-      console.error('Authentication verification failed:', err)
-      setIsAuthenticated(false)
-      // Only show error if we thought we were authenticated
-      if (api.isAuthenticated()) {
-        setError('Session expired. Please log in again.')
-        api.logout()
-      }
-    } finally {
-      setIsLoading(false)
-    }
-  }, [])
-
-  useEffect(() => {
-    verifyAuthentication()
-  }, [verifyAuthentication])
+// Inner app component that uses auth context
+function AppRoutes() {
+  const { isAuthenticated, isLoading, error, login, logout, refreshUser } = useAuth()
 
   // Handle successful login
-  const handleLogin = useCallback((_token: string) => {
-    // Token is already stored by api.login(), just update state
-    setIsAuthenticated(true)
-    setError(null)
-  }, [])
+  const handleLogin = async (token: string) => {
+    await login(token)
+  }
 
   // Handle logout
-  const handleLogout = useCallback(() => {
-    api.logout()
-    setIsAuthenticated(false)
-  }, [])
+  const handleLogout = () => {
+    logout()
+  }
 
   // Handle retry after error
-  const handleRetry = useCallback(() => {
-    setError(null)
-    verifyAuthentication()
-  }, [verifyAuthentication])
+  const handleRetry = () => {
+    refreshUser()
+  }
 
   // Show loading state while checking authentication
   if (isLoading) {
@@ -150,7 +116,7 @@ function App() {
       <Route
         path="/"
         element={
-          <ProtectedRoute isAuthenticated={isAuthenticated}>
+          <ProtectedRoute>
             <Layout onLogout={handleLogout} />
           </ProtectedRoute>
         }
@@ -160,6 +126,12 @@ function App() {
 
         {/* Dashboard - shipment list */}
         <Route path="dashboard" element={<Dashboard />} />
+
+        {/* Analytics dashboard */}
+        <Route path="analytics" element={<Analytics />} />
+
+        {/* User management (admin only) */}
+        <Route path="users" element={<Users />} />
 
         {/* Shipment detail page */}
         <Route path="shipment/:id" element={<Shipment />} />
@@ -177,6 +149,15 @@ function App() {
         }
       />
     </Routes>
+  )
+}
+
+// Main App component wrapped in AuthProvider
+function App() {
+  return (
+    <AuthProvider>
+      <AppRoutes />
+    </AuthProvider>
   )
 }
 

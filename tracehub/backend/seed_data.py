@@ -19,8 +19,13 @@ from app.models import (
     Product,
     Origin,
     Document, DocumentType, DocumentStatus,
-    ContainerEvent, EventType
+    ContainerEvent, EventType,
+    User, UserRole
 )
+from passlib.context import CryptContext
+
+# Password hashing
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 
 def create_tables():
@@ -429,16 +434,87 @@ def seed_sample_data(db: Session):
     print(f"  - Events: {len(events_shipment_2)} tracking events")
 
 
+def seed_users(db: Session):
+    """Seed database with test users."""
+    print("\nSeeding test users...")
+
+    # Check if users already exist
+    existing_user = db.query(User).first()
+    if existing_user:
+        print("Users already exist. Skipping user seed.")
+        return
+
+    # Create test users for each role
+    users = [
+        {
+            "email": "admin@tracehub.io",
+            "full_name": "System Administrator",
+            "password": "Admin123!",
+            "role": UserRole.ADMIN,
+        },
+        {
+            "email": "compliance@tracehub.io",
+            "full_name": "Compliance Officer",
+            "password": "Compliance123!",
+            "role": UserRole.COMPLIANCE,
+        },
+        {
+            "email": "buyer@witatrade.de",
+            "full_name": "Hans Mueller",
+            "password": "Buyer123!",
+            "role": UserRole.BUYER,
+        },
+        {
+            "email": "supplier@temira.ng",
+            "full_name": "Chioma Nwosu",
+            "password": "Supplier123!",
+            "role": UserRole.SUPPLIER,
+        },
+        {
+            "email": "viewer@tracehub.io",
+            "full_name": "View Only User",
+            "password": "Viewer123!",
+            "role": UserRole.VIEWER,
+        },
+    ]
+
+    for user_data in users:
+        user = User(
+            email=user_data["email"],
+            full_name=user_data["full_name"],
+            hashed_password=pwd_context.hash(user_data["password"]),
+            role=user_data["role"],
+            is_active=True
+        )
+        db.add(user)
+
+    db.commit()
+
+    print(f"\n{'='*60}")
+    print("Test users created successfully!")
+    print(f"{'='*60}")
+    print("\nTest User Credentials:")
+    print("-" * 40)
+    for user_data in users:
+        print(f"  {user_data['role'].value.upper()}:")
+        print(f"    Email: {user_data['email']}")
+        print(f"    Password: {user_data['password']}")
+        print()
+
+
 def main():
     """Main entry point."""
     create_tables()
 
     db = SessionLocal()
     try:
-        # Check if data already exists
+        # Seed users first
+        seed_users(db)
+
+        # Check if shipment data already exists
         existing = db.query(Shipment).first()
         if existing:
-            print(f"Data already exists (shipment {existing.reference}). Skipping seed.")
+            print(f"\nShipment data already exists (shipment {existing.reference}). Skipping shipment seed.")
             print("To reseed, drop the database tables first.")
             return
 

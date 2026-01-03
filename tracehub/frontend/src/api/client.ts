@@ -24,6 +24,13 @@ import type {
   LiveTracking,
   ComplianceStatus,
   User,
+  CurrentUser,
+  UserCreate,
+  UserUpdate,
+  UserResponse,
+  UserListResponse,
+  RolesResponse,
+  PermissionsResponse,
   ContainerStatusResponse,
   ShipmentEventsResponse,
   ShipmentDocumentsResponse,
@@ -37,6 +44,30 @@ import type {
   ExpiringDocumentsResponse,
   DocumentRequirementsResponse,
   WorkflowSummaryResponse,
+  NotificationListResponse,
+  UnreadCountResponse,
+  Notification,
+  DashboardStats,
+  ShipmentStats,
+  ShipmentTrendsResponse,
+  DocumentStats,
+  DocumentDistributionResponse,
+  ComplianceMetrics,
+  TrackingStats,
+  RecentActivityResponse,
+  HealthStatus,
+  EUDRStatusResponse,
+  EUDRValidationResponse,
+  EUDROriginVerificationRequest,
+  EUDROriginValidationResponse,
+  EUDRRiskAssessment,
+  EUDRGeolocationCheckRequest,
+  EUDRGeolocationCheckResponse,
+  EUDRProductionDateCheckRequest,
+  EUDRProductionDateCheckResponse,
+  EUDRCountryRiskLevels,
+  EUDRRegulationInfo,
+  UserRole,
 } from '../types'
 
 // ============================================
@@ -340,6 +371,14 @@ class ApiClient {
     return this.cachedGet<User>('/auth/me', 5 * 60 * 1000) // 5 minute cache
   }
 
+  async getCurrentUserFull(): Promise<CurrentUser> {
+    return this.cachedGet<CurrentUser>('/auth/me/full', 5 * 60 * 1000) // 5 minute cache
+  }
+
+  async getMyPermissions(): Promise<PermissionsResponse> {
+    return this.cachedGet<PermissionsResponse>('/auth/permissions', 5 * 60 * 1000)
+  }
+
   async verifyToken(): Promise<boolean> {
     try {
       await this.getCurrentUser()
@@ -631,6 +670,294 @@ class ApiClient {
     } catch {
       return null
     }
+  }
+
+  // ============================================
+  // Notification Methods
+  // ============================================
+
+  async getNotifications(
+    unreadOnly: boolean = false,
+    limit: number = 50,
+    offset: number = 0
+  ): Promise<NotificationListResponse> {
+    const params = new URLSearchParams({
+      unread_only: unreadOnly.toString(),
+      limit: limit.toString(),
+      offset: offset.toString(),
+    })
+    return this.executeWithRetry<NotificationListResponse>({
+      method: 'GET',
+      url: `/notifications?${params.toString()}`,
+    })
+  }
+
+  async getUnreadNotificationCount(): Promise<number> {
+    const response = await this.executeWithRetry<UnreadCountResponse>({
+      method: 'GET',
+      url: '/notifications/unread-count',
+    })
+    return response.unread_count
+  }
+
+  async markNotificationRead(notificationId: string): Promise<void> {
+    await this.client.patch(`/notifications/${notificationId}/read`)
+  }
+
+  async markAllNotificationsRead(): Promise<{ marked_count: number }> {
+    const response = await this.client.post('/notifications/read-all')
+    return response.data
+  }
+
+  async deleteNotification(notificationId: string): Promise<void> {
+    await this.client.delete(`/notifications/${notificationId}`)
+  }
+
+  // ============================================
+  // Analytics Methods
+  // ============================================
+
+  async getDashboardStats(): Promise<DashboardStats> {
+    return this.cachedGet<DashboardStats>('/analytics/dashboard', 60000) // 1 minute cache
+  }
+
+  async getShipmentStats(): Promise<ShipmentStats> {
+    return this.cachedGet<ShipmentStats>('/analytics/shipments', 60000)
+  }
+
+  async getShipmentTrends(days: number = 30, groupBy: string = 'day'): Promise<ShipmentTrendsResponse> {
+    return this.cachedGet<ShipmentTrendsResponse>(
+      `/analytics/shipments/trends?days=${days}&group_by=${groupBy}`,
+      60000
+    )
+  }
+
+  async getDocumentStats(): Promise<DocumentStats> {
+    return this.cachedGet<DocumentStats>('/analytics/documents', 60000)
+  }
+
+  async getDocumentDistribution(): Promise<DocumentDistributionResponse> {
+    return this.cachedGet<DocumentDistributionResponse>('/analytics/documents/distribution', 60000)
+  }
+
+  async getComplianceMetrics(): Promise<ComplianceMetrics> {
+    return this.cachedGet<ComplianceMetrics>('/analytics/compliance', 60000)
+  }
+
+  async getTrackingStats(): Promise<TrackingStats> {
+    return this.cachedGet<TrackingStats>('/analytics/tracking', 60000)
+  }
+
+  async getRecentActivity(limit: number = 20): Promise<RecentActivityResponse> {
+    return this.cachedGet<RecentActivityResponse>(
+      `/audit-log/recent?limit=${limit}`,
+      30000 // 30 second cache for activity
+    )
+  }
+
+  async getHealthStatus(): Promise<HealthStatus> {
+    // Health check doesn't require auth, so use a direct call
+    const response = await this.client.get<HealthStatus>('/health')
+    return response.data
+  }
+
+  // ============================================
+  // EUDR Compliance Methods
+  // ============================================
+
+  /**
+   * Get EUDR compliance status for a shipment
+   */
+  async getEUDRStatus(shipmentId: string): Promise<EUDRStatusResponse> {
+    return this.cachedGet<EUDRStatusResponse>(
+      `/eudr/shipment/${shipmentId}/status`,
+      30000 // 30 second cache
+    )
+  }
+
+  /**
+   * Run full EUDR validation on a shipment
+   */
+  async validateEUDR(shipmentId: string): Promise<EUDRValidationResponse> {
+    const response = await this.client.post<EUDRValidationResponse>(
+      `/eudr/shipment/${shipmentId}/validate`
+    )
+
+    // Invalidate status cache after validation
+    this.cache.invalidate(`/eudr/shipment/${shipmentId}`)
+
+    return response.data
+  }
+
+  /**
+   * Generate EUDR compliance report
+   */
+  async getEUDRReport(shipmentId: string, format: 'json' | 'pdf' = 'json'): Promise<unknown> {
+    if (format === 'pdf') {
+      const response = await this.client.get(`/eudr/shipment/${shipmentId}/report?format=pdf`, {
+        responseType: 'blob',
+      })
+      return response.data
+    }
+
+    return this.executeWithRetry<unknown>({
+      method: 'GET',
+      url: `/eudr/shipment/${shipmentId}/report?format=json`,
+    })
+  }
+
+  /**
+   * Download EUDR report as PDF
+   */
+  async downloadEUDRReport(shipmentId: string): Promise<Blob> {
+    const response = await this.client.get(`/eudr/shipment/${shipmentId}/report?format=pdf`, {
+      responseType: 'blob',
+    })
+    return response.data
+  }
+
+  /**
+   * Verify origin data for EUDR compliance
+   */
+  async verifyOrigin(
+    originId: string,
+    verification?: EUDROriginVerificationRequest
+  ): Promise<EUDROriginValidationResponse> {
+    const response = await this.client.post<EUDROriginValidationResponse>(
+      `/eudr/origin/${originId}/verify`,
+      verification
+    )
+
+    // Invalidate related caches
+    this.cache.invalidate('/eudr/')
+
+    return response.data
+  }
+
+  /**
+   * Get deforestation risk assessment for an origin
+   */
+  async getOriginRisk(originId: string): Promise<EUDRRiskAssessment> {
+    return this.cachedGet<EUDRRiskAssessment>(`/eudr/origin/${originId}/risk`, 60000)
+  }
+
+  /**
+   * Check if geolocation coordinates are valid and within country
+   */
+  async checkGeolocation(request: EUDRGeolocationCheckRequest): Promise<EUDRGeolocationCheckResponse> {
+    const response = await this.client.post<EUDRGeolocationCheckResponse>(
+      '/eudr/check/geolocation',
+      request
+    )
+    return response.data
+  }
+
+  /**
+   * Check if production date meets EUDR requirements
+   */
+  async checkProductionDate(request: EUDRProductionDateCheckRequest): Promise<EUDRProductionDateCheckResponse> {
+    const response = await this.client.post<EUDRProductionDateCheckResponse>(
+      '/eudr/check/production-date',
+      request
+    )
+    return response.data
+  }
+
+  /**
+   * Get country risk levels for EUDR
+   */
+  async getCountryRiskLevels(): Promise<EUDRCountryRiskLevels> {
+    return this.cachedGet<EUDRCountryRiskLevels>('/eudr/countries/risk-levels', 5 * 60 * 1000) // 5 min cache
+  }
+
+  /**
+   * Get EUDR regulation information
+   */
+  async getEUDRRegulationInfo(): Promise<EUDRRegulationInfo> {
+    return this.cachedGet<EUDRRegulationInfo>('/eudr/regulation/info', 60 * 60 * 1000) // 1 hour cache
+  }
+
+  // ============================================
+  // User Management Methods
+  // ============================================
+
+  /**
+   * Get list of users (admin only)
+   */
+  async getUsers(params?: {
+    page?: number
+    limit?: number
+    role?: UserRole
+    is_active?: boolean
+    search?: string
+  }): Promise<UserListResponse> {
+    const queryParams = new URLSearchParams()
+    if (params?.page) queryParams.append('page', params.page.toString())
+    if (params?.limit) queryParams.append('limit', params.limit.toString())
+    if (params?.role) queryParams.append('role', params.role)
+    if (params?.is_active !== undefined) queryParams.append('is_active', params.is_active.toString())
+    if (params?.search) queryParams.append('search', params.search)
+
+    const url = `/users?${queryParams.toString()}`
+    return this.executeWithRetry<UserListResponse>({ method: 'GET', url })
+  }
+
+  /**
+   * Get a single user by ID
+   */
+  async getUser(userId: string): Promise<UserResponse> {
+    return this.executeWithRetry<UserResponse>({ method: 'GET', url: `/users/${userId}` })
+  }
+
+  /**
+   * Create a new user (admin only)
+   */
+  async createUser(user: UserCreate): Promise<UserResponse> {
+    const response = await this.client.post<UserResponse>('/users', user)
+    this.cache.invalidate('/users')
+    return response.data
+  }
+
+  /**
+   * Update a user
+   */
+  async updateUser(userId: string, update: UserUpdate): Promise<UserResponse> {
+    const response = await this.client.patch<UserResponse>(`/users/${userId}`, update)
+    this.cache.invalidate('/users')
+    return response.data
+  }
+
+  /**
+   * Deactivate a user (soft delete)
+   */
+  async deactivateUser(userId: string): Promise<{ message: string }> {
+    const response = await this.client.delete(`/users/${userId}`)
+    this.cache.invalidate('/users')
+    return response.data
+  }
+
+  /**
+   * Activate a user
+   */
+  async activateUser(userId: string): Promise<{ message: string }> {
+    const response = await this.client.post(`/users/${userId}/activate`)
+    this.cache.invalidate('/users')
+    return response.data
+  }
+
+  /**
+   * Get available roles
+   */
+  async getRoles(): Promise<RolesResponse> {
+    return this.cachedGet<RolesResponse>('/users/roles', 5 * 60 * 1000) // 5 min cache
+  }
+
+  /**
+   * Admin reset user password
+   */
+  async adminResetPassword(userId: string, newPassword: string): Promise<{ message: string }> {
+    const response = await this.client.post(`/users/${userId}/reset-password?new_password=${encodeURIComponent(newPassword)}`)
+    return response.data
   }
 
   // ============================================

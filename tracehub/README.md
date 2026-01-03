@@ -68,10 +68,21 @@ python -m seed_data
 - **API Docs**: http://localhost:8000/docs
 - **Health Check**: http://localhost:8000/health
 
-### 5. Login Credentials (POC)
+### 5. Login Credentials
 
+**Demo user (backward compatible):**
 - **Username**: `demo`
 - **Password**: `tracehub2026`
+
+**Test users with role-based access (after running seed_data):**
+
+| Role | Email | Password |
+|------|-------|----------|
+| Admin | admin@tracehub.io | Admin123! |
+| Compliance | compliance@tracehub.io | Compliance123! |
+| Buyer | buyer@witatrade.de | Buyer123! |
+| Supplier | supplier@temira.ng | Supplier123! |
+| Viewer | viewer@tracehub.io | Viewer123! |
 
 ### 6. Real Shipment Data (POC)
 
@@ -97,6 +108,12 @@ The seed script creates data from an actual shipment:
 | GET | `/api/shipments/{id}/audit-pack` | Download ZIP |
 | POST | `/api/tracking/subscribe/{id}` | Subscribe to Vizion |
 | POST | `/api/webhooks/vizion` | Tracking webhook |
+| GET | `/api/auth/me/full` | Current user with permissions |
+| GET | `/api/auth/permissions` | Current user's permissions |
+| GET | `/api/users` | List users (admin) |
+| POST | `/api/users` | Create user (admin) |
+| PATCH | `/api/users/{id}` | Update user |
+| DELETE | `/api/users/{id}` | Deactivate user (admin) |
 
 ## Project Structure
 
@@ -150,8 +167,16 @@ alembic upgrade head
 ## Sprint Progress
 
 - [x] **Sprint 1**: Backend foundation, models, Docker setup
-- [x] **Sprint 2**: JSONCargo API integration (live container tracking)
-- [ ] **Sprint 3**: React frontend
+- [x] **Sprint 1.5**: JSONCargo API integration (live container tracking)
+- [x] **Sprint 2**: Role-based access control & multi-user support
+  - User model with roles (admin, compliance, buyer, supplier, viewer)
+  - Permission system with granular access control
+  - User CRUD endpoints (admin only)
+  - JWT tokens include role information
+  - Frontend AuthContext with permission checking
+  - PermissionGuard component for UI access control
+  - User management page
+- [ ] **Sprint 3**: React frontend enhancements
 - [ ] **Sprint 4**: Audit pack, polish
 
 ## License

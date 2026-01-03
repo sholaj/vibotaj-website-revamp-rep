@@ -1,6 +1,6 @@
 """Documents router - document upload and management."""
 
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, Query, Body
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, Query, Body, status
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 from typing import Optional, List
@@ -13,7 +13,8 @@ import shutil
 from ..database import get_db
 from ..config import get_settings
 from ..models import Document, DocumentType, DocumentStatus, Shipment
-from ..routers.auth import get_current_user, User
+from ..routers.auth import get_current_user, get_current_active_user, User
+from ..schemas.user import CurrentUser
 from ..services.validation import (
     validate_document as run_validation,
     get_required_fields,
@@ -27,9 +28,24 @@ from ..services.workflow import (
     get_workflow_summary,
     TransitionResult
 )
+from ..services.notifications import (
+    notify_document_uploaded,
+    notify_document_validated,
+    notify_document_rejected
+)
+from ..services.permissions import Permission, has_permission
 
 router = APIRouter()
 settings = get_settings()
+
+
+def check_permission(user: CurrentUser, permission: Permission) -> None:
+    """Check if user has the required permission, raise 403 if not."""
+    if not has_permission(user.role, permission):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"Permission denied. Required: {permission.value}"
+        )
 
 
 # Request/Response models
@@ -60,9 +76,15 @@ async def upload_document(
     file: UploadFile = File(...),
     reference_number: Optional[str] = Form(None),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: CurrentUser = Depends(get_current_active_user)
 ):
-    """Upload a document for a shipment."""
+    """Upload a document for a shipment.
+
+    Requires: documents:upload permission (admin, compliance, supplier roles)
+    """
+    # Check permission
+    check_permission(current_user, Permission.DOCUMENTS_UPLOAD)
+
     # Verify shipment exists
     shipment = db.query(Shipment).filter(Shipment.id == shipment_id).first()
     if not shipment:
@@ -91,11 +113,21 @@ async def upload_document(
         mime_type=file.content_type,
         status=DocumentStatus.UPLOADED,
         reference_number=reference_number,
-        uploaded_by=current_user.username,
+        uploaded_by=current_user.email,
         uploaded_at=datetime.utcnow()
     )
 
     db.add(document)
+
+    # Notify compliance team/admins about new document
+    # For POC, notify the demo user (typically an admin would review uploads)
+    notify_document_uploaded(
+        db=db,
+        document=document,
+        uploader=current_user.email,
+        notify_users=[settings.demo_username]  # In production: query admin users
+    )
+
     db.commit()
     db.refresh(document)
 
@@ -148,16 +180,22 @@ async def validate_document(
     document_id: UUID,
     notes: Optional[str] = None,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: CurrentUser = Depends(get_current_active_user)
 ):
-    """Mark document as validated."""
+    """Mark document as validated.
+
+    Requires: documents:validate permission (admin, compliance roles)
+    """
+    # Check permission
+    check_permission(current_user, Permission.DOCUMENTS_VALIDATE)
+
     document = db.query(Document).filter(Document.id == document_id).first()
     if not document:
         raise HTTPException(status_code=404, detail="Document not found")
 
     document.status = DocumentStatus.VALIDATED
     document.validated_at = datetime.utcnow()
-    document.validated_by = current_user.username
+    document.validated_by = current_user.email
     if notes:
         document.validation_notes = notes
 
@@ -171,9 +209,15 @@ async def validate_document(
 async def delete_document(
     document_id: UUID,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: CurrentUser = Depends(get_current_active_user)
 ):
-    """Delete a document."""
+    """Delete a document.
+
+    Requires: documents:delete permission (admin role)
+    """
+    # Check permission
+    check_permission(current_user, Permission.DOCUMENTS_DELETE)
+
     document = db.query(Document).filter(Document.id == document_id).first()
     if not document:
         raise HTTPException(status_code=404, detail="Document not found")
@@ -221,15 +265,15 @@ async def get_document_validation(
 async def get_document_transitions(
     document_id: UUID,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: CurrentUser = Depends(get_current_active_user)
 ):
     """Get allowed state transitions for a document."""
     document = db.query(Document).filter(Document.id == document_id).first()
     if not document:
         raise HTTPException(status_code=404, detail="Document not found")
 
-    # For now, assume admin role - will be enhanced in Sprint 2
-    user_role = "admin"
+    # Use actual user role for transition permissions
+    user_role = current_user.role.value
     allowed = get_allowed_transitions(document.status, user_role)
 
     return {
@@ -251,20 +295,26 @@ async def transition_document_status(
     document_id: UUID,
     request: TransitionRequest,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: CurrentUser = Depends(get_current_active_user)
 ):
-    """Transition a document to a new workflow state."""
+    """Transition a document to a new workflow state.
+
+    Requires: documents:transition permission (admin, compliance roles)
+    """
+    # Check permission
+    check_permission(current_user, Permission.DOCUMENTS_TRANSITION)
+
     document = db.query(Document).filter(Document.id == document_id).first()
     if not document:
         raise HTTPException(status_code=404, detail="Document not found")
 
-    # For now, assume admin role - will be enhanced in Sprint 2
-    user_role = "admin"
+    # Use actual user role for transition permissions
+    user_role = current_user.role.value
 
     result = transition_document(
         document=document,
         target_status=request.target_status,
-        user=current_user.username,
+        user=current_user.email,
         user_role=user_role,
         notes=request.notes
     )
@@ -290,9 +340,15 @@ async def approve_document(
     document_id: UUID,
     request: ApprovalRequest = Body(default=ApprovalRequest()),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: CurrentUser = Depends(get_current_active_user)
 ):
-    """Approve a document (shortcut to transition to COMPLIANCE_OK)."""
+    """Approve a document (shortcut to transition to COMPLIANCE_OK).
+
+    Requires: documents:approve permission (admin, compliance roles)
+    """
+    # Check permission
+    check_permission(current_user, Permission.DOCUMENTS_APPROVE)
+
     document = db.query(Document).filter(Document.id == document_id).first()
     if not document:
         raise HTTPException(status_code=404, detail="Document not found")
@@ -313,13 +369,22 @@ async def approve_document(
     result = transition_document(
         document=document,
         target_status=target_status,
-        user=current_user.username,
-        user_role="admin",
+        user=current_user.email,
+        user_role=current_user.role.value,
         notes=request.notes
     )
 
     if not result.success:
         raise HTTPException(status_code=400, detail=result.to_dict())
+
+    # Notify the uploader that their document was approved
+    if document.uploaded_by:
+        notify_document_validated(
+            db=db,
+            document=document,
+            validator=current_user.email,
+            uploader=document.uploaded_by
+        )
 
     db.commit()
     db.refresh(document)
@@ -335,9 +400,15 @@ async def reject_document(
     document_id: UUID,
     request: ApprovalRequest = Body(...),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: CurrentUser = Depends(get_current_active_user)
 ):
-    """Reject a document with notes explaining the rejection."""
+    """Reject a document with notes explaining the rejection.
+
+    Requires: documents:reject permission (admin, compliance roles)
+    """
+    # Check permission
+    check_permission(current_user, Permission.DOCUMENTS_REJECT)
+
     document = db.query(Document).filter(Document.id == document_id).first()
     if not document:
         raise HTTPException(status_code=404, detail="Document not found")
@@ -362,13 +433,23 @@ async def reject_document(
     result = transition_document(
         document=document,
         target_status=target_status,
-        user=current_user.username,
-        user_role="admin",
+        user=current_user.email,
+        user_role=current_user.role.value,
         notes=request.notes
     )
 
     if not result.success:
         raise HTTPException(status_code=400, detail=result.to_dict())
+
+    # Notify the uploader that their document was rejected
+    if document.uploaded_by:
+        notify_document_rejected(
+            db=db,
+            document=document,
+            rejector=current_user.email,
+            uploader=document.uploaded_by,
+            reason=request.notes or "No reason provided"
+        )
 
     db.commit()
     db.refresh(document)

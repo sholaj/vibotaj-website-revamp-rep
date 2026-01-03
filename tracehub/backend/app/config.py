@@ -33,6 +33,9 @@ class Settings(BaseSettings):
     vizion_api_key: str = ""
     vizion_api_url: str = "https://api.vizionapi.com/v2"
 
+    # Webhook Security
+    webhook_secret: str = ""  # HMAC secret for webhook signature verification
+
     # File Storage
     upload_dir: str = "./uploads"
     max_upload_size_mb: int = 50

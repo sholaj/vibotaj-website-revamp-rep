@@ -1,16 +1,25 @@
-"""Authentication router."""
+"""Authentication router with database-backed user management."""
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from pydantic import BaseModel
+from sqlalchemy.orm import Session
 from datetime import datetime, timedelta
 from jose import JWTError, jwt
-import bcrypt
+from passlib.context import CryptContext
+from typing import Optional
 
 from ..config import get_settings
+from ..database import get_db
+from ..models.user import User as UserModel, UserRole
+from ..schemas.user import UserResponse, CurrentUser
+from ..services.permissions import get_role_permissions
 
 router = APIRouter()
 settings = get_settings()
+
+# Password hashing context using bcrypt
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 # OAuth2 scheme for token authentication
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
@@ -22,76 +31,248 @@ class Token(BaseModel):
     token_type: str
 
 
+class TokenData(BaseModel):
+    """Data extracted from JWT token."""
+    user_id: Optional[str] = None
+    email: Optional[str] = None
+    role: Optional[str] = None
+
+
+# Legacy User class for backward compatibility
 class User(BaseModel):
-    """User information."""
+    """User information (legacy format for backward compatibility)."""
     username: str
     email: str
     full_name: str
+    role: Optional[str] = "viewer"
 
 
-def create_access_token(data: dict) -> str:
+def verify_password(plain_password: str, hashed_password: str) -> bool:
+    """Verify a password against its hash."""
+    return pwd_context.verify(plain_password, hashed_password)
+
+
+def get_password_hash(password: str) -> str:
+    """Hash a password."""
+    return pwd_context.hash(password)
+
+
+def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
     """Create JWT access token."""
     to_encode = data.copy()
-    expire = datetime.utcnow() + timedelta(hours=settings.jwt_expiration_hours)
+    if expires_delta:
+        expire = datetime.utcnow() + expires_delta
+    else:
+        expire = datetime.utcnow() + timedelta(hours=settings.jwt_expiration_hours)
     to_encode.update({"exp": expire})
     encoded_jwt = jwt.encode(to_encode, settings.jwt_secret, algorithm=settings.jwt_algorithm)
     return encoded_jwt
 
 
-def verify_password(plain_password: str, stored_password: str) -> bool:
-    """Verify password - simple comparison for POC."""
-    return plain_password == stored_password
+def get_user_by_email(db: Session, email: str) -> Optional[UserModel]:
+    """Get user by email address."""
+    return db.query(UserModel).filter(UserModel.email == email).first()
 
 
-async def get_current_user(token: str = Depends(oauth2_scheme)) -> User:
-    """Get current authenticated user from token."""
+def get_user_by_id(db: Session, user_id: str) -> Optional[UserModel]:
+    """Get user by ID."""
+    return db.query(UserModel).filter(UserModel.id == user_id).first()
+
+
+def authenticate_user(db: Session, email: str, password: str) -> Optional[UserModel]:
+    """Authenticate a user by email and password."""
+    user = get_user_by_email(db, email)
+    if not user:
+        return None
+    if not verify_password(password, user.hashed_password):
+        return None
+    return user
+
+
+async def get_current_user(
+    token: str = Depends(oauth2_scheme),
+    db: Session = Depends(get_db)
+) -> User:
+    """Get current authenticated user from token.
+
+    Returns the legacy User format for backward compatibility.
+    Use get_current_active_user for the full user model.
+    """
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
         headers={"WWW-Authenticate": "Bearer"},
     )
+
     try:
         payload = jwt.decode(token, settings.jwt_secret, algorithms=[settings.jwt_algorithm])
-        username: str = payload.get("sub")
-        if username is None:
+        user_id: str = payload.get("sub")
+        email: str = payload.get("email")
+        role: str = payload.get("role", "viewer")
+
+        if user_id is None:
             raise credentials_exception
+
     except JWTError:
         raise credentials_exception
 
-    # For POC, just check if username matches
-    if username != settings.demo_username:
+    # Try to get user from database
+    user = get_user_by_id(db, user_id)
+
+    if user is None:
+        # Fall back to demo user for backward compatibility
+        if email == settings.demo_email or user_id == settings.demo_username:
+            return User(
+                username=settings.demo_username,
+                email=settings.demo_email,
+                full_name=settings.demo_full_name,
+                role="admin"  # Demo user gets admin role
+            )
         raise credentials_exception
 
+    if not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="User account is deactivated",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
     return User(
-        username=settings.demo_username,
-        email=settings.demo_email,
-        full_name=settings.demo_full_name
+        username=user.email,
+        email=user.email,
+        full_name=user.full_name,
+        role=user.role.value
+    )
+
+
+async def get_current_active_user(
+    token: str = Depends(oauth2_scheme),
+    db: Session = Depends(get_db)
+) -> CurrentUser:
+    """Get current authenticated user with full details and permissions.
+
+    This is the preferred method for new endpoints.
+    """
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Could not validate credentials",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+
+    try:
+        payload = jwt.decode(token, settings.jwt_secret, algorithms=[settings.jwt_algorithm])
+        user_id: str = payload.get("sub")
+        email: str = payload.get("email")
+        role_str: str = payload.get("role", "viewer")
+
+        if user_id is None:
+            raise credentials_exception
+
+    except JWTError:
+        raise credentials_exception
+
+    # Try to get user from database
+    user = get_user_by_id(db, user_id)
+
+    if user is None:
+        # Fall back to demo user for backward compatibility
+        if email == settings.demo_email or user_id == settings.demo_username:
+            from uuid import UUID
+            role = UserRole.ADMIN  # Demo user gets admin role
+            permissions = [p.value for p in get_role_permissions(role)]
+            return CurrentUser(
+                id=UUID("00000000-0000-0000-0000-000000000000"),
+                email=settings.demo_email,
+                full_name=settings.demo_full_name,
+                role=role,
+                is_active=True,
+                permissions=permissions
+            )
+        raise credentials_exception
+
+    if not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="User account is deactivated",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    # Get permissions for user's role
+    permissions = [p.value for p in get_role_permissions(user.role)]
+
+    return CurrentUser(
+        id=user.id,
+        email=user.email,
+        full_name=user.full_name,
+        role=user.role,
+        is_active=user.is_active,
+        permissions=permissions
     )
 
 
 @router.post("/login", response_model=Token)
-async def login(form_data: OAuth2PasswordRequestForm = Depends()):
-    """Login endpoint - returns JWT token."""
-    # For POC, simple check against configured demo user
-    if form_data.username != settings.demo_username:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect username or password",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
+async def login(
+    form_data: OAuth2PasswordRequestForm = Depends(),
+    db: Session = Depends(get_db)
+):
+    """Login endpoint - returns JWT token.
 
-    if not verify_password(form_data.password, settings.demo_password):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect username or password",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
+    Accepts either email or username for backward compatibility.
+    """
+    # First try to authenticate against database
+    user = authenticate_user(db, form_data.username, form_data.password)
 
-    access_token = create_access_token(data={"sub": form_data.username})
-    return Token(access_token=access_token, token_type="bearer")
+    if user:
+        # Update last login time
+        user.last_login = datetime.utcnow()
+        db.commit()
+
+        # Create token with user info
+        access_token = create_access_token(
+            data={
+                "sub": str(user.id),
+                "email": user.email,
+                "role": user.role.value
+            }
+        )
+        return Token(access_token=access_token, token_type="bearer")
+
+    # Fall back to demo user for backward compatibility
+    if form_data.username == settings.demo_username or form_data.username == settings.demo_email:
+        if form_data.password == settings.demo_password:
+            access_token = create_access_token(
+                data={
+                    "sub": settings.demo_username,
+                    "email": settings.demo_email,
+                    "role": "admin"
+                }
+            )
+            return Token(access_token=access_token, token_type="bearer")
+
+    raise HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Incorrect username or password",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
 
 
 @router.get("/me", response_model=User)
 async def get_me(current_user: User = Depends(get_current_user)):
-    """Get current user information."""
+    """Get current user information (legacy format)."""
     return current_user
+
+
+@router.get("/me/full", response_model=CurrentUser)
+async def get_me_full(current_user: CurrentUser = Depends(get_current_active_user)):
+    """Get current user information with permissions."""
+    return current_user
+
+
+@router.get("/permissions")
+async def get_my_permissions(current_user: CurrentUser = Depends(get_current_active_user)):
+    """Get current user's permissions."""
+    return {
+        "user_id": str(current_user.id),
+        "role": current_user.role.value,
+        "permissions": current_user.permissions
+    }
