@@ -95,6 +95,7 @@ export interface Document {
   document_type: DocumentType
   name: string
   file_name?: string
+  file_path?: string
   file_size_bytes?: number
   mime_type?: string
   status: DocumentStatus

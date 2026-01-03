@@ -30,7 +30,6 @@ import type {
   TrackingRefreshResponse,
   ShipmentDetailResponse,
   DocumentType,
-  PaginatedResponse,
   ApiError,
 } from '../types'
 
@@ -191,8 +190,8 @@ function getRetryDelay(retryCount: number): number {
 class ApiClient {
   private client: AxiosInstance
   private cache: SimpleCache
-  private isRefreshing: boolean = false
-  private refreshSubscribers: Array<(token: string) => void> = []
+  private _isRefreshing: boolean = false
+  private _refreshSubscribers: Array<(token: string) => void> = []
 
   constructor() {
     this.cache = new SimpleCache()

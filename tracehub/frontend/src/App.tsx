@@ -104,7 +104,7 @@ function App() {
   }, [verifyAuthentication])
 
   // Handle successful login
-  const handleLogin = useCallback((token: string) => {
+  const handleLogin = useCallback((_token: string) => {
     // Token is already stored by api.login(), just update state
     setIsAuthenticated(true)
     setError(null)

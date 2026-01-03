@@ -23,7 +23,7 @@ const EVENT_CONFIG: Record<EventType, { icon: typeof Ship; color: string; label:
   unknown: { icon: Clock, color: 'bg-gray-100 text-gray-600', label: 'Unknown Event' },
 }
 
-export default function TrackingTimeline({ events, currentStatus }: TrackingTimelineProps) {
+export default function TrackingTimeline({ events, currentStatus: _currentStatus }: TrackingTimelineProps) {
   // Sort events by timestamp (most recent first)
   const sortedEvents = [...events].sort(
     (a, b) => new Date(b.event_timestamp).getTime() - new Date(a.event_timestamp).getTime()

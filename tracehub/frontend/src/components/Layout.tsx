@@ -1,5 +1,5 @@
 import { Outlet, Link, useLocation } from 'react-router-dom'
-import { Package, FileText, LogOut, Home } from 'lucide-react'
+import { Package, LogOut, Home } from 'lucide-react'
 
 interface LayoutProps {
   onLogout: () => void
