@@ -37,6 +37,7 @@ import type {
 import DocumentList from '../components/DocumentList'
 import TrackingTimeline from '../components/TrackingTimeline'
 import ComplianceStatusComponent from '../components/ComplianceStatus'
+import DocumentUploadModal from '../components/DocumentUploadModal'
 import { format, formatDistanceToNow } from 'date-fns'
 
 // Status badge configuration
@@ -111,6 +112,7 @@ export default function Shipment() {
   const [isDownloading, setIsDownloading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState<'documents' | 'tracking'>('documents')
+  const [isUploadModalOpen, setIsUploadModalOpen] = useState(false)
 
   // Fetch shipment data
   const fetchData = useCallback(async () => {
@@ -463,7 +465,10 @@ export default function Shipment() {
           <div className="card p-6">
             <h2 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h2>
             <div className="space-y-3">
-              <button className="btn-secondary w-full justify-start">
+              <button
+                onClick={() => setIsUploadModalOpen(true)}
+                className="btn-secondary w-full justify-start"
+              >
                 <FileText className="h-4 w-4 mr-2" />
                 Upload Document
               </button>
@@ -487,6 +492,14 @@ export default function Shipment() {
           </div>
         </div>
       </div>
+
+      {/* Document Upload Modal */}
+      <DocumentUploadModal
+        shipmentId={id || ''}
+        isOpen={isUploadModalOpen}
+        onClose={() => setIsUploadModalOpen(false)}
+        onUploadComplete={fetchData}
+      />
     </div>
   )
 }

@@ -35,8 +35,12 @@ def seed_sample_data(db: Session):
 
     print("Seeding sample data...")
 
-    # Create Supplier (Real: TEMIRA INDUSTRIES)
-    supplier = Party(
+    # =========================================================================
+    # PARTIES
+    # =========================================================================
+
+    # Supplier: TEMIRA INDUSTRIES
+    supplier_temira = Party(
         type=PartyType.SUPPLIER,
         company_name="TEMIRA INDUSTRIES NIGERIA LTD",
         contact_name="Operations Manager",
@@ -48,10 +52,10 @@ def seed_sample_data(db: Session):
         registration_number="RC-TEMIRA",
         tax_id="NG-TAX-TEMIRA"
     )
-    db.add(supplier)
+    db.add(supplier_temira)
 
-    # Create Buyer (Real: WITATRADE GMBH)
-    buyer = Party(
+    # Buyer: WITATRADE GMBH
+    buyer_witatrade = Party(
         type=PartyType.BUYER,
         company_name="WITATRADE GMBH",
         contact_name="Imports Manager",
@@ -63,24 +67,26 @@ def seed_sample_data(db: Session):
         registration_number="HRB-WITA",
         tax_id="DE-WITATRADE"
     )
-    db.add(buyer)
+    db.add(buyer_witatrade)
 
     db.flush()  # Get IDs
 
-    # Create Shipment (Real: from Bill of Lading 262495038)
-    # Ship date: 2025-12-13, typical transit Lagos->Hamburg is ~18-21 days
-    etd = datetime(2025, 12, 13)
-    eta = datetime(2026, 1, 3)  # Estimated arrival
+    # =========================================================================
+    # SHIPMENT 1: VIBO-2026-001 (REF NO - 1416)
+    # =========================================================================
 
-    shipment = Shipment(
-        reference="TEMIRA-2025-001",
-        container_number="MRSU3452572",  # Real container from B/L
-        bl_number="262495038",  # Real Maersk B/L number
-        booking_reference="MAERSK-550N",
+    etd_1 = datetime(2025, 12, 13)
+    eta_1 = datetime(2026, 1, 3)
+
+    shipment_1 = Shipment(
+        reference="VIBO-2026-001",
+        container_number="MRSU3452572",
+        bl_number="262495038",
+        booking_reference="MAERSK-550N-001",
         vessel_name="RHINE MAERSK",
         voyage_number="550N",
-        etd=etd,
-        eta=eta,
+        etd=etd_1,
+        eta=eta_1,
         pol_code="NGAPP",
         pol_name="Apapa, Lagos",
         pod_code="DEHAM",
@@ -88,62 +94,73 @@ def seed_sample_data(db: Session):
         final_destination="Stelle, Germany",
         incoterms="FOB",
         status=ShipmentStatus.IN_TRANSIT,
-        buyer_id=buyer.id,
-        supplier_id=supplier.id
+        buyer_id=buyer_witatrade.id,
+        supplier_id=supplier_temira.id
     )
-    db.add(shipment)
+    db.add(shipment_1)
     db.flush()
 
-    # Create Product (Real: Crushed Cow Hooves & Horns from B/L)
-    product = Product(
-        shipment_id=shipment.id,
+    # Product for Shipment 1
+    product_1 = Product(
+        shipment_id=shipment_1.id,
         hs_code="0506.90.00",
         description="Crushed Cow Hooves & Horns",
-        quantity_net_kg=Decimal("25000"),  # Real: 25,000 KGS from B/L
-        quantity_gross_kg=Decimal("25200"),  # Including packaging
+        quantity_net_kg=Decimal("25000"),
+        quantity_gross_kg=Decimal("25200"),
         unit_of_measure="KG",
         packaging_type="1x40ft Container, 20 CBM",
         packaging_count=1,
-        batch_lot_number="TEMIRA-2025-001-LOT1",
+        batch_lot_number="VIBO-2026-001-LOT1",
         quality_grade="Export Grade",
         moisture_percentage=Decimal("12.0"),
         production_date=date(2025, 11, 30)
     )
-    db.add(product)
+    db.add(product_1)
     db.flush()
 
-    # Create Origin (EUDR compliance data for TEMIRA sourcing)
-    origin = Origin(
-        product_id=product.id,
+    # Origin for Shipment 1
+    origin_1 = Origin(
+        product_id=product_1.id,
         farm_plot_identifier="NG-LA-TEMIRA-001",
-        geolocation_lat=Decimal("6.4541"),  # Lagos area coordinates
+        geolocation_lat=Decimal("6.4541"),
         geolocation_lng=Decimal("3.3947"),
         country="NG",
         region="Lagos State",
         district="Lagos Industrial",
         production_start_date=date(2025, 10, 1),
         production_end_date=date(2025, 11, 30),
-        supplier_id=supplier.id,
+        supplier_id=supplier_temira.id,
         deforestation_cutoff_compliant=True,
-        deforestation_free_statement="Animal by-products sourced from established slaughterhouses and processing facilities. Not subject to EUDR deforestation provisions as non-forest commodities."
+        deforestation_free_statement="Animal by-products sourced from established slaughterhouses. Not subject to EUDR deforestation provisions."
     )
-    db.add(origin)
+    db.add(origin_1)
 
-    # Create Documents (Real documents from TEMIRA shipment B/L package)
-    documents_data = [
+    # Documents for Shipment 1 - with actual files
+    docs_shipment_1 = [
         {
             "document_type": DocumentType.BILL_OF_LADING,
-            "name": "Bill of Lading - Maersk 262495038",
+            "name": "Bill of Lading - ONE (1)",
+            "file_name": "BILL OF LADING - ONE (1).pdf",
+            "file_path": "VIBO-2026-001/BILL OF LADING - ONE (1).pdf",
             "status": DocumentStatus.VALIDATED,
             "reference_number": "262495038",
-            "issue_date": date(2025, 12, 13),  # Ship date from B/L
+            "issue_date": date(2025, 12, 13),
             "issuing_authority": "Maersk Line"
+        },
+        {
+            "document_type": DocumentType.COMMERCIAL_INVOICE,
+            "name": "Commercial Invoice - REF NO 1416",
+            "file_name": "REF NO - 1416.pdf",
+            "file_path": "VIBO-2026-001/REF NO - 1416.pdf",
+            "status": DocumentStatus.VALIDATED,
+            "reference_number": "1416",
+            "issue_date": date(2025, 12, 10)
         },
         {
             "document_type": DocumentType.CERTIFICATE_OF_ORIGIN,
             "name": "Certificate of Origin - 0029532",
             "status": DocumentStatus.VALIDATED,
-            "reference_number": "0029532",  # Real COO number from docs
+            "reference_number": "0029532",
             "issue_date": date(2025, 12, 10),
             "issuing_authority": "Lagos Chamber of Commerce"
         },
@@ -151,58 +168,46 @@ def seed_sample_data(db: Session):
             "document_type": DocumentType.FUMIGATION_CERTIFICATE,
             "name": "Fumigation Certificate - 77091",
             "status": DocumentStatus.VALIDATED,
-            "reference_number": "77091",  # Real fumigation cert from docs
-            "issue_date": date(2025, 12, 5),  # 05/12/2025 from document
+            "reference_number": "77091",
+            "issue_date": date(2025, 12, 5),
             "issuing_authority": "NAQS Nigeria"
         },
         {
-            "document_type": DocumentType.COMMERCIAL_INVOICE,
-            "name": "Commercial Invoice - TEMIRA-INV-2025-001",
-            "status": DocumentStatus.VALIDATED,
-            "reference_number": "TEMIRA-INV-2025-001",
-            "issue_date": date(2025, 12, 10)
-        },
-        {
             "document_type": DocumentType.PACKING_LIST,
-            "name": "Packing List - TEMIRA-PL-2025-001",
+            "name": "Packing List - VIBO-PL-2026-001",
             "status": DocumentStatus.VALIDATED,
-            "reference_number": "TEMIRA-PL-2025-001",
+            "reference_number": "VIBO-PL-2026-001",
             "issue_date": date(2025, 12, 10)
         },
         {
             "document_type": DocumentType.PHYTOSANITARY_CERTIFICATE,
             "name": "Federal Produce Inspection Certificate",
             "status": DocumentStatus.VALIDATED,
-            "reference_number": "FPIS-2025-TEMIRA",
+            "reference_number": "FPIS-2025-001",
             "issue_date": date(2025, 12, 8),
             "issuing_authority": "Federal Produce Inspection Service"
         },
-        # Missing documents for demo purposes - to show compliance gaps
-        # SANITARY_CERTIFICATE - not yet uploaded
-        # INSURANCE_CERTIFICATE - not yet uploaded
-        # EUDR_DECLARATION - not yet uploaded
     ]
 
-    for doc_data in documents_data:
+    for doc_data in docs_shipment_1:
         doc = Document(
-            shipment_id=shipment.id,
+            shipment_id=shipment_1.id,
             uploaded_by="temira_exports",
-            uploaded_at=datetime(2025, 12, 10, 10, 0),  # Uploaded before shipping
+            uploaded_at=datetime(2025, 12, 10, 10, 0),
             **doc_data
         )
         if doc.status == DocumentStatus.VALIDATED:
-            doc.validated_at = datetime(2025, 12, 12, 16, 0)  # Validated before departure
+            doc.validated_at = datetime(2025, 12, 12, 16, 0)
             doc.validated_by = "compliance_team"
         db.add(doc)
 
-    # Create Container Events (Real vessel: RHINE MAERSK 550N, departed 2025-12-13)
-    events_data = [
+    # Container Events for Shipment 1
+    events_shipment_1 = [
         {
             "event_type": EventType.GATE_IN,
             "event_timestamp": datetime(2025, 12, 11, 8, 30),
             "location_name": "Apapa Container Terminal",
             "location_code": "NGAPP",
-            "vessel_name": None,
         },
         {
             "event_type": EventType.LOADED,
@@ -238,26 +243,190 @@ def seed_sample_data(db: Session):
         },
     ]
 
-    for event_data in events_data:
+    for event_data in events_shipment_1:
         event = ContainerEvent(
-            shipment_id=shipment.id,
+            shipment_id=shipment_1.id,
+            source="seed_data",
+            **event_data
+        )
+        db.add(event)
+
+    # =========================================================================
+    # SHIPMENT 2: VIBO-2026-002 (REF NO - 1417)
+    # =========================================================================
+
+    etd_2 = datetime(2025, 12, 20)
+    eta_2 = datetime(2026, 1, 10)
+
+    shipment_2 = Shipment(
+        reference="VIBO-2026-002",
+        container_number="TCNU7654321",
+        bl_number="262495039",
+        booking_reference="MAERSK-550N-002",
+        vessel_name="RHINE MAERSK",
+        voyage_number="551N",
+        etd=etd_2,
+        eta=eta_2,
+        pol_code="NGAPP",
+        pol_name="Apapa, Lagos",
+        pod_code="DEHAM",
+        pod_name="Hamburg",
+        final_destination="Stelle, Germany",
+        incoterms="FOB",
+        status=ShipmentStatus.IN_TRANSIT,
+        buyer_id=buyer_witatrade.id,
+        supplier_id=supplier_temira.id
+    )
+    db.add(shipment_2)
+    db.flush()
+
+    # Product for Shipment 2
+    product_2 = Product(
+        shipment_id=shipment_2.id,
+        hs_code="0506.90.00",
+        description="Crushed Cow Hooves & Horns",
+        quantity_net_kg=Decimal("22000"),
+        quantity_gross_kg=Decimal("22200"),
+        unit_of_measure="KG",
+        packaging_type="1x40ft Container, 18 CBM",
+        packaging_count=1,
+        batch_lot_number="VIBO-2026-002-LOT1",
+        quality_grade="Export Grade",
+        moisture_percentage=Decimal("11.5"),
+        production_date=date(2025, 12, 5)
+    )
+    db.add(product_2)
+    db.flush()
+
+    # Origin for Shipment 2
+    origin_2 = Origin(
+        product_id=product_2.id,
+        farm_plot_identifier="NG-LA-TEMIRA-002",
+        geolocation_lat=Decimal("6.4550"),
+        geolocation_lng=Decimal("3.3950"),
+        country="NG",
+        region="Lagos State",
+        district="Lagos Industrial",
+        production_start_date=date(2025, 11, 1),
+        production_end_date=date(2025, 12, 5),
+        supplier_id=supplier_temira.id,
+        deforestation_cutoff_compliant=True,
+        deforestation_free_statement="Animal by-products sourced from established slaughterhouses. Not subject to EUDR deforestation provisions."
+    )
+    db.add(origin_2)
+
+    # Documents for Shipment 2 - with actual files
+    docs_shipment_2 = [
+        {
+            "document_type": DocumentType.BILL_OF_LADING,
+            "name": "Bill of Lading - TWO (2)",
+            "file_name": "BILL OF LADING - TWO (2).pdf",
+            "file_path": "VIBO-2026-002/BILL OF LADING - TWO (2).pdf",
+            "status": DocumentStatus.VALIDATED,
+            "reference_number": "262495039",
+            "issue_date": date(2025, 12, 20),
+            "issuing_authority": "Maersk Line"
+        },
+        {
+            "document_type": DocumentType.COMMERCIAL_INVOICE,
+            "name": "Commercial Invoice - REF NO 1417",
+            "file_name": "REF NO - 1417.pdf",
+            "file_path": "VIBO-2026-002/REF NO - 1417.pdf",
+            "status": DocumentStatus.VALIDATED,
+            "reference_number": "1417",
+            "issue_date": date(2025, 12, 18)
+        },
+        {
+            "document_type": DocumentType.CERTIFICATE_OF_ORIGIN,
+            "name": "Certificate of Origin - 0029533",
+            "status": DocumentStatus.DRAFT,
+            "reference_number": "0029533",
+        },
+        {
+            "document_type": DocumentType.FUMIGATION_CERTIFICATE,
+            "name": "Fumigation Certificate",
+            "status": DocumentStatus.DRAFT,
+        },
+        {
+            "document_type": DocumentType.PACKING_LIST,
+            "name": "Packing List - VIBO-PL-2026-002",
+            "status": DocumentStatus.DRAFT,
+            "reference_number": "VIBO-PL-2026-002",
+        },
+        {
+            "document_type": DocumentType.PHYTOSANITARY_CERTIFICATE,
+            "name": "Phytosanitary Certificate",
+            "status": DocumentStatus.DRAFT,
+        },
+    ]
+
+    for doc_data in docs_shipment_2:
+        doc = Document(
+            shipment_id=shipment_2.id,
+            uploaded_by="temira_exports",
+            uploaded_at=datetime(2025, 12, 18, 10, 0) if doc_data.get("file_path") else None,
+            **doc_data
+        )
+        if doc.status == DocumentStatus.VALIDATED:
+            doc.validated_at = datetime(2025, 12, 19, 16, 0)
+            doc.validated_by = "compliance_team"
+        db.add(doc)
+
+    # Container Events for Shipment 2
+    events_shipment_2 = [
+        {
+            "event_type": EventType.GATE_IN,
+            "event_timestamp": datetime(2025, 12, 18, 9, 0),
+            "location_name": "Apapa Container Terminal",
+            "location_code": "NGAPP",
+        },
+        {
+            "event_type": EventType.LOADED,
+            "event_timestamp": datetime(2025, 12, 19, 15, 0),
+            "location_name": "Apapa, Lagos",
+            "location_code": "NGAPP",
+            "vessel_name": "RHINE MAERSK",
+            "voyage_number": "551N"
+        },
+        {
+            "event_type": EventType.DEPARTED,
+            "event_timestamp": datetime(2025, 12, 20, 16, 0),
+            "location_name": "Apapa, Lagos",
+            "location_code": "NGAPP",
+            "vessel_name": "RHINE MAERSK",
+            "voyage_number": "551N"
+        },
+    ]
+
+    for event_data in events_shipment_2:
+        event = ContainerEvent(
+            shipment_id=shipment_2.id,
             source="seed_data",
             **event_data
         )
         db.add(event)
 
     db.commit()
-    print(f"Real shipment data seeded successfully!")
-    print(f"  - Shipment: {shipment.reference}")
-    print(f"  - Container: {shipment.container_number} (Seal: ML-NG0091820)")
-    print(f"  - B/L Number: {shipment.bl_number}")
-    print(f"  - Vessel: {shipment.vessel_name} / Voyage {shipment.voyage_number}")
-    print(f"  - Route: {shipment.pol_name} → {shipment.pod_name}")
-    print(f"  - Cargo: 25,000 KGS Crushed Cow Hooves & Horns")
-    print(f"  - Shipper: TEMIRA INDUSTRIES NIGERIA LTD")
-    print(f"  - Consignee: WITATRADE GMBH")
-    print(f"  - Documents: {len(documents_data)} uploaded (3 required docs missing for demo)")
-    print(f"  - Events: {len(events_data)} tracking events")
+
+    print(f"\n{'='*60}")
+    print("Sample data seeded successfully!")
+    print(f"{'='*60}\n")
+
+    print(f"SHIPMENT 1: {shipment_1.reference}")
+    print(f"  - Container: {shipment_1.container_number}")
+    print(f"  - B/L Number: {shipment_1.bl_number}")
+    print(f"  - Vessel: {shipment_1.vessel_name} / {shipment_1.voyage_number}")
+    print(f"  - Route: {shipment_1.pol_name} -> {shipment_1.pod_name}")
+    print(f"  - Documents: {len(docs_shipment_1)} (all validated)")
+    print(f"  - Events: {len(events_shipment_1)} tracking events")
+
+    print(f"\nSHIPMENT 2: {shipment_2.reference}")
+    print(f"  - Container: {shipment_2.container_number}")
+    print(f"  - B/L Number: {shipment_2.bl_number}")
+    print(f"  - Vessel: {shipment_2.vessel_name} / {shipment_2.voyage_number}")
+    print(f"  - Route: {shipment_2.pol_name} -> {shipment_2.pod_name}")
+    print(f"  - Documents: {len(docs_shipment_2)} (2 uploaded, 4 pending)")
+    print(f"  - Events: {len(events_shipment_2)} tracking events")
 
 
 def main():
@@ -270,6 +439,7 @@ def main():
         existing = db.query(Shipment).first()
         if existing:
             print(f"Data already exists (shipment {existing.reference}). Skipping seed.")
+            print("To reseed, drop the database tables first.")
             return
 
         seed_sample_data(db)
