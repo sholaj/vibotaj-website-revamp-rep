@@ -38,6 +38,7 @@ import DocumentList from '../components/DocumentList'
 import TrackingTimeline from '../components/TrackingTimeline'
 import ComplianceStatusComponent from '../components/ComplianceStatus'
 import DocumentUploadModal from '../components/DocumentUploadModal'
+import DocumentReviewPanel from '../components/DocumentReviewPanel'
 import { format, formatDistanceToNow } from 'date-fns'
 
 // Status badge configuration
@@ -113,6 +114,8 @@ export default function Shipment() {
   const [error, setError] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState<'documents' | 'tracking'>('documents')
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false)
+  const [selectedDocument, setSelectedDocument] = useState<Document | null>(null)
+  const [isReviewPanelOpen, setIsReviewPanelOpen] = useState(false)
 
   // Fetch shipment data
   const fetchData = useCallback(async () => {
@@ -408,6 +411,10 @@ export default function Shipment() {
                 <DocumentList
                   documents={documents}
                   missingDocuments={compliance?.missing_documents}
+                  onDocumentClick={(doc) => {
+                    setSelectedDocument(doc)
+                    setIsReviewPanelOpen(true)
+                  }}
                 />
               ) : (
                 <TrackingTimeline events={events} />
@@ -500,6 +507,22 @@ export default function Shipment() {
         onClose={() => setIsUploadModalOpen(false)}
         onUploadComplete={fetchData}
       />
+
+      {/* Document Review Panel */}
+      {isReviewPanelOpen && selectedDocument && (
+        <DocumentReviewPanel
+          document={selectedDocument}
+          onClose={() => {
+            setIsReviewPanelOpen(false)
+            setSelectedDocument(null)
+          }}
+          onUpdate={() => {
+            setIsReviewPanelOpen(false)
+            setSelectedDocument(null)
+            fetchData()
+          }}
+        />
+      )}
     </div>
   )
 }

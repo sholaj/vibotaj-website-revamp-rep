@@ -6,6 +6,7 @@ interface DocumentListProps {
   documents: Document[]
   missingDocuments?: DocumentType[]
   onUpload?: (type: DocumentType) => void
+  onDocumentClick?: (doc: Document) => void
 }
 
 const DOCUMENT_LABELS: Record<DocumentType, string> = {
@@ -34,7 +35,7 @@ const STATUS_CONFIG: Record<DocumentStatus, { icon: typeof CheckCircle; color: s
   archived: { icon: CheckCircle, color: 'text-gray-400', label: 'Archived' },
 }
 
-export default function DocumentList({ documents, missingDocuments = [], onUpload }: DocumentListProps) {
+export default function DocumentList({ documents, missingDocuments = [], onUpload, onDocumentClick }: DocumentListProps) {
   return (
     <div className="space-y-4">
       {/* Present Documents */}
@@ -45,7 +46,10 @@ export default function DocumentList({ documents, missingDocuments = [], onUploa
         return (
           <div
             key={doc.id}
-            className="flex items-center justify-between p-4 bg-white rounded-lg border border-gray-200 hover:border-gray-300 transition-colors"
+            onClick={() => onDocumentClick?.(doc)}
+            className={`flex items-center justify-between p-4 bg-white rounded-lg border border-gray-200 hover:border-gray-300 transition-colors ${
+              onDocumentClick ? 'cursor-pointer hover:bg-gray-50' : ''
+            }`}
           >
             <div className="flex items-center space-x-4">
               <div className="p-2 bg-gray-100 rounded-lg">

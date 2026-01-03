@@ -332,3 +332,99 @@ export interface DocumentUploadRequest {
   expiry_date?: string
   issuing_authority?: string
 }
+
+// ============================================
+// Document Workflow Types
+// ============================================
+
+export interface ValidationResult {
+  is_valid: boolean
+  errors: string[]
+  warnings: string[]
+  info: string[]
+  total_issues: number
+}
+
+export interface RequiredField {
+  field: string
+  description: string
+  required: boolean
+  severity: 'error' | 'warning' | 'info'
+}
+
+export interface StatusInfo {
+  status: string
+  display: string
+  color: string
+  actions: string[]
+}
+
+export interface DocumentValidationResponse {
+  document_id: string
+  document_type: DocumentType
+  current_status: DocumentStatus
+  validation: ValidationResult
+  required_fields: RequiredField[]
+  status_info: StatusInfo
+}
+
+export interface DocumentTransitionsResponse {
+  document_id: string
+  current_status: DocumentStatus
+  current_status_info: StatusInfo
+  allowed_transitions: Array<{
+    status: DocumentStatus
+    info: StatusInfo
+  }>
+}
+
+export interface TransitionResponse {
+  message: string
+  result: {
+    success: boolean
+    previous_status: DocumentStatus
+    new_status: DocumentStatus
+    transitioned_at: string
+    transitioned_by: string
+    validation?: ValidationResult
+    error?: string
+  }
+}
+
+export interface ExpiringDocument {
+  document_id: string
+  document_type: DocumentType
+  name: string
+  expiry_date: string
+  days_until_expiry: number
+  is_expired: boolean
+  urgency: 'expired' | 'critical' | 'warning' | 'info'
+}
+
+export interface ExpiringDocumentsResponse {
+  days_ahead: number
+  total_expiring: number
+  documents: ExpiringDocument[]
+}
+
+export interface DocumentRequirementsResponse {
+  document_type: DocumentType
+  required_fields: RequiredField[]
+}
+
+export interface WorkflowSummary {
+  total: number
+  by_status: Record<DocumentStatus, number>
+  complete: number
+  pending_review: number
+  failed: number
+  draft: number
+  progress_percent: number
+}
+
+export interface WorkflowSummaryResponse {
+  shipment_id: string
+  workflow_summary: WorkflowSummary
+  expiring_soon: number
+  expiring_documents: ExpiringDocument[]
+}

@@ -31,6 +31,12 @@ import type {
   ShipmentDetailResponse,
   DocumentType,
   ApiError,
+  DocumentValidationResponse,
+  DocumentTransitionsResponse,
+  TransitionResponse,
+  ExpiringDocumentsResponse,
+  DocumentRequirementsResponse,
+  WorkflowSummaryResponse,
 } from '../types'
 
 // ============================================
@@ -439,6 +445,103 @@ class ApiClient {
     this.cache.invalidate('/shipments/')
 
     return response.data
+  }
+
+  // ============================================
+  // Document Workflow Methods
+  // ============================================
+
+  async getDocumentValidation(documentId: string): Promise<DocumentValidationResponse> {
+    return this.executeWithRetry<DocumentValidationResponse>({
+      method: 'GET',
+      url: `/documents/${documentId}/validation`,
+    })
+  }
+
+  async getDocumentTransitions(documentId: string): Promise<DocumentTransitionsResponse> {
+    return this.executeWithRetry<DocumentTransitionsResponse>({
+      method: 'GET',
+      url: `/documents/${documentId}/transitions`,
+    })
+  }
+
+  async transitionDocument(
+    documentId: string,
+    targetStatus: string,
+    notes?: string
+  ): Promise<TransitionResponse> {
+    const response = await this.client.post(`/documents/${documentId}/transition`, {
+      target_status: targetStatus,
+      notes,
+    })
+
+    // Invalidate related caches
+    this.cache.invalidate('/shipments/')
+    this.cache.invalidate('/documents/')
+
+    return response.data
+  }
+
+  async approveDocument(documentId: string, notes?: string): Promise<TransitionResponse> {
+    const response = await this.client.post(`/documents/${documentId}/approve`, { notes })
+
+    this.cache.invalidate('/shipments/')
+    this.cache.invalidate('/documents/')
+
+    return response.data
+  }
+
+  async rejectDocument(documentId: string, notes: string): Promise<TransitionResponse> {
+    const response = await this.client.post(`/documents/${documentId}/reject`, { notes })
+
+    this.cache.invalidate('/shipments/')
+    this.cache.invalidate('/documents/')
+
+    return response.data
+  }
+
+  async updateDocumentMetadata(
+    documentId: string,
+    metadata: {
+      reference_number?: string
+      issue_date?: string
+      expiry_date?: string
+      issuing_authority?: string
+      extra_data?: Record<string, unknown>
+    }
+  ): Promise<{ message: string; document_id: string }> {
+    const response = await this.client.patch(`/documents/${documentId}/metadata`, metadata)
+
+    this.cache.invalidate('/shipments/')
+    this.cache.invalidate('/documents/')
+
+    return response.data
+  }
+
+  async getExpiringDocuments(days: number = 30, shipmentId?: string): Promise<ExpiringDocumentsResponse> {
+    const params = new URLSearchParams({ days: days.toString() })
+    if (shipmentId) {
+      params.append('shipment_id', shipmentId)
+    }
+
+    return this.executeWithRetry<ExpiringDocumentsResponse>({
+      method: 'GET',
+      url: `/documents/expiring?${params.toString()}`,
+    })
+  }
+
+  async getDocumentTypeRequirements(documentType: string): Promise<DocumentRequirementsResponse> {
+    return this.cachedGet<DocumentRequirementsResponse>(
+      `/documents/types/${documentType}/requirements`,
+      5 * 60 * 1000 // 5 minute cache
+    )
+  }
+
+  async getWorkflowSummary(shipmentId: string): Promise<WorkflowSummaryResponse> {
+    return this.executeWithRetry<WorkflowSummaryResponse>({
+      method: 'GET',
+      url: `/documents/workflow/summary?shipment_id=${shipmentId}`,
+    })
   }
 
   // ============================================
