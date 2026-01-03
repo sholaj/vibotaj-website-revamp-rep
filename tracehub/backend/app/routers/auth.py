@@ -122,7 +122,8 @@ async def get_current_user(
         user = get_user_by_id(db, user_id)
     except Exception:
         # user_id might not be a valid UUID (legacy tokens like "demo")
-        pass
+        # Rollback the failed transaction to clean up session state
+        db.rollback()
 
     if user is None:
         # Fall back to demo user for backward compatibility
@@ -182,7 +183,8 @@ async def get_current_active_user(
         user = get_user_by_id(db, user_id)
     except Exception:
         # user_id might not be a valid UUID (legacy tokens like "demo")
-        pass
+        # Rollback the failed transaction to clean up session state
+        db.rollback()
 
     if user is None:
         # Fall back to demo user for backward compatibility
