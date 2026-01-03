@@ -117,11 +117,16 @@ async def get_current_user(
         raise credentials_exception
 
     # Try to get user from database
-    user = get_user_by_id(db, user_id)
+    user = None
+    try:
+        user = get_user_by_id(db, user_id)
+    except Exception:
+        # user_id might not be a valid UUID (legacy tokens like "demo")
+        pass
 
     if user is None:
         # Fall back to demo user for backward compatibility
-        if email == settings.demo_email or user_id == settings.demo_username:
+        if email == settings.demo_email or user_id == settings.demo_username or user_id == "demo":
             return User(
                 username=settings.demo_username,
                 email=settings.demo_email,
@@ -172,11 +177,16 @@ async def get_current_active_user(
         raise credentials_exception
 
     # Try to get user from database
-    user = get_user_by_id(db, user_id)
+    user = None
+    try:
+        user = get_user_by_id(db, user_id)
+    except Exception:
+        # user_id might not be a valid UUID (legacy tokens like "demo")
+        pass
 
     if user is None:
         # Fall back to demo user for backward compatibility
-        if email == settings.demo_email or user_id == settings.demo_username:
+        if email == settings.demo_email or user_id == settings.demo_username or user_id == "demo":
             from uuid import UUID
             role = UserRole.ADMIN  # Demo user gets admin role
             permissions = [p.value for p in get_role_permissions(role)]
