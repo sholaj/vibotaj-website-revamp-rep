@@ -15,15 +15,6 @@ settings = get_settings()
 # OAuth2 scheme for token authentication
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
 
-# Simple in-memory user for POC (replace with database in production)
-# Password: tracehub2026
-POC_USER = {
-    "username": "demo",
-    "email": "demo@vibotaj.com",
-    "password": "tracehub2026",  # Simple plaintext for POC
-    "full_name": "Demo User"
-}
-
 
 class Token(BaseModel):
     """JWT token response."""
@@ -68,28 +59,28 @@ async def get_current_user(token: str = Depends(oauth2_scheme)) -> User:
         raise credentials_exception
 
     # For POC, just check if username matches
-    if username != POC_USER["username"]:
+    if username != settings.demo_username:
         raise credentials_exception
 
     return User(
-        username=POC_USER["username"],
-        email=POC_USER["email"],
-        full_name=POC_USER["full_name"]
+        username=settings.demo_username,
+        email=settings.demo_email,
+        full_name=settings.demo_full_name
     )
 
 
 @router.post("/login", response_model=Token)
 async def login(form_data: OAuth2PasswordRequestForm = Depends()):
     """Login endpoint - returns JWT token."""
-    # For POC, simple check against hardcoded user
-    if form_data.username != POC_USER["username"]:
+    # For POC, simple check against configured demo user
+    if form_data.username != settings.demo_username:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect username or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    if not verify_password(form_data.password, POC_USER["password"]):
+    if not verify_password(form_data.password, settings.demo_password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect username or password",

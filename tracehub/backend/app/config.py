@@ -19,6 +19,12 @@ class Settings(BaseSettings):
     jwt_algorithm: str = "HS256"
     jwt_expiration_hours: int = 24
 
+    # Demo User (POC only - move to database in production)
+    demo_username: str = "demo"
+    demo_password: str = ""  # Set via DEMO_PASSWORD env var
+    demo_email: str = "demo@vibotaj.com"
+    demo_full_name: str = "Demo User"
+
     # Container Tracking API (JSONCargo - primary)
     jsoncargo_api_key: str = ""
     jsoncargo_api_url: str = "https://api.jsoncargo.com/api/v1"

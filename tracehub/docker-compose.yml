@@ -30,6 +30,7 @@ services:
       DEBUG: "true"
       VIZION_API_KEY: ${VIZION_API_KEY:-}
       JWT_SECRET: ${JWT_SECRET:-your-secret-key-change-in-production}
+      DEMO_PASSWORD: ${DEMO_PASSWORD:-}
     ports:
       - "8000:8000"
     volumes:
@@ -49,6 +50,9 @@ services:
     container_name: tracehub-frontend
     ports:
       - "80:80"
+      - "443:443"
+    volumes:
+      - /etc/letsencrypt:/etc/letsencrypt:ro
     depends_on:
       - backend
     healthcheck:
