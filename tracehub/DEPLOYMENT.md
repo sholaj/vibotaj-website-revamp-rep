@@ -151,21 +151,44 @@ docker compose -f docker-compose.prod.yml up -d --force-recreate
 
 Location: `/opt/tracehub-app/tracehub/.env`
 
-| Variable | Description |
-|----------|-------------|
-| `DB_USER` | PostgreSQL username |
-| `DB_PASSWORD` | PostgreSQL password (required) |
-| `DB_NAME` | PostgreSQL database name |
-| `VIZION_API_KEY` | Container tracking API key (required) |
-| `JWT_SECRET` | JWT signing secret (required) |
-| `CORS_ORIGINS` | JSON array of allowed origins |
-| `MAX_UPLOAD_SIZE` | Max file upload size in bytes |
+| Variable | Description | Required | Default |
+|----------|-------------|----------|---------|
+| `DB_USER` | PostgreSQL username | Yes | tracehub |
+| `DB_PASSWORD` | PostgreSQL password | Yes | - |
+| `DB_NAME` | PostgreSQL database name | Yes | tracehub |
+| `VIZION_API_KEY` | Container tracking API key | Yes | - |
+| `JWT_SECRET` | JWT signing secret | Yes | - |
+| `DEMO_PASSWORD` | Demo user password for POC | Yes | - |
+| `ANTHROPIC_API_KEY` | Claude API key for AI document classification | No | - |
+| `DEBUG` | Enable debug mode | No | false |
+| `ENVIRONMENT` | Environment name (production/staging) | No | production |
 
-### CORS Origins Format
+**Note:** The following variables have sensible defaults in `backend/app/config.py` and are not required in the `.env` file:
+- `CORS_ORIGINS` - Defaults to localhost origins for development
+- `MAX_UPLOAD_SIZE` - Defaults to 50MB
 
+### AI Document Classification
+
+TraceHub uses Anthropic's Claude API for intelligent document type detection. When `ANTHROPIC_API_KEY` is configured, the system can:
+
+- Automatically classify uploaded documents (Bill of Lading, Commercial Invoice, Certificates, etc.)
+- Extract key fields and reference numbers
+- Provide confidence scores and reasoning for classifications
+
+**Setup:**
+1. Get an API key from https://console.anthropic.com/settings/keys
+2. Add to `.env`: `ANTHROPIC_API_KEY=sk-ant-api03-...`
+3. Restart backend: `docker restart tracehub-backend-prod`
+
+**Verify AI is enabled:**
 ```bash
-CORS_ORIGINS=["https://tracehub.vibotaj.com","http://localhost:3000"]
+docker exec tracehub-backend-prod python -c "
+from app.services.document_classifier import document_classifier
+print('AI Available:', document_classifier.is_ai_available())
+"
 ```
+
+If AI is not configured, the system falls back to keyword-based classification.
 
 ## Deployment Process
 
