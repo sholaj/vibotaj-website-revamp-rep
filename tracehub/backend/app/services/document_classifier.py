@@ -1,15 +1,32 @@
-"""Document classifier service using AI for document type detection."""
+"""Document classifier service using AI for document type detection.
+
+Provides automatic document type detection with:
+1. AI-based classification (when credits available)
+2. Keyword-based fallback (always available)
+"""
 
 import os
 import json
 import logging
 from typing import List, Dict, Any, Optional
 from dataclasses import dataclass
+from enum import Enum
 
 from ..models.document import DocumentType
 from .pdf_processor import DocumentSection, pdf_processor
 
 logger = logging.getLogger(__name__)
+
+
+class AIStatus(str, Enum):
+    """Status of AI availability."""
+    AVAILABLE = "available"
+    NO_LIBRARY = "no_library"
+    NO_API_KEY = "no_api_key"
+    NO_CREDITS = "no_credits"
+    API_ERROR = "api_error"
+    RATE_LIMITED = "rate_limited"
+
 
 # Check if AI is available
 try:
@@ -46,6 +63,9 @@ Document types to choose from:
 - contract: Sales contract, purchase agreement
 - eudr_due_diligence: EU deforestation regulation statement
 - quality_certificate: Quality/inspection certificate
+- eu_traces_certificate: EU TRACES (CHED) animal health certificate for EU imports
+- veterinary_health_certificate: Veterinary health certificate from origin country
+- export_declaration: Export declaration / NXP form
 - other: Unknown or cannot determine
 
 Extract from document:
@@ -69,27 +89,43 @@ Respond in JSON format:
 
 
 class DocumentClassifier:
-    """Service for classifying document types using AI."""
+    """Service for classifying document types using AI with keyword fallback."""
 
     def __init__(self):
         self.client = None
         self.api_key = os.getenv("ANTHROPIC_API_KEY")
+        self._ai_status = AIStatus.AVAILABLE
+        self._last_error: Optional[str] = None
 
-        if AI_AVAILABLE and self.api_key:
+        if not AI_AVAILABLE:
+            self._ai_status = AIStatus.NO_LIBRARY
+            logger.info("Anthropic library not installed. Using keyword-based classification.")
+        elif not self.api_key:
+            self._ai_status = AIStatus.NO_API_KEY
+            logger.info("ANTHROPIC_API_KEY not set. Using keyword-based classification.")
+        else:
             try:
                 self.client = anthropic.Anthropic(api_key=self.api_key)
                 logger.info("AI document classifier initialized successfully")
             except Exception as e:
+                self._ai_status = AIStatus.API_ERROR
+                self._last_error = str(e)
                 logger.warning(f"Failed to initialize AI client: {e}")
-        else:
-            if not AI_AVAILABLE:
-                logger.info("Anthropic library not installed. Using keyword-based classification.")
-            elif not self.api_key:
-                logger.info("ANTHROPIC_API_KEY not set. Using keyword-based classification.")
 
     def is_ai_available(self) -> bool:
         """Check if AI classification is available."""
-        return self.client is not None
+        return self.client is not None and self._ai_status == AIStatus.AVAILABLE
+
+    def get_ai_status(self) -> Dict[str, Any]:
+        """Get detailed AI availability status."""
+        return {
+            "available": self.is_ai_available(),
+            "status": self._ai_status.value,
+            "has_api_key": bool(self.api_key),
+            "has_library": AI_AVAILABLE,
+            "last_error": self._last_error,
+            "fallback_active": not self.is_ai_available(),
+        }
 
     def classify_with_ai(self, text: str) -> Optional[ClassificationResult]:
         """Classify document type using AI.
@@ -98,7 +134,7 @@ class DocumentClassifier:
             text: Text content from the document (first 2000 chars recommended)
 
         Returns:
-            ClassificationResult or None if AI is unavailable
+            ClassificationResult or None if AI is unavailable or fails
         """
         if not self.client:
             return None
@@ -133,6 +169,10 @@ class DocumentClassifier:
             except ValueError:
                 doc_type = DocumentType.OTHER
 
+            # Reset error status on success
+            self._ai_status = AIStatus.AVAILABLE
+            self._last_error = None
+
             return ClassificationResult(
                 document_type=doc_type,
                 confidence=float(data.get("confidence", 0.5)),
@@ -145,7 +185,26 @@ class DocumentClassifier:
             logger.error(f"Failed to parse AI response: {e}")
             return None
         except Exception as e:
-            logger.error(f"AI classification error: {e}")
+            error_str = str(e).lower()
+
+            # Check for specific error types and update status
+            if "credit balance" in error_str or "insufficient" in error_str:
+                self._ai_status = AIStatus.NO_CREDITS
+                self._last_error = "API credits exhausted. Using keyword-based classification."
+                logger.warning(f"AI credits exhausted: {e}")
+            elif "rate limit" in error_str or "429" in error_str:
+                self._ai_status = AIStatus.RATE_LIMITED
+                self._last_error = "API rate limited. Using keyword-based classification."
+                logger.warning(f"AI rate limited: {e}")
+            elif "authentication" in error_str or "401" in error_str or "invalid" in error_str:
+                self._ai_status = AIStatus.NO_API_KEY
+                self._last_error = "Invalid API key. Using keyword-based classification."
+                logger.error(f"AI authentication error: {e}")
+            else:
+                self._ai_status = AIStatus.API_ERROR
+                self._last_error = str(e)
+                logger.error(f"AI classification error: {e}")
+
             return None
 
     def classify_section(self, section: DocumentSection) -> DocumentSection:
@@ -193,6 +252,72 @@ class DocumentClassifier:
             sections = [self.classify_section(s) for s in sections]
 
         return sections
+
+    def classify_with_keywords(self, text: str) -> ClassificationResult:
+        """Classify document using keyword matching (always available).
+
+        Args:
+            text: Text content from the document
+
+        Returns:
+            ClassificationResult with keyword-based detection
+        """
+        type_scores = pdf_processor.detect_document_type_by_keywords(text)
+
+        if type_scores:
+            doc_type, confidence = type_scores[0]
+            alternatives = [{"type": t.value, "confidence": c} for t, c in type_scores[1:4]]
+        else:
+            doc_type = DocumentType.OTHER
+            confidence = 0.0
+            alternatives = []
+
+        # Try to extract reference number
+        ref_number = pdf_processor.extract_reference_number(text, doc_type)
+
+        return ClassificationResult(
+            document_type=doc_type,
+            confidence=confidence,
+            reference_number=ref_number,
+            detected_fields={
+                "detection_method": "keyword",
+                "alternatives": alternatives,
+            },
+            reasoning=f"Matched keywords for {doc_type.value}" if doc_type != DocumentType.OTHER else "No keywords matched"
+        )
+
+    def classify(self, text: str, prefer_ai: bool = True) -> ClassificationResult:
+        """Classify document with automatic AI/keyword fallback.
+
+        This is the main classification method that:
+        1. Tries AI classification if available and requested
+        2. Falls back to keyword matching on any failure
+        3. Always returns a result
+
+        Args:
+            text: Text content from the document
+            prefer_ai: Whether to try AI first (default True)
+
+        Returns:
+            ClassificationResult (always returns, never None)
+        """
+        result = None
+
+        # Try AI first if requested and available
+        if prefer_ai and self.client:
+            result = self.classify_with_ai(text)
+            if result:
+                result.detected_fields["detection_method"] = "ai"
+
+        # Fall back to keywords if AI failed or unavailable
+        if result is None:
+            result = self.classify_with_keywords(text)
+            # Add AI status info to fallback result
+            result.detected_fields["ai_status"] = self._ai_status.value
+            if self._last_error:
+                result.detected_fields["ai_error"] = self._last_error
+
+        return result
 
     def quick_classify(self, text: str) -> DocumentType:
         """Quick classification using keywords only.

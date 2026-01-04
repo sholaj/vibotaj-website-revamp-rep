@@ -1014,3 +1014,66 @@ async def check_duplicate_reference(
         "reference_number": reference_number,
         "document_type": document_type.value
     }
+
+
+# ============ AI Status Endpoint ============
+
+@router.get("/ai/status")
+async def get_ai_status(
+    current_user: User = Depends(get_current_user)
+):
+    """Get AI document classification availability status.
+
+    Returns detailed information about AI availability:
+    - Whether AI classification is active
+    - Fallback status (keyword-based classification always available)
+    - Error messages if AI is unavailable
+    """
+    status = document_classifier.get_ai_status()
+
+    return {
+        "ai_classification": {
+            "available": status["available"],
+            "status": status["status"],
+            "error": status["last_error"]
+        },
+        "fallback_classification": {
+            "available": True,
+            "type": "keyword",
+            "active": status["fallback_active"],
+            "description": "Keyword-based document detection is always available"
+        },
+        "pdf_processing": {
+            "available": pdf_processor.is_available(),
+            "library": "PyMuPDF"
+        },
+        "message": (
+            "AI classification is active" if status["available"]
+            else f"Using keyword-based fallback: {status['last_error'] or 'AI unavailable'}"
+        )
+    }
+
+
+@router.post("/ai/test")
+async def test_ai_classification(
+    text: str = Body(..., embed=True, description="Sample text to classify"),
+    prefer_ai: bool = Body(True, embed=True, description="Try AI first (if available)"),
+    current_user: User = Depends(get_current_user)
+):
+    """Test document classification with sample text.
+
+    Useful for verifying AI/keyword classification is working correctly.
+    """
+    result = document_classifier.classify(text, prefer_ai=prefer_ai)
+
+    return {
+        "classification": {
+            "document_type": result.document_type.value,
+            "confidence": result.confidence,
+            "reference_number": result.reference_number,
+            "reasoning": result.reasoning
+        },
+        "detection_method": result.detected_fields.get("detection_method", "unknown"),
+        "ai_status": document_classifier.get_ai_status(),
+        "detected_fields": result.detected_fields
+    }

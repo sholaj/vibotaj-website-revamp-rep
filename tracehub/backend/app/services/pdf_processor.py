@@ -72,6 +72,22 @@ REFERENCE_PATTERNS = {
         r'(?:QC|QUALITY)\s*(?:No\.?|#|:)?\s*[:\s]*([\w\d]+)',
         r'(?:Inspection|Quality)\s*(?:Certificate)?\s*(?:No\.?|#|:)?\s*([\w\d]+)',
     ],
+    # Horn & Hoof specific documents (HS 0506/0507)
+    DocumentType.EU_TRACES_CERTIFICATE: [
+        r'(?:TRACES|CHED)\s*(?:No\.?|#|:)?\s*[:\s]*([\w\d\.]+)',
+        r'RC\d{7}',  # EU TRACES RC number format
+        r'CHED-?(?:PP?|D)?\s*[:\s]*([\w\d\.]+)',
+    ],
+    DocumentType.VETERINARY_HEALTH_CERTIFICATE: [
+        r'(?:VHC|VET)\s*(?:No\.?|#|:)?\s*[:\s]*([\w\d/]+)',
+        r'(?:Veterinary|Animal)\s+Health\s*(?:Certificate)?\s*(?:No\.?|#|:)?\s*([\w\d/]+)',
+        r'NVRI\s*[:\s]*([\w\d/]+)',  # Nigerian Veterinary Research Institute
+    ],
+    DocumentType.EXPORT_DECLARATION: [
+        r'(?:NXP|EXP|SAD)\s*(?:No\.?|#|:)?\s*[:\s]*([\w\d]+)',
+        r'(?:Export)\s*(?:Declaration)?\s*(?:No\.?|#|:)?\s*([\w\d]+)',
+        r'Form\s+(?:NXP|E)\s*[:\s]*([\w\d]+)',
+    ],
 }
 
 # Keywords for document type detection
@@ -123,6 +139,20 @@ DOCUMENT_KEYWORDS = {
     DocumentType.EUDR_DUE_DILIGENCE: [
         'eudr', 'due diligence', 'deforestation', 'geolocation',
         'traceability', 'deforestation-free'
+    ],
+    # Horn & Hoof specific documents (HS 0506/0507)
+    DocumentType.EU_TRACES_CERTIFICATE: [
+        'traces', 'ched', 'common health entry document', 'eu traces',
+        'animal products', 'third country', 'import permit', 'rc1479592'
+    ],
+    DocumentType.VETERINARY_HEALTH_CERTIFICATE: [
+        'veterinary health', 'animal health certificate', 'veterinary certificate',
+        'nvri', 'nigerian veterinary', 'federal department of veterinary',
+        'official veterinarian', 'hooves', 'horns', 'animal by-products'
+    ],
+    DocumentType.EXPORT_DECLARATION: [
+        'export declaration', 'nxp', 'customs export', 'single administrative document',
+        'sad', 'export permit', 'export license', 'nigeria customs'
     ],
 }
 
