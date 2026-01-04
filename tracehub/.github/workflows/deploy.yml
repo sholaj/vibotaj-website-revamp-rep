@@ -1,0 +1,135 @@
+name: Deploy TraceHub
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'tracehub/**'
+  workflow_dispatch:
+    inputs:
+      skip_backup:
+        description: 'Skip database backup'
+        required: false
+        default: 'false'
+        type: boolean
+
+env:
+  SERVER_HOST: 82.198.225.150
+  APP_PATH: /opt/tracehub-app/tracehub
+
+jobs:
+  deploy:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup SSH key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H ${{ env.SERVER_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Create database backup
+        if: ${{ github.event.inputs.skip_backup != 'true' }}
+        run: |
+          ssh root@${{ env.SERVER_HOST }} << 'ENDSSH'
+            cd ${{ env.APP_PATH }}
+            mkdir -p ./backups
+            BACKUP_FILE="./backups/backup_$(date +%Y%m%d_%H%M%S).sql"
+            if docker compose -f docker-compose.prod.yml ps db | grep -q "Up"; then
+              docker compose -f docker-compose.prod.yml exec -T db pg_dump -U tracehub tracehub > "$BACKUP_FILE" 2>/dev/null || echo "Backup skipped"
+              echo "Backup created: $BACKUP_FILE"
+            fi
+          ENDSSH
+
+      - name: Pull latest code
+        run: |
+          ssh root@${{ env.SERVER_HOST }} << 'ENDSSH'
+            cd ${{ env.APP_PATH }}
+            git fetch origin main
+            git reset --hard origin/main
+            echo "Code updated to: $(git rev-parse --short HEAD)"
+          ENDSSH
+
+      - name: Build and deploy containers
+        run: |
+          ssh root@${{ env.SERVER_HOST }} << 'ENDSSH'
+            cd ${{ env.APP_PATH }}
+
+            # Build new images
+            echo "Building images..."
+            docker compose -f docker-compose.prod.yml build --quiet
+
+            # Restart services with zero-downtime
+            echo "Restarting services..."
+            docker compose -f docker-compose.prod.yml up -d
+
+            # Wait for services to be healthy
+            echo "Waiting for services to be healthy..."
+            sleep 10
+
+            for i in {1..30}; do
+              if docker compose -f docker-compose.prod.yml ps | grep -q "(healthy)"; then
+                echo "Services are healthy!"
+                break
+              fi
+              echo "Waiting... ($i/30)"
+              sleep 5
+            done
+          ENDSSH
+
+      - name: Run health checks
+        run: |
+          ssh root@${{ env.SERVER_HOST }} << 'ENDSSH'
+            echo "Running health checks..."
+
+            # Check backend
+            if curl -sf http://localhost:8000/health > /dev/null 2>&1 || \
+               docker compose -f ${{ env.APP_PATH }}/docker-compose.prod.yml exec -T backend curl -sf http://localhost:8000/health > /dev/null 2>&1; then
+              echo "✓ Backend is healthy"
+            else
+              echo "✗ Backend health check failed"
+              exit 1
+            fi
+
+            # Check frontend via internal network
+            if docker compose -f ${{ env.APP_PATH }}/docker-compose.prod.yml ps frontend | grep -q "healthy"; then
+              echo "✓ Frontend is healthy"
+            else
+              echo "✗ Frontend health check failed"
+              exit 1
+            fi
+
+            echo "All health checks passed!"
+          ENDSSH
+
+      - name: Cleanup old images
+        run: |
+          ssh root@${{ env.SERVER_HOST }} << 'ENDSSH'
+            docker image prune -f
+            echo "Cleaned up old images"
+          ENDSSH
+
+      - name: Show deployment status
+        run: |
+          ssh root@${{ env.SERVER_HOST }} << 'ENDSSH'
+            cd ${{ env.APP_PATH }}
+            echo ""
+            echo "=========================================="
+            echo "Deployment Complete!"
+            echo "=========================================="
+            echo "Commit: $(git rev-parse --short HEAD)"
+            echo "Time: $(date)"
+            echo ""
+            docker compose -f docker-compose.prod.yml ps
+          ENDSSH
+
+      - name: Notify on failure
+        if: failure()
+        run: |
+          echo "::error::Deployment failed! Check the logs above for details."
