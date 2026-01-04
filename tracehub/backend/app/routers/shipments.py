@@ -2,7 +2,7 @@
 
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from fastapi.responses import StreamingResponse
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from typing import Optional, List
 from uuid import UUID
 from datetime import datetime
@@ -129,7 +129,13 @@ async def get_shipment(
     current_user: User = Depends(get_current_user)
 ):
     """Get shipment details with documents and tracking status."""
-    shipment = db.query(Shipment).filter(Shipment.id == shipment_id).first()
+    # Eagerly load products to ensure HS code lookup works for compliance
+    shipment = (
+        db.query(Shipment)
+        .options(joinedload(Shipment.products))
+        .filter(Shipment.id == shipment_id)
+        .first()
+    )
     if not shipment:
         raise HTTPException(status_code=404, detail="Shipment not found")
 
@@ -161,7 +167,13 @@ async def get_shipment_documents(
     current_user: User = Depends(get_current_user)
 ):
     """List all documents for a shipment."""
-    shipment = db.query(Shipment).filter(Shipment.id == shipment_id).first()
+    # Eagerly load products to ensure HS code lookup works for compliance
+    shipment = (
+        db.query(Shipment)
+        .options(joinedload(Shipment.products))
+        .filter(Shipment.id == shipment_id)
+        .first()
+    )
     if not shipment:
         raise HTTPException(status_code=404, detail="Shipment not found")
 

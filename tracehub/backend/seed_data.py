@@ -192,6 +192,31 @@ def seed_sample_data(db: Session):
             "issue_date": date(2025, 12, 8),
             "issuing_authority": "Federal Produce Inspection Service"
         },
+        # Horn & Hoof specific documents (NO EUDR required)
+        {
+            "document_type": DocumentType.EU_TRACES_CERTIFICATE,
+            "name": "EU TRACES Certificate - RC1479592",
+            "status": DocumentStatus.VALIDATED,
+            "reference_number": "RC1479592",
+            "issue_date": date(2025, 12, 9),
+            "issuing_authority": "European Commission TRACES System"
+        },
+        {
+            "document_type": DocumentType.VETERINARY_HEALTH_CERTIFICATE,
+            "name": "Veterinary Health Certificate - VHC-2025-0506",
+            "status": DocumentStatus.VALIDATED,
+            "reference_number": "VHC-2025-0506",
+            "issue_date": date(2025, 12, 7),
+            "issuing_authority": "Nigerian Veterinary Research Institute (NVRI)"
+        },
+        {
+            "document_type": DocumentType.EXPORT_DECLARATION,
+            "name": "Export Declaration - NXP/2025/LA/001234",
+            "status": DocumentStatus.VALIDATED,
+            "reference_number": "NXP/2025/LA/001234",
+            "issue_date": date(2025, 12, 11),
+            "issuing_authority": "Nigeria Customs Service"
+        },
     ]
 
     for doc_data in docs_shipment_1:
@@ -361,6 +386,22 @@ def seed_sample_data(db: Session):
         {
             "document_type": DocumentType.PHYTOSANITARY_CERTIFICATE,
             "name": "Phytosanitary Certificate",
+            "status": DocumentStatus.DRAFT,
+        },
+        # Horn & Hoof specific documents (NO EUDR required) - pending for shipment 2
+        {
+            "document_type": DocumentType.EU_TRACES_CERTIFICATE,
+            "name": "EU TRACES Certificate - Pending",
+            "status": DocumentStatus.DRAFT,
+        },
+        {
+            "document_type": DocumentType.VETERINARY_HEALTH_CERTIFICATE,
+            "name": "Veterinary Health Certificate - Pending",
+            "status": DocumentStatus.DRAFT,
+        },
+        {
+            "document_type": DocumentType.EXPORT_DECLARATION,
+            "name": "Export Declaration - Pending",
             "status": DocumentStatus.DRAFT,
         },
     ]
