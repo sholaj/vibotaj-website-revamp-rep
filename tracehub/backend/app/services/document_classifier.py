@@ -97,20 +97,27 @@ class DocumentClassifier:
         self._ai_status = AIStatus.AVAILABLE
         self._last_error: Optional[str] = None
 
+        # Log initialization details
+        logger.info(f"Initializing document classifier. AI library available: {AI_AVAILABLE}")
+        api_key_present = bool(self.api_key)
+        api_key_prefix = self.api_key[:15] + "..." if self.api_key else "None"
+        logger.info(f"ANTHROPIC_API_KEY present: {api_key_present}, prefix: {api_key_prefix}")
+
         if not AI_AVAILABLE:
             self._ai_status = AIStatus.NO_LIBRARY
-            logger.info("Anthropic library not installed. Using keyword-based classification.")
+            logger.warning("Anthropic library not installed. Using keyword-based classification.")
         elif not self.api_key:
             self._ai_status = AIStatus.NO_API_KEY
-            logger.info("ANTHROPIC_API_KEY not set. Using keyword-based classification.")
+            logger.warning("ANTHROPIC_API_KEY not set. Using keyword-based classification.")
         else:
             try:
                 self.client = anthropic.Anthropic(api_key=self.api_key)
-                logger.info("AI document classifier initialized successfully")
+                self._ai_status = AIStatus.AVAILABLE
+                logger.info("AI document classifier initialized successfully with Claude Haiku")
             except Exception as e:
                 self._ai_status = AIStatus.API_ERROR
                 self._last_error = str(e)
-                logger.warning(f"Failed to initialize AI client: {e}")
+                logger.error(f"Failed to initialize AI client: {e}")
 
     def is_ai_available(self) -> bool:
         """Check if AI classification is available."""
