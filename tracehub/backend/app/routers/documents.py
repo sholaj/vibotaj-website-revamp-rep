@@ -36,6 +36,7 @@ from ..services.notifications import (
 from ..services.permissions import Permission, has_permission
 from ..services.pdf_processor import pdf_processor
 from ..services.document_classifier import document_classifier
+from ..services.shipment_enrichment import shipment_enrichment_service
 
 router = APIRouter()
 settings = get_settings()
@@ -238,6 +239,22 @@ async def upload_document(
         notify_users=[settings.demo_username]
     )
 
+    # Auto-enrich shipment with extracted data from document
+    enrichment_result = None
+    if is_pdf and pdf_processor.is_available():
+        try:
+            enrichment_result = shipment_enrichment_service.enrich_from_document(
+                shipment=shipment,
+                document=document,
+                db=db,
+                auto_create_products=True,
+                overwrite_existing=False  # Don't overwrite existing data
+            )
+        except Exception as e:
+            # Log but don't fail the upload
+            import logging
+            logging.getLogger(__name__).warning(f"Enrichment failed: {e}")
+
     db.commit()
     db.refresh(document)
 
@@ -258,6 +275,16 @@ async def upload_document(
             "detected_contents": detected_contents,
             "duplicates_found": duplicates_found,
             "ai_available": document_classifier.is_ai_available()
+        }
+
+    # Include enrichment results if extraction was performed
+    if enrichment_result:
+        response["enrichment"] = {
+            "success": enrichment_result.success,
+            "updates_applied": enrichment_result.updates_applied,
+            "products_created": enrichment_result.products_created,
+            "warnings": enrichment_result.warnings,
+            "extracted_data": enrichment_result.extracted_data
         }
 
     return response
@@ -1076,4 +1103,152 @@ async def test_ai_classification(
         "detection_method": result.detected_fields.get("detection_method", "unknown"),
         "ai_status": document_classifier.get_ai_status(),
         "detected_fields": result.detected_fields
+    }
+
+
+# ============ Document Intelligence / Extraction Endpoints ============
+
+@router.post("/{document_id}/extract")
+async def extract_shipment_data(
+    document_id: UUID,
+    auto_create_products: bool = Query(True, description="Auto-create products from HS codes"),
+    overwrite_existing: bool = Query(False, description="Overwrite existing shipment data"),
+    db: Session = Depends(get_db),
+    current_user: CurrentUser = Depends(get_current_active_user)
+):
+    """Extract shipment data from a document and update the shipment.
+
+    This endpoint extracts data like:
+    - Port of discharge (destination) from Bill of Lading
+    - HS codes and product info from Commercial Invoice
+    - Container numbers, vessel names, etc.
+
+    The extracted data is used to:
+    - Update shipment fields (ports, vessel, B/L number)
+    - Auto-create product records from HS codes
+
+    Requires: documents:upload permission
+    """
+    check_permission(current_user, Permission.DOCUMENTS_UPLOAD)
+
+    document = db.query(Document).filter(Document.id == document_id).first()
+    if not document:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    if not document.file_path or not os.path.exists(document.file_path):
+        raise HTTPException(status_code=404, detail="Document file not found")
+
+    shipment = db.query(Shipment).filter(Shipment.id == document.shipment_id).first()
+    if not shipment:
+        raise HTTPException(status_code=404, detail="Shipment not found")
+
+    if not pdf_processor.is_available():
+        raise HTTPException(
+            status_code=503,
+            detail="PDF processing is not available. Install PyMuPDF."
+        )
+
+    # Run extraction and enrichment
+    result = shipment_enrichment_service.enrich_from_document(
+        shipment=shipment,
+        document=document,
+        db=db,
+        auto_create_products=auto_create_products,
+        overwrite_existing=overwrite_existing
+    )
+
+    if result.updates_applied or result.products_created:
+        db.commit()
+        db.refresh(shipment)
+
+    return {
+        "document_id": str(document_id),
+        "shipment_id": str(shipment.id),
+        "shipment_reference": shipment.reference,
+        "extraction_result": result.to_dict(),
+        "updated_shipment": {
+            "pod_code": shipment.pod_code,
+            "pod_name": shipment.pod_name,
+            "pol_code": shipment.pol_code,
+            "pol_name": shipment.pol_name,
+            "vessel_name": shipment.vessel_name,
+            "voyage_number": shipment.voyage_number,
+            "bl_number": shipment.bl_number,
+            "product_count": len(shipment.products)
+        }
+    }
+
+
+@router.get("/{document_id}/preview-extraction")
+async def preview_extraction(
+    document_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Preview what data would be extracted from a document.
+
+    This endpoint shows what data can be extracted without actually
+    updating the shipment. Useful for reviewing before applying changes.
+    """
+    document = db.query(Document).filter(Document.id == document_id).first()
+    if not document:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    if not document.file_path or not os.path.exists(document.file_path):
+        raise HTTPException(status_code=404, detail="Document file not found")
+
+    if not pdf_processor.is_available():
+        raise HTTPException(
+            status_code=503,
+            detail="PDF processing is not available. Install PyMuPDF."
+        )
+
+    # Import extractor
+    from ..services.shipment_data_extractor import shipment_data_extractor
+
+    # Extract data without applying
+    extracted = shipment_data_extractor.extract_from_document(
+        document.file_path,
+        document.document_type
+    )
+
+    # Get current shipment data for comparison
+    shipment = db.query(Shipment).filter(Shipment.id == document.shipment_id).first()
+
+    return {
+        "document_id": str(document_id),
+        "document_type": document.document_type.value,
+        "extraction_confidence": extracted.confidence,
+        "extraction_method": extracted.extraction_method,
+        "extracted_data": {
+            "port_of_loading": {
+                "code": extracted.port_of_loading_code,
+                "name": extracted.port_of_loading_name
+            },
+            "port_of_discharge": {
+                "code": extracted.port_of_discharge_code,
+                "name": extracted.port_of_discharge_name
+            },
+            "final_destination": extracted.final_destination,
+            "container_number": extracted.container_number,
+            "bl_number": extracted.bl_number,
+            "vessel_name": extracted.vessel_name,
+            "voyage_number": extracted.voyage_number,
+            "hs_codes": extracted.hs_codes,
+            "products": extracted.product_descriptions,
+            "net_weight_kg": extracted.total_net_weight_kg,
+            "gross_weight_kg": extracted.total_gross_weight_kg
+        },
+        "current_shipment": {
+            "pod_code": shipment.pod_code if shipment else None,
+            "pod_name": shipment.pod_name if shipment else None,
+            "pol_code": shipment.pol_code if shipment else None,
+            "pol_name": shipment.pol_name if shipment else None,
+            "vessel_name": shipment.vessel_name if shipment else None,
+            "voyage_number": shipment.voyage_number if shipment else None,
+            "bl_number": shipment.bl_number if shipment else None,
+            "product_count": len(shipment.products) if shipment else 0,
+            "existing_hs_codes": [p.hs_code for p in shipment.products] if shipment else []
+        },
+        "raw_fields": extracted.raw_fields
     }
