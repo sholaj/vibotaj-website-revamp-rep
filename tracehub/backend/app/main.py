@@ -104,6 +104,14 @@ async def lifespan(app: FastAPI):
     # Ensure Horn & Hoof shipments have products (for EUDR exemption)
     ensure_horn_hoof_products()
 
+    # Initialize AI document classifier and log status
+    try:
+        from .services.document_classifier import document_classifier
+        ai_status = document_classifier.get_ai_status()
+        logger.info(f"Document classifier status: {ai_status}")
+    except Exception as e:
+        logger.warning(f"Failed to initialize document classifier: {e}")
+
     logger.info("TraceHub API startup complete")
     yield
 
