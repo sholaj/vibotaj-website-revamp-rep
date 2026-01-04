@@ -76,8 +76,8 @@ services:
       retries: 3
       start_period: 10s
     volumes:
-      # Mount SSL certificates if using HTTPS
-      # - ./ssl:/etc/nginx/ssl:ro
+      # SSL certificates from Let's Encrypt
+      - /etc/letsencrypt:/etc/letsencrypt:ro
       - ./logs/nginx:/var/log/nginx
     networks:
       - tracehub-network
