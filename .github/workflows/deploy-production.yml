@@ -106,6 +106,8 @@ jobs:
           DEMO_PASSWORD=${{ secrets.DEMO_PASSWORD }}
           DEBUG=false
           EOF
+            # Remove leading whitespace from .env file
+            sed -i 's/^[[:space:]]*//' .env
           ENDSSH
 
       - name: Rebuild and restart containers

@@ -25,12 +25,15 @@ services:
       context: ./backend
       dockerfile: Dockerfile
     container_name: tracehub-backend
+    env_file:
+      - .env
     environment:
       DATABASE_URL: postgresql://tracehub:tracehub@db:5432/tracehub
       DEBUG: "true"
       VIZION_API_KEY: ${VIZION_API_KEY:-}
       JWT_SECRET: ${JWT_SECRET:-your-secret-key-change-in-production}
       DEMO_PASSWORD: ${DEMO_PASSWORD:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
     ports:
       - "8000:8000"
     volumes:
