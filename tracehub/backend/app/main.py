@@ -40,15 +40,20 @@ def ensure_horn_hoof_products():
     try:
         # Find shipments that look like Horn & Hoof (bovine hooves, horns)
         # These are VIBO-2026-001 and VIBO-2026-002
+        horn_hoof_refs = ["VIBO-2026-001", "VIBO-2026-002"]
         horn_hoof_shipments = db.query(Shipment).filter(
-            Shipment.reference.in_(["VIBO-2026-001", "VIBO-2026-002"])
+            Shipment.reference.in_(horn_hoof_refs)
         ).all()
+
+        logger.info(f"Found {len(horn_hoof_shipments)} Horn & Hoof shipments (looking for {horn_hoof_refs})")
 
         for shipment in horn_hoof_shipments:
             # Check if shipment already has products
             existing_products = db.query(Product).filter(
                 Product.shipment_id == shipment.id
             ).count()
+
+            logger.info(f"Shipment {shipment.reference} has {existing_products} existing products")
 
             if existing_products == 0:
                 # Add Horn & Hoof product (HS 0506.90.00)
@@ -63,7 +68,12 @@ def ensure_horn_hoof_products():
                     packaging_count=1000
                 )
                 db.add(product)
-                logger.info(f"Added Horn & Hoof product to shipment {shipment.reference}")
+                logger.info(f"Added Horn & Hoof product (HS 0506.90.00) to shipment {shipment.reference}")
+            else:
+                # Log existing product HS codes
+                products = db.query(Product).filter(Product.shipment_id == shipment.id).all()
+                hs_codes = [p.hs_code for p in products]
+                logger.info(f"Shipment {shipment.reference} already has products with HS codes: {hs_codes}")
 
         db.commit()
         logger.info("Horn & Hoof product initialization complete")
