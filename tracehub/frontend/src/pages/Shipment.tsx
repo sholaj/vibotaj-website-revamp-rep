@@ -42,6 +42,19 @@ import DocumentReviewPanel from '../components/DocumentReviewPanel'
 import EUDRStatusCard from '../components/EUDRStatusCard'
 import { format, formatDistanceToNow } from 'date-fns'
 
+// Horn & Hoof HS codes - these products are exempt from EUDR
+const HORN_HOOF_HS_CODES = ['0506', '0507']
+
+// Check if shipment contains Horn & Hoof products (exempt from EUDR)
+function isHornHoofShipment(shipment: ShipmentType | null): boolean {
+  if (!shipment?.products || shipment.products.length === 0) {
+    return false
+  }
+  return shipment.products.some(product =>
+    HORN_HOOF_HS_CODES.some(code => product.hs_code?.startsWith(code))
+  )
+}
+
 // Status badge configuration
 const STATUS_CONFIG: Record<ShipmentStatus, { style: string; label: string }> = {
   created: { style: 'badge-info', label: 'Created' },
@@ -426,8 +439,8 @@ export default function Shipment() {
 
         {/* Right Column - Compliance & Live Status */}
         <div className="space-y-6">
-          {/* EUDR Compliance Card */}
-          {id && (
+          {/* EUDR Compliance Card - Only show for non-Horn & Hoof products */}
+          {id && !isHornHoofShipment(shipment) && (
             <EUDRStatusCard
               shipmentId={id}
               onValidationComplete={fetchData}
