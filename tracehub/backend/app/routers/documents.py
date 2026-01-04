@@ -1,5 +1,6 @@
 """Documents router - document upload and management."""
 
+import logging
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, Query, Body, status
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
@@ -40,6 +41,7 @@ from ..services.shipment_enrichment import shipment_enrichment_service
 
 router = APIRouter()
 settings = get_settings()
+logger = logging.getLogger(__name__)
 
 
 def check_permission(user: CurrentUser, permission: Permission) -> None:
@@ -177,11 +179,28 @@ async def upload_document(
     # Determine if this is a combined document
     is_combined = len(detected_contents) > 1
 
+    # If user selected "other" and AI detected a specific type with high confidence, use the AI result
+    final_document_type = document_type
+    if document_type == DocumentType.OTHER and detected_contents:
+        # Find the highest confidence detection that's not "other"
+        best_detection = None
+        for dc in detected_contents:
+            if dc["document_type"] != "other" and dc["confidence"] >= 0.7:
+                if best_detection is None or dc["confidence"] > best_detection["confidence"]:
+                    best_detection = dc
+
+        if best_detection:
+            try:
+                final_document_type = DocumentType(best_detection["document_type"])
+                logger.info(f"AI auto-classified document as {final_document_type.value} (confidence: {best_detection['confidence']:.2f})")
+            except ValueError:
+                pass  # Keep user's selection if AI type is invalid
+
     # Create document record
     document = Document(
         shipment_id=shipment_id,
-        document_type=document_type,
-        document_types=[dc["document_type"] for dc in detected_contents] if detected_contents else [document_type.value],
+        document_type=final_document_type,
+        document_types=[dc["document_type"] for dc in detected_contents] if detected_contents else [final_document_type.value],
         name=file.filename,
         file_path=file_path,
         file_name=file.filename,
@@ -274,7 +293,10 @@ async def upload_document(
         response["detection"] = {
             "detected_contents": detected_contents,
             "duplicates_found": duplicates_found,
-            "ai_available": document_classifier.is_ai_available()
+            "ai_available": document_classifier.is_ai_available(),
+            "ai_reclassified": final_document_type != document_type,
+            "original_type": document_type.value if final_document_type != document_type else None,
+            "detected_type": final_document_type.value if final_document_type != document_type else None
         }
 
     # Include enrichment results if extraction was performed

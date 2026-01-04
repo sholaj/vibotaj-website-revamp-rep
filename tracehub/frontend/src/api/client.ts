@@ -430,12 +430,17 @@ class ApiClient {
       issue_date?: string
       expiry_date?: string
       issuing_authority?: string
+      auto_detect?: boolean
     }
   ): Promise<Document> {
     const formData = new FormData()
     formData.append('shipment_id', shipmentId)
     formData.append('file', file)
     formData.append('document_type', documentType)
+
+    // Enable auto-detection if explicitly requested or if document type is "other"
+    const autoDetect = metadata?.auto_detect ?? (documentType === 'other')
+    formData.append('auto_detect', autoDetect.toString())
 
     if (metadata?.reference_number) {
       formData.append('reference_number', metadata.reference_number)
