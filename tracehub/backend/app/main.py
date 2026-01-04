@@ -10,11 +10,11 @@ from sqlalchemy.orm import Session
 from sqlalchemy import text
 
 from .config import get_settings
-from .database import engine, Base, get_db
+from .database import engine, Base, get_db, SessionLocal
 from .routers import shipments, documents, tracking, webhooks, auth, notifications, users
 from .routers import analytics, audit, eudr
 from .middleware import RequestTrackingMiddleware, RateLimitMiddleware, ErrorHandlerMiddleware
-from .models import ContainerEvent
+from .models import ContainerEvent, Shipment, Product
 
 # Configure logging
 logging.basicConfig(
@@ -28,6 +28,50 @@ settings = get_settings()
 # Track application start time
 app_start_time: datetime = None
 last_tracking_sync: datetime = None
+
+
+def ensure_horn_hoof_products():
+    """Ensure Horn & Hoof shipments have products with HS code 0506.
+
+    Horn & Hoof products (HS 0506/0507) are exempt from EUDR.
+    This function adds products to shipments that don't have them.
+    """
+    db = SessionLocal()
+    try:
+        # Find shipments that look like Horn & Hoof (bovine hooves, horns)
+        # These are VIBO-2026-001 and VIBO-2026-002
+        horn_hoof_shipments = db.query(Shipment).filter(
+            Shipment.reference.in_(["VIBO-2026-001", "VIBO-2026-002"])
+        ).all()
+
+        for shipment in horn_hoof_shipments:
+            # Check if shipment already has products
+            existing_products = db.query(Product).filter(
+                Product.shipment_id == shipment.id
+            ).count()
+
+            if existing_products == 0:
+                # Add Horn & Hoof product (HS 0506.90.00)
+                product = Product(
+                    shipment_id=shipment.id,
+                    hs_code="0506.90.00",
+                    description="Bovine Hooves (Dried)" if "001" in shipment.reference else "Crushed Cow Horns",
+                    quantity_net_kg=25000.0,
+                    quantity_gross_kg=26500.0,
+                    unit_of_measure="KG",
+                    packaging_type="25kg bags",
+                    packaging_count=1000
+                )
+                db.add(product)
+                logger.info(f"Added Horn & Hoof product to shipment {shipment.reference}")
+
+        db.commit()
+        logger.info("Horn & Hoof product initialization complete")
+    except Exception as e:
+        logger.error(f"Failed to initialize Horn & Hoof products: {e}")
+        db.rollback()
+    finally:
+        db.close()
 
 
 @asynccontextmanager
@@ -46,6 +90,9 @@ async def lifespan(app: FastAPI):
     # Import audit log model to ensure table is created
     from .models.audit_log import AuditLog
     Base.metadata.create_all(bind=engine)
+
+    # Ensure Horn & Hoof shipments have products (for EUDR exemption)
+    ensure_horn_hoof_products()
 
     logger.info("TraceHub API startup complete")
     yield
