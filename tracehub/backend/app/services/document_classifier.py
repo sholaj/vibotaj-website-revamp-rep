@@ -6,6 +6,7 @@ Provides automatic document type detection with:
 """
 
 import os
+import re
 import json
 import logging
 from typing import List, Dict, Any, Optional
@@ -161,13 +162,48 @@ class DocumentClassifier:
 
             # Parse JSON response
             response_text = message.content[0].text
-            # Extract JSON from response (handle markdown code blocks)
-            if "```json" in response_text:
-                response_text = response_text.split("```json")[1].split("```")[0]
-            elif "```" in response_text:
-                response_text = response_text.split("```")[1].split("```")[0]
+            logger.info(f"Raw AI response (first 300 chars): {response_text[:300]}")
 
-            data = json.loads(response_text.strip())
+            # Extract JSON from response using multiple strategies
+            json_text = None
+
+            # Strategy 1: Handle markdown code blocks
+            if "```json" in response_text:
+                json_text = response_text.split("```json")[1].split("```")[0]
+            elif "```" in response_text:
+                parts = response_text.split("```")
+                if len(parts) >= 2:
+                    json_text = parts[1]
+
+            # Strategy 2: Find JSON object by matching braces
+            if not json_text:
+                # Find the first { and match to its closing }
+                start_idx = response_text.find('{')
+                if start_idx != -1:
+                    brace_count = 0
+                    end_idx = start_idx
+                    for i, char in enumerate(response_text[start_idx:], start_idx):
+                        if char == '{':
+                            brace_count += 1
+                        elif char == '}':
+                            brace_count -= 1
+                            if brace_count == 0:
+                                end_idx = i + 1
+                                break
+                    if end_idx > start_idx:
+                        json_text = response_text[start_idx:end_idx]
+
+            # Strategy 3: Try the whole response as last resort
+            if not json_text:
+                json_text = response_text
+
+            logger.info(f"Extracted JSON (first 200 chars): {json_text[:200] if json_text else 'None'}")
+
+            if not json_text:
+                logger.error(f"Could not extract JSON from response: {response_text[:200]}")
+                return None
+
+            data = json.loads(json_text.strip())
 
             # Map to DocumentType enum
             type_str = data.get("document_type", "other")

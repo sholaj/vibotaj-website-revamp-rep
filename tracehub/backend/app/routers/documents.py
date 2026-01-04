@@ -404,6 +404,42 @@ async def delete_document(
     return {"message": "Document deleted"}
 
 
+@router.delete("/shipment/{shipment_id}/all")
+async def delete_all_shipment_documents(
+    shipment_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: CurrentUser = Depends(get_current_active_user)
+):
+    """Delete all documents for a shipment.
+
+    Requires: documents:delete permission (admin role)
+    """
+    check_permission(current_user, Permission.DOCUMENTS_DELETE)
+
+    # Get all documents for this shipment
+    documents = db.query(Document).filter(Document.shipment_id == shipment_id).all()
+
+    if not documents:
+        return {"message": "No documents found for this shipment", "deleted_count": 0}
+
+    deleted_count = 0
+    for document in documents:
+        # Delete file if exists
+        if document.file_path and os.path.exists(document.file_path):
+            try:
+                os.remove(document.file_path)
+            except Exception as e:
+                logger.warning(f"Failed to delete file {document.file_path}: {e}")
+
+        db.delete(document)
+        deleted_count += 1
+
+    db.commit()
+    logger.info(f"Deleted {deleted_count} documents for shipment {shipment_id}")
+
+    return {"message": f"Deleted {deleted_count} documents", "deleted_count": deleted_count}
+
+
 # ============ Validation & Workflow Endpoints ============
 
 @router.get("/{document_id}/validation")

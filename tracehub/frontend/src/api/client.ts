@@ -490,6 +490,19 @@ class ApiClient {
     return response.data
   }
 
+  async deleteAllShipmentDocuments(
+    shipmentId: string
+  ): Promise<{ message: string; deleted_count: number }> {
+    const response = await this.client.delete(
+      `/documents/shipment/${shipmentId}/all`
+    )
+
+    // Invalidate related caches
+    this.cache.invalidate('/shipments/')
+
+    return response.data
+  }
+
   // ============================================
   // Document Workflow Methods
   // ============================================
