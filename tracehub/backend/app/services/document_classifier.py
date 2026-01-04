@@ -75,17 +75,17 @@ Extract from document:
 ---
 
 Respond in JSON format:
-{
+{{
   "document_type": "type_name",
   "confidence": 0.0 to 1.0,
   "reference_number": "extracted reference number or null",
-  "key_fields": {
+  "key_fields": {{
     "issuer": "issuing authority/company",
     "date": "document date if found",
     "other_relevant_fields": "..."
-  },
+  }},
   "reasoning": "Brief explanation of why this type was chosen"
-}
+}}
 """
 
 
@@ -150,6 +150,7 @@ class DocumentClassifier:
         try:
             # Limit text to avoid token limits
             text_preview = text[:3000]
+            logger.info("Calling Claude API for classification...")
 
             message = self.client.messages.create(
                 model="claude-3-haiku-20240307",  # Fast, cost-effective model
@@ -160,8 +161,28 @@ class DocumentClassifier:
                 }]
             )
 
-            # Parse JSON response
-            response_text = message.content[0].text
+            # Log message structure for debugging
+            logger.info(f"Message type: {type(message)}")
+            logger.info(f"Message content type: {type(message.content)}")
+            logger.info(f"Message content length: {len(message.content) if message.content else 0}")
+
+            if message.content:
+                first_block = message.content[0]
+                logger.info(f"First content block type: {type(first_block)}")
+                logger.info(f"First content block dir: {[attr for attr in dir(first_block) if not attr.startswith('_')]}")
+
+                # Handle different content block types
+                if hasattr(first_block, 'text'):
+                    response_text = first_block.text
+                elif isinstance(first_block, dict) and 'text' in first_block:
+                    response_text = first_block['text']
+                else:
+                    response_text = str(first_block)
+                    logger.warning(f"Unexpected content block format, using str(): {response_text[:100]}")
+            else:
+                logger.error("Empty message content from Claude API")
+                return None
+
             logger.info(f"Raw AI response (first 300 chars): {response_text[:300]}")
 
             # Extract JSON from response using multiple strategies
