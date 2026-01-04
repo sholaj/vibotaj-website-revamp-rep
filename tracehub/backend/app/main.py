@@ -172,8 +172,6 @@ async def health_check():
 
     This endpoint does not require authentication.
     """
-    global app_start_time
-
     # Check database connection
     db_status = "healthy"
     db_latency_ms = None

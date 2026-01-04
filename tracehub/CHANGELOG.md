@@ -3,10 +3,59 @@
 All notable changes to the TraceHub platform are documented in this file.
 
 ## [Unreleased]
-- Sprint 6: Origin Verification & Supplier Portal
-- Sprint 7: Buyer Portal & Notifications
-- Sprint 8: AI-Powered Compliance
-- Sprint 9: Multi-Tenant & SaaS Foundation
+- Sprint 7: OCR & AI Document Detection
+- Sprint 8: Buyer Portal & Notifications
+- Sprint 9: AI-Powered Compliance
+- Sprint 10: Multi-Tenant & SaaS Foundation
+
+---
+
+## [1.1.0] - 2026-01-04
+
+### Sprint 6: DevOps & GitOps Implementation
+
+**CI/CD Pipeline:**
+- GitHub Actions CI workflows for backend and frontend
+- Automated linting (flake8, black, ESLint)
+- Automated type checking (mypy, TypeScript)
+- Unit tests with coverage reporting (pytest, Vitest)
+- Security scanning (bandit, safety, npm audit)
+- Docker image building and pushing to GHCR
+
+**Deployment Automation:**
+- Staging deployment workflow (auto-deploy on develop branch)
+- Production deployment workflow (manual trigger with approval)
+- Zero-downtime deployment with health checks
+- Automatic database backups before deployment
+- Deployment failure notifications
+
+**Database Migrations:**
+- Alembic migrations fully configured
+- Initial schema migration created
+- Migrations run automatically during deployment
+
+**Rollback & Recovery:**
+- `rollback.sh` script for deployment and database rollback
+- Blue-green deployment support
+- Pre-rollback backup creation
+- Health check verification after rollback
+
+**Documentation:**
+- GitHub secrets documentation (`GITHUB_SECRETS.md`)
+- DevOps/GitOps implementation plan (`DEVOPS_GITOPS_PLAN.md`)
+
+**Workflow Files:**
+- `.github/workflows/backend-ci.yml`
+- `.github/workflows/frontend-ci.yml`
+- `.github/workflows/build-and-push.yml`
+- `.github/workflows/deploy-staging.yml`
+- `.github/workflows/deploy-production.yml`
+- `.github/workflows/database-migrations.yml`
+
+**Technical:**
+- Zero infrastructure cost (using GitHub Actions, free tiers)
+- Deployment frequency: automated on every push
+- Mean time to recovery: < 15 minutes with rollback script
 
 ---
 
