@@ -6,6 +6,13 @@ from ..models import Shipment, Document, DocumentType, DocumentStatus
 from ..schemas.shipment import DocumentSummary
 
 
+# EU member state country codes (ISO 3166-1 alpha-2)
+EU_COUNTRY_CODES = {
+    "AT", "BE", "BG", "HR", "CY", "CZ", "DK", "EE", "FI", "FR",
+    "DE", "GR", "HU", "IE", "IT", "LV", "LT", "LU", "MT", "NL",
+    "PL", "PT", "RO", "SK", "SI", "ES", "SE"
+}
+
 # Required documents by product type and destination
 REQUIRED_DOCUMENTS = {
     # Horn & Hoof (HS 0506) to EU - Animal products require EU TRACES, NO EUDR
@@ -135,9 +142,15 @@ def get_required_documents(shipment: Shipment) -> List[DocumentType]:
     if key in REQUIRED_DOCUMENTS:
         return REQUIRED_DOCUMENTS[key]
 
-    # Try with just destination
+    # For EU countries, try the "EU" fallback with the same HS code
+    if destination in EU_COUNTRY_CODES:
+        eu_key = (hs_prefix, "EU")
+        if eu_key in REQUIRED_DOCUMENTS:
+            return REQUIRED_DOCUMENTS[eu_key]
+
+    # Try with just HS code for any destination
     for (hs, dest), docs in REQUIRED_DOCUMENTS.items():
-        if dest == destination:
+        if hs == hs_prefix:
             return docs
 
     # Fall back to default

@@ -115,6 +115,8 @@ class ShipmentResponse(BaseModel):
     status: ShipmentStatus
     created_at: datetime
     updated_at: datetime
+    # Include products for HS code-based compliance checks (e.g., Horn & Hoof exemption)
+    products: List[ProductInfo] = []
 
     class Config:
         from_attributes = True
