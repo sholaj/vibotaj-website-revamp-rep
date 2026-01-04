@@ -5,6 +5,8 @@ from .shipment import Shipment, ShipmentStatus
 from .product import Product
 from .origin import Origin, RiskLevel, VerificationMethod
 from .document import Document, DocumentType, DocumentStatus
+from .document_content import DocumentContent
+from .reference_registry import ReferenceRegistry
 from .container_event import ContainerEvent, EventType
 from .notification import Notification, NotificationType
 from .user import User, UserRole
@@ -22,6 +24,8 @@ __all__ = [
     "Document",
     "DocumentType",
     "DocumentStatus",
+    "DocumentContent",
+    "ReferenceRegistry",
     "ContainerEvent",
     "EventType",
     "Notification",

@@ -583,6 +583,130 @@ class ApiClient {
   }
 
   // ============================================
+  // Document Contents Methods (Multi-Document PDFs)
+  // ============================================
+
+  /**
+   * Get document contents (individual documents within a combined PDF)
+   */
+  async getDocumentContents(documentId: string): Promise<{
+    document_id: string
+    file_name: string
+    is_combined: boolean
+    page_count: number
+    content_count: number
+    contents: Array<{
+      id: string
+      document_type: string
+      status: string
+      page_start: number
+      page_end: number
+      reference_number?: string
+      confidence: number
+      detection_method: string
+      validated_at?: string
+      validated_by?: string
+      validation_notes?: string
+      detected_fields?: Record<string, unknown>
+    }>
+  }> {
+    return this.executeWithRetry({
+      method: 'GET',
+      url: `/documents/${documentId}/contents`,
+    })
+  }
+
+  /**
+   * Validate a specific content within a combined PDF
+   */
+  async validateDocumentContent(
+    documentId: string,
+    contentId: string,
+    notes?: string
+  ): Promise<{ message: string; content_id: string; status: string; all_contents_validated: boolean }> {
+    const response = await this.client.post(`/documents/${documentId}/contents/${contentId}/validate`, notes)
+    this.cache.invalidate('/documents/')
+    this.cache.invalidate('/shipments/')
+    return response.data
+  }
+
+  /**
+   * Reject a specific content within a combined PDF
+   */
+  async rejectDocumentContent(
+    documentId: string,
+    contentId: string,
+    notes: string
+  ): Promise<{ message: string; content_id: string; status: string }> {
+    const response = await this.client.post(`/documents/${documentId}/contents/${contentId}/reject`, { notes })
+    this.cache.invalidate('/documents/')
+    this.cache.invalidate('/shipments/')
+    return response.data
+  }
+
+  /**
+   * Analyze a document to detect contained document types
+   */
+  async analyzeDocument(documentId: string): Promise<{
+    document_id: string
+    file_name: string
+    page_count: number
+    detected_sections: Array<{
+      document_type: string
+      page_start: number
+      page_end: number
+      reference_number?: string
+      confidence: number
+      detection_method: string
+      detected_fields?: Record<string, unknown>
+    }>
+    ai_available: boolean
+  }> {
+    return this.executeWithRetry({
+      method: 'GET',
+      url: `/documents/${documentId}/analyze`,
+    })
+  }
+
+  /**
+   * Check for duplicate documents in a shipment
+   */
+  async getShipmentDuplicates(shipmentId: string): Promise<{
+    shipment_id: string
+    total_references: number
+    duplicate_count: number
+    duplicates: Array<{
+      reference_number: string
+      document_type: string
+      occurrences: Array<{
+        document_id: string
+        content_id?: string
+        first_seen_at?: string
+      }>
+    }>
+  }> {
+    return this.executeWithRetry({
+      method: 'GET',
+      url: `/documents/shipments/${shipmentId}/duplicates`,
+    })
+  }
+
+  /**
+   * Generic GET method for components
+   */
+  async get<T>(url: string): Promise<T> {
+    return this.executeWithRetry<T>({ method: 'GET', url })
+  }
+
+  /**
+   * Generic POST method for components
+   */
+  async post<T>(url: string, data?: unknown): Promise<T> {
+    const response = await this.client.post<T>(url, data)
+    return response.data
+  }
+
+  // ============================================
   // Compliance Methods
   // ============================================
 

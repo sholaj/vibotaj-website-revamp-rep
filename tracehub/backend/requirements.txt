@@ -22,6 +22,12 @@ httpx>=0.26.0
 # PDF Generation
 reportlab>=4.0.8
 
+# PDF Processing & OCR
+PyMuPDF>=1.23.0
+
+# AI Classification (optional - for document type detection)
+anthropic>=0.15.0
+
 # Utilities
 python-dotenv>=1.0.0
 

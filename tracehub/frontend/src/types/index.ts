@@ -175,6 +175,68 @@ export interface Document {
   validated_by?: string
   created_at?: string
   updated_at?: string
+  // Multi-document PDF fields
+  is_combined?: boolean
+  content_count?: number
+  page_count?: number
+}
+
+// Document content within a combined PDF
+export interface DocumentContent {
+  id: string
+  document_type: DocumentType
+  status: DocumentStatus
+  page_start: number
+  page_end: number
+  reference_number?: string
+  confidence: number
+  detection_method: 'ai' | 'keyword' | 'manual'
+  validated_at?: string
+  validated_by?: string
+  validation_notes?: string
+  detected_fields?: Record<string, unknown>
+}
+
+export interface DocumentContentsResponse {
+  document_id: string
+  file_name: string
+  is_combined: boolean
+  page_count: number
+  content_count: number
+  contents: DocumentContent[]
+}
+
+export interface DetectedDocument {
+  document_type: string
+  page_start: number
+  page_end: number
+  reference_number?: string
+  confidence: number
+  detection_method: string
+  detected_fields?: Record<string, unknown>
+}
+
+export interface DuplicateWarning {
+  reference_number: string
+  document_type: string
+  existing_document_id: string
+  first_seen_at?: string
+}
+
+export interface DocumentUploadResponse {
+  id: string
+  name: string
+  type: DocumentType
+  status: DocumentStatus
+  message: string
+  page_count: number
+  is_combined: boolean
+  content_count: number
+  detection?: {
+    detected_contents: DetectedDocument[]
+    duplicates_found: DuplicateWarning[]
+    ai_available: boolean
+  }
 }
 
 // ============================================

@@ -60,6 +60,11 @@ class Document(Base):
     status = Column(Enum(DocumentStatus), default=DocumentStatus.DRAFT, nullable=False)
     required = Column(Boolean, default=True)
 
+    # Multi-document PDF flags
+    is_combined = Column(Boolean, default=False)  # True if PDF contains multiple document types
+    content_count = Column(Integer, default=1)  # Number of document types detected in this file
+    page_count = Column(Integer)  # Total pages in the PDF
+
     # Document metadata
     reference_number = Column(String(100))  # Document's own reference
     issue_date = Column(Date)
@@ -82,6 +87,7 @@ class Document(Base):
 
     # Relationships
     shipment = relationship("Shipment", back_populates="documents")
+    contents = relationship("DocumentContent", back_populates="document", cascade="all, delete-orphan")
 
     def __repr__(self):
         return f"<Document {self.document_type.value}: {self.name}>"
