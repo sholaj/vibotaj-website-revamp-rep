@@ -141,6 +141,10 @@ export type DocumentType =
   | 'contract'
   | 'eudr_due_diligence'
   | 'quality_certificate'
+  // Horn & Hoof specific documents (HS 0506/0507)
+  | 'eu_traces_certificate'
+  | 'veterinary_health_certificate'
+  | 'export_declaration'
   | 'other'
 
 // Aligned with backend DocumentStatus enum

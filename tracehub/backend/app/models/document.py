@@ -23,6 +23,10 @@ class DocumentType(str, enum.Enum):
     CONTRACT = "contract"
     EUDR_DUE_DILIGENCE = "eudr_due_diligence"
     QUALITY_CERTIFICATE = "quality_certificate"
+    # Horn & Hoof specific documents (HS 0506/0507)
+    EU_TRACES_CERTIFICATE = "eu_traces_certificate"  # Animal Health Certificate for EU
+    VETERINARY_HEALTH_CERTIFICATE = "veterinary_health_certificate"
+    EXPORT_DECLARATION = "export_declaration"
     OTHER = "other"
 
 

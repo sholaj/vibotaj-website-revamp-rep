@@ -33,6 +33,10 @@ const DOCUMENT_TYPES: { value: DocumentType; label: string }[] = [
   { value: 'eudr_due_diligence', label: 'EUDR Due Diligence' },
   { value: 'quality_certificate', label: 'Quality Certificate' },
   { value: 'contract', label: 'Contract' },
+  // Horn & Hoof specific documents (HS 0506/0507)
+  { value: 'eu_traces_certificate', label: 'EU TRACES Certificate' },
+  { value: 'veterinary_health_certificate', label: 'Veterinary Health Certificate' },
+  { value: 'export_declaration', label: 'Export Declaration' },
   { value: 'other', label: 'Other' },
 ]
 

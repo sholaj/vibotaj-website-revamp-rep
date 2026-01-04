@@ -22,6 +22,10 @@ const DOCUMENT_LABELS: Record<DocumentType, string> = {
   contract: 'Contract',
   eudr_due_diligence: 'EUDR Due Diligence',
   quality_certificate: 'Quality Certificate',
+  // Horn & Hoof specific documents (HS 0506/0507)
+  eu_traces_certificate: 'EU TRACES Certificate',
+  veterinary_health_certificate: 'Veterinary Health Certificate',
+  export_declaration: 'Export Declaration',
   other: 'Other Document',
 }
 

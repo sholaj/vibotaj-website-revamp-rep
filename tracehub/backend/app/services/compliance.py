@@ -8,19 +8,48 @@ from ..schemas.shipment import DocumentSummary
 
 # Required documents by product type and destination
 REQUIRED_DOCUMENTS = {
-    # Hooves to Germany/EU
+    # Horn & Hoof (HS 0506) to EU - Animal products require EU TRACES, NO EUDR
     ("0506", "DE"): [
+        DocumentType.EU_TRACES_CERTIFICATE,  # Animal Health Certificate - must show RC1479592
+        DocumentType.VETERINARY_HEALTH_CERTIFICATE,  # From Nigerian veterinary authority
+        DocumentType.CERTIFICATE_OF_ORIGIN,  # Must specify Nigeria
         DocumentType.BILL_OF_LADING,
         DocumentType.COMMERCIAL_INVOICE,
         DocumentType.PACKING_LIST,
-        DocumentType.CERTIFICATE_OF_ORIGIN,
-        DocumentType.PHYTOSANITARY_CERTIFICATE,
-        DocumentType.FUMIGATION_CERTIFICATE,
-        DocumentType.SANITARY_CERTIFICATE,
-        DocumentType.INSURANCE_CERTIFICATE,
-        DocumentType.EUDR_DUE_DILIGENCE,
+        DocumentType.EXPORT_DECLARATION,
+        DocumentType.PHYTOSANITARY_CERTIFICATE,  # If processed with plant materials
     ],
-    # Pellets to Germany/EU
+    # Horns (HS 0507) to EU - Same requirements as hooves
+    ("0507", "DE"): [
+        DocumentType.EU_TRACES_CERTIFICATE,
+        DocumentType.VETERINARY_HEALTH_CERTIFICATE,
+        DocumentType.CERTIFICATE_OF_ORIGIN,
+        DocumentType.BILL_OF_LADING,
+        DocumentType.COMMERCIAL_INVOICE,
+        DocumentType.PACKING_LIST,
+        DocumentType.EXPORT_DECLARATION,
+        DocumentType.PHYTOSANITARY_CERTIFICATE,
+    ],
+    # Horn & Hoof to other EU countries
+    ("0506", "EU"): [
+        DocumentType.EU_TRACES_CERTIFICATE,
+        DocumentType.VETERINARY_HEALTH_CERTIFICATE,
+        DocumentType.CERTIFICATE_OF_ORIGIN,
+        DocumentType.BILL_OF_LADING,
+        DocumentType.COMMERCIAL_INVOICE,
+        DocumentType.PACKING_LIST,
+        DocumentType.EXPORT_DECLARATION,
+    ],
+    ("0507", "EU"): [
+        DocumentType.EU_TRACES_CERTIFICATE,
+        DocumentType.VETERINARY_HEALTH_CERTIFICATE,
+        DocumentType.CERTIFICATE_OF_ORIGIN,
+        DocumentType.BILL_OF_LADING,
+        DocumentType.COMMERCIAL_INVOICE,
+        DocumentType.PACKING_LIST,
+        DocumentType.EXPORT_DECLARATION,
+    ],
+    # Pellets to Germany/EU (agricultural products - may need EUDR)
     ("2302", "DE"): [
         DocumentType.BILL_OF_LADING,
         DocumentType.COMMERCIAL_INVOICE,
@@ -41,6 +70,25 @@ REQUIRED_DOCUMENTS = {
     ],
 }
 
+# Validation rules for Horn & Hoof documents
+HORN_HOOF_VALIDATION_RULES = {
+    DocumentType.EU_TRACES_CERTIFICATE: {
+        "required_field": "reference_number",
+        "expected_value": "RC1479592",
+        "description": "EU TRACES must show RC1479592",
+    },
+    DocumentType.VETERINARY_HEALTH_CERTIFICATE: {
+        "required_field": "issuing_authority",
+        "expected_contains": ["Nigeria", "Nigerian", "NVRI", "Federal"],
+        "description": "Must be from Nigerian veterinary authority",
+    },
+    DocumentType.CERTIFICATE_OF_ORIGIN: {
+        "required_field": "extra_data.country_of_origin",
+        "expected_value": "Nigeria",
+        "description": "Must specify Nigeria as country of origin",
+    },
+}
+
 # Human-readable document names
 DOCUMENT_NAMES = {
     DocumentType.BILL_OF_LADING: "Bill of Lading",
@@ -55,6 +103,10 @@ DOCUMENT_NAMES = {
     DocumentType.CONTRACT: "Contract",
     DocumentType.EUDR_DUE_DILIGENCE: "EUDR Due Diligence Statement",
     DocumentType.QUALITY_CERTIFICATE: "Quality Certificate",
+    # Horn & Hoof specific documents
+    DocumentType.EU_TRACES_CERTIFICATE: "EU TRACES Certificate",
+    DocumentType.VETERINARY_HEALTH_CERTIFICATE: "Veterinary Health Certificate",
+    DocumentType.EXPORT_DECLARATION: "Export Declaration",
     DocumentType.OTHER: "Other Document",
 }
 
