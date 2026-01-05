@@ -54,7 +54,7 @@ class User(Base):
     last_login = Column(DateTime, nullable=True)
 
     # Relationships
-    organization = relationship("Organization", back_populates="users")
+    organization = relationship("Organization", back_populates="users", foreign_keys=[organization_id])
     memberships = relationship("OrganizationMembership", back_populates="user", foreign_keys="OrganizationMembership.user_id")
 
     def __repr__(self):
