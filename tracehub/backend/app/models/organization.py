@@ -208,8 +208,8 @@ class Invitation(Base):
     accepted_at = Column(DateTime, nullable=True)
     accepted_by = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
 
-    # Metadata
-    metadata = Column(JSON, default=dict)
+    # Additional data (named to avoid SQLAlchemy reserved 'metadata')
+    invitation_metadata = Column(JSON, default=dict)
 
     # Relationships
     organization = relationship("Organization", back_populates="invitations")
@@ -238,7 +238,7 @@ class Invitation(Base):
             "expires_at": self.expires_at.isoformat() if self.expires_at else None,
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "accepted_at": self.accepted_at.isoformat() if self.accepted_at else None,
-            "metadata": self.metadata,
+            "metadata": self.invitation_metadata,
         }
 
     @property
