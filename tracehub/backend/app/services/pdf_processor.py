@@ -355,12 +355,12 @@ class PDFProcessor:
             # Extract reference number
             ref_number = self.extract_reference_number(section_text, doc_type) if doc_type else None
 
-            # Create section
+            # Create section - use more text for AI classification (4000 chars)
             sections.append(DocumentSection(
                 document_type=doc_type,
                 page_start=start_page,
                 page_end=end_page,
-                text_preview=section_text[:500],
+                text_preview=section_text[:4000],  # Increased from 500 for better AI classification
                 reference_number=ref_number,
                 confidence=confidence,
                 detection_method="keyword",
