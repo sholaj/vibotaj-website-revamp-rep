@@ -35,8 +35,7 @@ async def get_dashboard_stats(
         resource_type="analytics",
         resource_id="dashboard",
         success=True,
-        db=db,
-        organization_id=current_user.organization_id
+        db=db
     )
 
     return stats
