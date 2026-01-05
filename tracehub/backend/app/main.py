@@ -234,6 +234,7 @@ async def health_check():
     - Database connection status
     - Uptime information
     - Last tracking sync time
+    - OCR availability status
 
     This endpoint does not require authentication.
     """
@@ -265,6 +266,14 @@ async def health_check():
     except Exception as e:
         logger.warning(f"Could not get last tracking sync: {e}")
 
+    # Get OCR status
+    ocr_status = {"available": False}
+    try:
+        from .services.pdf_processor import pdf_processor
+        ocr_status = pdf_processor.get_ocr_status()
+    except Exception as e:
+        logger.warning(f"Could not get OCR status: {e}")
+
     # Calculate uptime
     uptime_seconds = None
     if app_start_time:
@@ -288,7 +297,8 @@ async def health_check():
             },
             "tracking": {
                 "last_sync": last_sync,
-            }
+            },
+            "ocr": ocr_status,
         }
     }
 

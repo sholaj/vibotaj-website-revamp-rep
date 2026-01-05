@@ -3,10 +3,60 @@
 All notable changes to the TraceHub platform are documented in this file.
 
 ## [Unreleased]
-- Sprint 7: OCR & AI Document Detection
 - Sprint 8: Buyer Portal & Notifications
 - Sprint 9: AI-Powered Compliance
 - Sprint 10: Multi-Tenant & SaaS Foundation
+
+---
+
+## [1.2.0] - 2026-01-05
+
+### Sprint 7: OCR & AI Document Detection
+
+**OCR Integration for Scanned PDFs:**
+- Tesseract OCR integration via pytesseract
+- PDF to image conversion using pdf2image and poppler
+- Automatic detection of scanned PDFs (image-only documents)
+- Graceful fallback when OCR is not available
+- Configurable OCR settings (DPI, timeout, language)
+
+**Enhanced Document Classification:**
+- Increased text preview from 500 to 4000 chars for better AI classification
+- Fixed JSON parsing in AI classification prompt (escaped braces)
+- Improved keyword patterns for veterinary health certificates
+- Better document boundary detection for combined PDFs
+- Added veterinary-specific keywords (Lagos State Government, VVD/LS, Chapter 18)
+
+**Docker & Infrastructure:**
+- Updated Dockerfile with Tesseract OCR and poppler-utils
+- Added tesseract-ocr-eng language pack
+- Image processing libraries (libjpeg-dev, zlib1g-dev)
+- OCR availability in health check endpoint
+
+**Dependencies Added:**
+- `pytesseract>=0.3.10` - Python Tesseract wrapper
+- `pdf2image>=1.16.0` - PDF to image conversion
+- `Pillow>=10.0.0` - Image processing
+- `anthropic>=0.40.0` - Updated Claude API client
+
+**Configuration:**
+- `TESSERACT_CMD` - Custom Tesseract executable path
+- `OCR_ENABLED` - Enable/disable OCR fallback
+- `OCR_DPI` - Image quality for conversion (default: 300)
+- `OCR_TIMEOUT` - Per-page timeout (default: 30s)
+- `OCR_LANGUAGE` - Tesseract language code (default: eng)
+
+**API Enhancements:**
+- `/health` endpoint now includes OCR status component
+- OCR availability, version, and configuration reported
+
+**Files Modified:**
+- `backend/app/services/pdf_processor.py` - OCR integration
+- `backend/app/services/document_classifier.py` - Fixed prompt escaping
+- `backend/app/config.py` - OCR settings
+- `backend/app/main.py` - Health check OCR status
+- `backend/Dockerfile` - Tesseract installation
+- `backend/requirements.txt` - OCR dependencies
 
 ---
 

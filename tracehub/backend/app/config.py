@@ -40,6 +40,13 @@ class Settings(BaseSettings):
     upload_dir: str = "./uploads"
     max_upload_size_mb: int = 50
 
+    # OCR Settings
+    tesseract_cmd: str = ""  # Path to tesseract executable (leave empty to use system PATH)
+    ocr_enabled: bool = True  # Enable/disable OCR fallback for scanned PDFs
+    ocr_dpi: int = 300  # DPI for PDF to image conversion
+    ocr_timeout: int = 30  # Timeout per page in seconds
+    ocr_language: str = "eng"  # Tesseract language code
+
     # CORS
     cors_origins: list[str] = ["http://localhost:3000", "http://localhost:5173", "http://localhost:5174"]
 

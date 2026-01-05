@@ -24,6 +24,9 @@ reportlab>=4.0.8
 
 # PDF Processing & OCR
 PyMuPDF>=1.23.0
+pytesseract>=0.3.10
+pdf2image>=1.16.0
+Pillow>=10.0.0
 
 # AI Classification (optional - for document type detection)
 anthropic>=0.40.0
@@ -34,4 +37,3 @@ python-dotenv>=1.0.0
 # Testing
 pytest>=7.4.4
 pytest-asyncio>=0.23.3
-httpx>=0.26.0
