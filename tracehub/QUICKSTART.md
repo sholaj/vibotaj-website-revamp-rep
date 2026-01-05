@@ -69,7 +69,7 @@ nano .env
 ```bash
 DB_PASSWORD=<strong-password>           # Database password
 JWT_SECRET=<random-32-char-string>      # JWT secret key
-VIZION_API_KEY=<your-api-key>          # Container tracking API key
+JSONCARGO_API_KEY=<your-api-key>       # Container tracking API key (optional)
 CORS_ORIGINS=https://yourdomain.com    # Your domain
 ```
 
@@ -214,7 +214,7 @@ tracehub/
 | `DB_PASSWORD` | Database password | Yes |
 | `DB_NAME` | Database name | Yes |
 | `JWT_SECRET` | Secret key for JWT tokens | Yes |
-| `VIZION_API_KEY` | Container tracking API key | Yes |
+| `JSONCARGO_API_KEY` | Container tracking API key | No |
 | `DEBUG` | Enable debug mode | No |
 | `CORS_ORIGINS` | Allowed CORS origins | No |
 

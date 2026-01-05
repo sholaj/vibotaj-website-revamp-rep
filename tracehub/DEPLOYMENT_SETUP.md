@@ -57,7 +57,7 @@ This document summarizes the complete deployment infrastructure that has been co
 Variables for production deployment:
 - `DB_USER`, `DB_PASSWORD`, `DB_NAME` - Database credentials
 - `JWT_SECRET` - Authentication secret
-- `VIZION_API_KEY` - Container tracking API
+- `JSONCARGO_API_KEY` - Container tracking API (optional)
 - `DEBUG`, `CORS_ORIGINS` - Application configuration
 - `MAX_UPLOAD_SIZE` - File upload limits
 - Optional: SMTP, backup configuration

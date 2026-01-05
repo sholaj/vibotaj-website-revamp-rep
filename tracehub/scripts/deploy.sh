@@ -83,7 +83,7 @@ source .env
 set +a
 
 # Check required environment variables
-REQUIRED_VARS=("DB_PASSWORD" "JWT_SECRET" "VIZION_API_KEY")
+REQUIRED_VARS=("DB_PASSWORD" "JWT_SECRET")
 MISSING_VARS=()
 
 for var in "${REQUIRED_VARS[@]}"; do

@@ -52,7 +52,7 @@ class ContainerEvent(Base):
     delay_hours = Column(Integer)
 
     # Source tracking
-    source = Column(String(50), default="vizion")  # API source
+    source = Column(String(50), default="jsoncargo")  # API source
     external_id = Column(String(100))  # ID from tracking API
     raw_payload = Column(JSONB)  # Original API response
 

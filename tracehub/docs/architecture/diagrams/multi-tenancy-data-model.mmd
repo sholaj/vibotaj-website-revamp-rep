@@ -1,0 +1,275 @@
+%%{init: {'theme': 'base', 'themeVariables': { 'primaryColor': '#4a90d9', 'edgeLabelBackground':'#ffffff'}}}%%
+erDiagram
+    organizations ||--o{ users : "has"
+    organizations ||--o{ shipments : "owns"
+    organizations ||--o{ parties : "owns"
+    organizations ||--o{ invitations : "sends"
+
+    users ||--o{ invitations : "creates"
+    users }o--|| parties : "linked to"
+
+    shipments ||--o{ documents : "contains"
+    shipments ||--o{ products : "contains"
+    shipments ||--o{ container_events : "tracks"
+    shipments }o--|| parties : "buyer"
+    shipments }o--|| parties : "supplier"
+
+    documents ||--o{ document_contents : "contains"
+
+    products ||--o{ origins : "sourced from"
+    origins }o--|| parties : "supplied by"
+
+    shipments ||--o{ reference_registry : "tracks refs"
+    document_contents ||--o{ reference_registry : "source"
+
+    users ||--o{ notifications : "receives"
+    users ||--o{ audit_logs : "creates"
+
+    organizations {
+        uuid id PK
+        string name
+        string slug UK
+        enum type "platform_owner|buyer|supplier|partner"
+        boolean is_active
+        jsonb settings
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    users {
+        uuid id PK
+        uuid organization_id FK
+        string email UK
+        string hashed_password
+        string full_name
+        enum role "admin|compliance|logistics_agent|buyer|supplier|viewer"
+        boolean is_super_admin
+        uuid party_id FK "nullable"
+        boolean is_active
+        timestamp created_at
+        timestamp updated_at
+        timestamp last_login
+    }
+
+    invitations {
+        uuid id PK
+        uuid organization_id FK
+        string email
+        enum role
+        string token UK "64 chars random"
+        uuid invited_by FK
+        timestamp expires_at "7 days"
+        timestamp used_at "nullable single-use"
+        timestamp created_at
+    }
+
+    shipments {
+        uuid id PK
+        uuid organization_id FK
+        string reference UK
+        string container_number
+        string bl_number
+        string booking_reference
+        string vessel_name
+        string voyage_number
+        timestamp etd
+        timestamp eta
+        timestamp atd
+        timestamp ata
+        string pol_code
+        string pol_name
+        string pod_code
+        string pod_name
+        string final_destination
+        string incoterms
+        enum status
+        uuid buyer_id FK
+        uuid supplier_id FK
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    documents {
+        uuid id PK
+        uuid organization_id FK
+        uuid shipment_id FK
+        enum document_type
+        jsonb document_types
+        string name
+        string file_path
+        string file_name
+        int file_size_bytes
+        string mime_type
+        enum status
+        boolean required
+        boolean is_combined
+        int content_count
+        int page_count
+        string reference_number
+        date issue_date
+        date expiry_date
+        string issuing_authority
+        text validation_notes
+        string uploaded_by
+        timestamp uploaded_at
+        timestamp validated_at
+        string validated_by
+        jsonb extra_data
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    document_contents {
+        uuid id PK
+        uuid organization_id FK
+        uuid document_id FK
+        enum document_type
+        enum status
+        int page_start
+        int page_end
+        string reference_number
+        jsonb detected_fields
+        float confidence_score
+        string detection_method
+        string validation_notes
+        timestamp validated_at
+        string validated_by
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    products {
+        uuid id PK
+        uuid organization_id FK
+        uuid shipment_id FK
+        string hs_code
+        string description
+        decimal quantity_net_kg
+        decimal quantity_gross_kg
+        string unit_of_measure
+        string packaging_type
+        int packaging_count
+        string batch_lot_number
+        string quality_grade
+        decimal moisture_percentage
+        date production_date
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    origins {
+        uuid id PK
+        uuid organization_id FK
+        uuid product_id FK
+        string farm_plot_identifier
+        decimal geolocation_lat
+        decimal geolocation_lng
+        jsonb geolocation_polygon
+        string country
+        string region
+        string district
+        date production_start_date
+        date production_end_date
+        uuid supplier_id FK
+        boolean deforestation_cutoff_compliant
+        string due_diligence_statement_ref
+        text deforestation_free_statement
+        enum risk_level
+        decimal risk_score
+        timestamp risk_assessment_date
+        text risk_assessment_notes
+        date supplier_attestation_date
+        string supplier_attestation_reference
+        uuid supplier_attestation_document_id
+        timestamp verified_at
+        string verified_by
+        enum verification_method
+        text verification_notes
+        jsonb verification_document_ids
+        string eudr_reference_number
+        timestamp eudr_submission_date
+        string eudr_status
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    parties {
+        uuid id PK
+        uuid organization_id FK
+        enum type "supplier|buyer|shipper|consignee|notify_party"
+        string company_name
+        string contact_name
+        string email
+        string phone
+        string address
+        string city
+        string country
+        string registration_number
+        string tax_id
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    container_events {
+        uuid id PK
+        uuid organization_id FK
+        uuid shipment_id FK
+        enum event_type
+        timestamp event_timestamp
+        string location_name
+        string location_code
+        decimal location_lat
+        decimal location_lng
+        string vessel_name
+        string voyage_number
+        int delay_hours
+        string source
+        string external_id
+        jsonb raw_payload
+        timestamp created_at
+    }
+
+    notifications {
+        uuid id PK
+        uuid organization_id FK
+        string user_id
+        string type
+        string title
+        text message
+        jsonb data
+        boolean read
+        timestamp read_at
+        timestamp created_at
+    }
+
+    audit_logs {
+        uuid id PK
+        uuid organization_id FK "required for compliance"
+        string user_id
+        string username
+        string ip_address
+        string user_agent
+        string action
+        string resource_type
+        string resource_id
+        string request_id
+        string method
+        string path
+        string status_code
+        string success
+        jsonb details
+        text error_message
+        string duration_ms
+        timestamp timestamp
+    }
+
+    reference_registry {
+        uuid id PK
+        uuid organization_id FK
+        uuid shipment_id FK
+        string reference_number
+        enum document_type
+        uuid document_content_id FK
+        uuid document_id FK
+        timestamp first_seen_at
+    }

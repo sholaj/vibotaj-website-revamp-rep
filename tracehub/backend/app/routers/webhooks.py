@@ -19,8 +19,8 @@ from ..services.notifications import (
 router = APIRouter()
 settings = get_settings()
 
-# Map Vizion event types to our EventType enum
-VIZION_EVENT_MAP = {
+# Map JSONCargo event types to our EventType enum
+JSONCARGO_EVENT_MAP = {
     "CONTAINER_LOADED": EventType.LOADED,
     "VESSEL_DEPARTED": EventType.DEPARTED,
     "VESSEL_ARRIVED": EventType.ARRIVED,
@@ -119,9 +119,9 @@ def get_users_to_notify(shipment: Shipment, db: Session) -> list[str]:
     return list(set(users))  # Deduplicate
 
 
-@router.post("/vizion")
-async def vizion_webhook(request: Request, db: Session = Depends(get_db)):
-    """Receive tracking webhook from Vizion API."""
+@router.post("/jsoncargo")
+async def jsoncargo_webhook(request: Request, db: Session = Depends(get_db)):
+    """Receive tracking webhook from JSONCargo API."""
     payload = await request.json()
 
     container_number = payload.get("container_number") or payload.get("container_id")
@@ -147,14 +147,14 @@ async def vizion_webhook(request: Request, db: Session = Depends(get_db)):
 
     for event_data in payload.get("events", [payload]):
         # Map event type
-        vizion_type = event_data.get("event_type") or event_data.get("type")
-        event_type = VIZION_EVENT_MAP.get(vizion_type)
+        jsoncargo_type = event_data.get("event_type") or event_data.get("type")
+        event_type = JSONCARGO_EVENT_MAP.get(jsoncargo_type)
 
         if not event_type:
             continue
 
         # Check for duplicate
-        external_id = event_data.get("id") or f"{container_number}-{vizion_type}-{event_data.get('timestamp')}"
+        external_id = event_data.get("id") or f"{container_number}-{jsoncargo_type}-{event_data.get('timestamp')}"
         existing = db.query(ContainerEvent).filter(
             ContainerEvent.external_id == external_id
         ).first()
@@ -176,7 +176,7 @@ async def vizion_webhook(request: Request, db: Session = Depends(get_db)):
             vessel_name=event_data.get("vessel", {}).get("name") or event_data.get("vessel"),
             voyage_number=event_data.get("vessel", {}).get("voyage") or event_data.get("voyage"),
             external_id=external_id,
-            source="vizion",
+            source="jsoncargo",
             raw_payload=event_data
         )
         db.add(event)

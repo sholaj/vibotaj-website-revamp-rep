@@ -16,7 +16,7 @@ python-jose[cryptography]>=3.3.0
 passlib[bcrypt]>=1.7.4
 python-multipart>=0.0.6
 
-# HTTP Client (for Vizion API)
+# HTTP Client (for JSONCargo API)
 httpx>=0.26.0
 
 # PDF Generation

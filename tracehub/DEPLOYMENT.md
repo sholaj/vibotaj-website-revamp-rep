@@ -156,7 +156,7 @@ Location: `/opt/tracehub-app/tracehub/.env`
 | `DB_USER` | PostgreSQL username | Yes | tracehub |
 | `DB_PASSWORD` | PostgreSQL password | Yes | - |
 | `DB_NAME` | PostgreSQL database name | Yes | tracehub |
-| `VIZION_API_KEY` | Container tracking API key | Yes | - |
+| `JSONCARGO_API_KEY` | Container tracking API key | No | - |
 | `JWT_SECRET` | JWT signing secret | Yes | - |
 | `DEMO_PASSWORD` | Demo user password for POC | Yes | - |
 | `ANTHROPIC_API_KEY` | Claude API key for AI document classification | No | - |

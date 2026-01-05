@@ -25,13 +25,9 @@ class Settings(BaseSettings):
     demo_email: str = "demo@vibotaj.com"
     demo_full_name: str = "Demo User"
 
-    # Container Tracking API (JSONCargo - primary)
+    # Container Tracking API (JSONCargo)
     jsoncargo_api_key: str = ""
     jsoncargo_api_url: str = "https://api.jsoncargo.com/api/v1"
-
-    # Vizion API (legacy/backup)
-    vizion_api_key: str = ""
-    vizion_api_url: str = "https://api.vizionapi.com/v2"
 
     # Webhook Security
     webhook_secret: str = ""  # HMAC secret for webhook signature verification
@@ -59,3 +55,7 @@ class Settings(BaseSettings):
 def get_settings() -> Settings:
     """Get cached settings instance."""
     return Settings()
+
+
+# Export settings instance for convenience
+settings = get_settings()
