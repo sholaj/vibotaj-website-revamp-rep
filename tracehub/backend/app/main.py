@@ -30,6 +30,50 @@ app_start_time: datetime = None
 last_tracking_sync: datetime = None
 
 
+def ensure_document_type_enum():
+    """Ensure all document types are in the PostgreSQL enum.
+
+    Sprint 7 added new document types that may not exist in older databases.
+    This function adds them to the enum if they're missing.
+    """
+    db = SessionLocal()
+    try:
+        # New document types added in Sprint 7
+        new_types = [
+            'SANITARY_CERTIFICATE',
+            'EUDR_DUE_DILIGENCE',
+            'QUALITY_CERTIFICATE',
+            'EU_TRACES_CERTIFICATE',
+            'VETERINARY_HEALTH_CERTIFICATE',
+            'EXPORT_DECLARATION',
+        ]
+
+        for doc_type in new_types:
+            try:
+                # Check if the enum value exists
+                result = db.execute(text("""
+                    SELECT 1 FROM pg_enum
+                    WHERE enumlabel = :doc_type
+                    AND enumtypid = (SELECT oid FROM pg_type WHERE typname = 'documenttype')
+                """), {"doc_type": doc_type}).fetchone()
+
+                if not result:
+                    # Add the enum value
+                    db.execute(text(f"ALTER TYPE documenttype ADD VALUE '{doc_type}'"))
+                    db.commit()
+                    logger.info(f"Added document type enum value: {doc_type}")
+            except Exception as e:
+                # Value might already exist or other error
+                logger.debug(f"Could not add enum value {doc_type}: {e}")
+                db.rollback()
+
+        logger.info("Document type enum check complete")
+    except Exception as e:
+        logger.error(f"Failed to update document type enum: {e}")
+    finally:
+        db.close()
+
+
 def ensure_horn_hoof_products():
     """Ensure Horn & Hoof shipments have products with HS code 0506.
 
@@ -100,6 +144,9 @@ async def lifespan(app: FastAPI):
     # Import audit log model to ensure table is created
     from .models.audit_log import AuditLog
     Base.metadata.create_all(bind=engine)
+
+    # Ensure new document types are in the PostgreSQL enum (Sprint 7)
+    ensure_document_type_enum()
 
     # Ensure Horn & Hoof shipments have products (for EUDR exemption)
     ensure_horn_hoof_products()
