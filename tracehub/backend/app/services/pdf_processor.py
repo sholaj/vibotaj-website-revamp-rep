@@ -90,69 +90,85 @@ REFERENCE_PATTERNS = {
     ],
 }
 
-# Keywords for document type detection
+# Keywords for document type detection (ordered by specificity - more specific first)
 DOCUMENT_KEYWORDS = {
+    # Veterinary Health Certificate - MUST come before SANITARY_CERTIFICATE
+    # Very specific keywords for Nigerian veterinary export documents
+    DocumentType.VETERINARY_HEALTH_CERTIFICATE: [
+        'veterinary certificate to eu', 'veterinary officer', 'ministry of agriculture',
+        'animal by-product', 'products declaration', 'crushed hooves',
+        'crushed horns', 'lagos state government', 'vvd/ls', 'chapter 18',
+        'health certificate', 'veterinary health', 'animal health certificate',
+        'hooves and horns', 'dried horns', 'dried hooves', 'bovine',
+        'slaughtered', 'slaughter house', 'ante-mortem', 'bse risk'
+    ],
+    # EU TRACES Certificate - for animal products entering EU
+    DocumentType.EU_TRACES_CERTIFICATE: [
+        'traces', 'ched', 'common health entry document', 'eu traces',
+        'ched-p', 'ched-d', 'entry bip', 'border inspection post',
+        'third country', 'import permit', 'rc1479592', 'eu import'
+    ],
     DocumentType.BILL_OF_LADING: [
-        'bill of lading', 'b/l', 'shipper', 'consignee', 'notify party',
-        'port of loading', 'port of discharge', 'ocean bill', 'carrier'
+        'bill of lading', 'b/l no', 'b/l:', 'shipper', 'consignee', 'notify party',
+        'port of loading', 'port of discharge', 'ocean bill', 'carrier',
+        'maersk', 'msc', 'hapag', 'cma cgm', 'freight collect', 'freight prepaid',
+        'container said to contain', 'shipped on board', 'multimodal transport'
     ],
     DocumentType.CERTIFICATE_OF_ORIGIN: [
         'certificate of origin', 'country of origin', 'naccima',
-        'chamber of commerce', 'preferential origin', 'form a'
+        'nigerian association of chambers', 'chamber of commerce',
+        'preferential origin', 'form a', 'goods produced in', 'wholly produced',
+        'declaration by exporter', 'origin criterion', 'goods originate'
     ],
     DocumentType.PHYTOSANITARY_CERTIFICATE: [
         'phytosanitary', 'plant health', 'plant protection',
-        'plant quarantine', 'fao', 'ippc'
+        'plant quarantine', 'fao', 'ippc', 'naqs', 'plant inspection'
     ],
+    # Fumigation Certificate - specific keywords for fumigation/quality certs
     DocumentType.FUMIGATION_CERTIFICATE: [
-        'fumigation', 'fumigated', 'methyl bromide', 'pest control',
-        'treatment certificate'
+        'fumigation', 'fumigated', 'fumigant applied', 'methyl bromide',
+        'aluminium phosphide', 'pest control', 'treatment certificate',
+        'federal produce inspection', 'certificate of quality, fumigation',
+        'good packaging materials', 'quality analysis of export', 'date of fumigation'
     ],
+    # Sanitary Certificate - more general health/sanitary certificates
     DocumentType.SANITARY_CERTIFICATE: [
-        'veterinary', 'health certificate', 'sanitary', 'animal health',
-        'official veterinarian', 'chapter 18', 'eu health'
+        'sanitary certificate', 'sanitary and phytosanitary', 'sps certificate',
+        'food safety', 'nafdac', 'son certificate', 'health clearance'
     ],
     DocumentType.COMMERCIAL_INVOICE: [
-        'commercial invoice', 'invoice', 'pro forma', 'sold to',
-        'bill to', 'unit price', 'total amount'
+        'commercial invoice', 'invoice no', 'pro forma', 'sold to',
+        'bill to', 'unit price', 'total amount', 'payment terms',
+        'incoterms', 'fob', 'cif', 'cfr'
     ],
     DocumentType.PACKING_LIST: [
         'packing list', 'packing specification', 'net weight',
-        'gross weight', 'package', 'cartons', 'pallets'
+        'gross weight', 'package', 'cartons', 'pallets', 'container load'
     ],
     DocumentType.QUALITY_CERTIFICATE: [
         'quality certificate', 'inspection certificate', 'grade',
-        'moisture content', 'specification', 'test report'
+        'moisture content', 'specification', 'test report', 'lab analysis'
     ],
     DocumentType.INSURANCE_CERTIFICATE: [
         'insurance', 'insured', 'coverage', 'marine insurance',
-        'cargo insurance', 'policy'
+        'cargo insurance', 'policy', 'sum insured', 'underwriter'
     ],
     DocumentType.CUSTOMS_DECLARATION: [
-        'customs', 'export declaration', 'import declaration',
-        'customs declaration', 'hs code', 'tariff'
+        'customs', 'import declaration', 'customs declaration',
+        'hs code', 'tariff', 'duty', 'customs clearance'
+    ],
+    DocumentType.EXPORT_DECLARATION: [
+        'export declaration', 'nxp', 'nxp form', 'customs export',
+        'single administrative document', 'sad', 'export permit',
+        'export license', 'nigeria customs', 'nes'
     ],
     DocumentType.CONTRACT: [
         'contract', 'agreement', 'terms and conditions', 'buyer',
-        'seller', 'purchase order'
+        'seller', 'purchase order', 'sales contract'
     ],
     DocumentType.EUDR_DUE_DILIGENCE: [
         'eudr', 'due diligence', 'deforestation', 'geolocation',
-        'traceability', 'deforestation-free'
-    ],
-    # Horn & Hoof specific documents (HS 0506/0507)
-    DocumentType.EU_TRACES_CERTIFICATE: [
-        'traces', 'ched', 'common health entry document', 'eu traces',
-        'animal products', 'third country', 'import permit', 'rc1479592'
-    ],
-    DocumentType.VETERINARY_HEALTH_CERTIFICATE: [
-        'veterinary health', 'animal health certificate', 'veterinary certificate',
-        'nvri', 'nigerian veterinary', 'federal department of veterinary',
-        'official veterinarian', 'hooves', 'horns', 'animal by-products'
-    ],
-    DocumentType.EXPORT_DECLARATION: [
-        'export declaration', 'nxp', 'customs export', 'single administrative document',
-        'sad', 'export permit', 'export license', 'nigeria customs'
+        'traceability', 'deforestation-free', 'eu regulation 2023/1115'
     ],
 }
 
@@ -249,25 +265,49 @@ class PDFProcessor:
         boundaries = []
         current_start = 1
 
+        # Strong document start indicators (titles/headers that indicate new document)
+        doc_start_patterns = [
+            r'bill of lading',
+            r'certificate of origin',
+            r'phytosanitary certificate',
+            r'veterinary certificate',
+            r'health certificate',
+            r'commercial invoice',
+            r'fumigation certificate',
+            r'certificate of quality.*fumigation',
+            r'federal ministry of industry',
+            r'federal produce inspection',
+            r'nigerian association of chambers',
+            r'quality certificate',
+            r'insurance certificate',
+            r'packing list',
+            r'export declaration',
+            r'customs declaration',
+        ]
+
         for i, page in enumerate(pages):
             page_num = page.page_number
 
             # Check if this page likely starts a new document
             if i > 0:
                 # Look for strong indicators of a new document
-                text_lower = page.text.lower()[:500]
+                text_lower = page.text.lower()[:800]  # Check more text
 
-                new_doc_indicators = [
-                    'bill of lading' in text_lower,
-                    'certificate of origin' in text_lower,
-                    'phytosanitary certificate' in text_lower,
-                    'veterinary certificate' in text_lower,
-                    'health certificate' in text_lower,
-                    'commercial invoice' in text_lower,
-                    text_lower.strip().startswith('page 1'),
-                ]
+                # Check for document start patterns
+                is_new_doc = False
+                for pattern in doc_start_patterns:
+                    if re.search(pattern, text_lower):
+                        # Verify it's near the start of the page (first 300 chars)
+                        early_text = text_lower[:300]
+                        if re.search(pattern, early_text):
+                            is_new_doc = True
+                            break
 
-                if any(new_doc_indicators):
+                # Also check for page 1 indicator
+                if text_lower.strip().startswith('page 1') or 'page: 1' in text_lower[:100]:
+                    is_new_doc = True
+
+                if is_new_doc:
                     # End previous section
                     if current_start < page_num:
                         boundaries.append((current_start, page_num - 1))
