@@ -5,7 +5,8 @@ from sqlalchemy.orm import Session
 from typing import Optional
 
 from ..database import get_db
-from ..routers.auth import get_current_user, User
+from ..routers.auth import get_current_active_user
+from ..schemas.user import CurrentUser
 from ..services.analytics import get_analytics_service
 from ..services.audit_log import get_audit_logger, AuditAction
 
@@ -15,7 +16,7 @@ router = APIRouter()
 @router.get("/dashboard")
 async def get_dashboard_stats(
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: CurrentUser = Depends(get_current_active_user)
 ):
     """
     Get overall dashboard statistics.
@@ -23,7 +24,7 @@ async def get_dashboard_stats(
     Returns combined metrics across shipments, documents, compliance, and tracking.
     Suitable for populating dashboard overview cards.
     """
-    analytics = get_analytics_service(db)
+    analytics = get_analytics_service(db, current_user.organization_id)
     stats = analytics.get_dashboard_stats()
 
     # Log analytics view
@@ -35,6 +36,7 @@ async def get_dashboard_stats(
         resource_id="dashboard",
         success=True,
         db=db,
+        organization_id=current_user.organization_id
     )
 
     return stats
@@ -43,7 +45,7 @@ async def get_dashboard_stats(
 @router.get("/shipments")
 async def get_shipment_metrics(
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: CurrentUser = Depends(get_current_active_user)
 ):
     """
     Get detailed shipment statistics.
@@ -57,7 +59,7 @@ async def get_shipment_metrics(
         - completed_this_month: Delivered this month
         - delayed_count: Shipments with delays
     """
-    analytics = get_analytics_service(db)
+    analytics = get_analytics_service(db, current_user.organization_id)
     return analytics.get_shipment_stats()
 
 
@@ -66,7 +68,7 @@ async def get_shipment_trends(
     days: int = Query(30, ge=7, le=365, description="Number of days to analyze"),
     group_by: str = Query("day", regex="^(day|week|month)$", description="Grouping interval"),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: CurrentUser = Depends(get_current_active_user)
 ):
     """
     Get shipment creation trends over time.
@@ -80,7 +82,7 @@ async def get_shipment_trends(
     Returns:
         List of {date, count} objects
     """
-    analytics = get_analytics_service(db)
+    analytics = get_analytics_service(db, current_user.organization_id)
     return {
         "period_days": days,
         "group_by": group_by,
@@ -91,7 +93,7 @@ async def get_shipment_trends(
 @router.get("/documents")
 async def get_document_metrics(
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: CurrentUser = Depends(get_current_active_user)
 ):
     """
     Get detailed document statistics.
@@ -105,21 +107,21 @@ async def get_document_metrics(
         - expiring_soon: Documents expiring in 30 days
         - recently_uploaded: Documents uploaded in last 7 days
     """
-    analytics = get_analytics_service(db)
+    analytics = get_analytics_service(db, current_user.organization_id)
     return analytics.get_document_stats()
 
 
 @router.get("/documents/distribution")
 async def get_document_distribution(
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: CurrentUser = Depends(get_current_active_user)
 ):
     """
     Get document status distribution for charts.
 
     Returns list of {status, count} suitable for pie/bar charts.
     """
-    analytics = get_analytics_service(db)
+    analytics = get_analytics_service(db, current_user.organization_id)
     return {
         "data": analytics.get_document_status_distribution()
     }
@@ -128,7 +130,7 @@ async def get_document_distribution(
 @router.get("/compliance")
 async def get_compliance_metrics(
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: CurrentUser = Depends(get_current_active_user)
 ):
     """
     Get compliance-related metrics.
@@ -140,14 +142,14 @@ async def get_compliance_metrics(
         - failed_documents: Documents that failed validation
         - issues_summary: Breakdown of compliance issues
     """
-    analytics = get_analytics_service(db)
+    analytics = get_analytics_service(db, current_user.organization_id)
     return analytics.get_compliance_metrics()
 
 
 @router.get("/tracking")
 async def get_tracking_metrics(
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: CurrentUser = Depends(get_current_active_user)
 ):
     """
     Get container tracking statistics.
@@ -161,5 +163,5 @@ async def get_tracking_metrics(
         - api_calls_today: Tracking API calls today
         - containers_tracked: Unique containers being tracked
     """
-    analytics = get_analytics_service(db)
+    analytics = get_analytics_service(db, current_user.organization_id)
     return analytics.get_tracking_stats()

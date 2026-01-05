@@ -62,14 +62,15 @@ async def create_user(
             detail="A user with this email already exists"
         )
 
-    # Create user
+    # Create user - inherit organization from current user
     user = UserModel(
         email=user_data.email,
         hashed_password=get_password_hash(user_data.password),
         full_name=user_data.full_name,
         role=user_data.role,
         is_active=True,
-        created_at=datetime.utcnow()
+        created_at=datetime.utcnow(),
+        organization_id=current_user.organization_id  # Multi-tenancy: inherit org from creator
     )
 
     db.add(user)
@@ -93,8 +94,10 @@ async def list_users(
     # Check permission
     check_permission(current_user, Permission.USERS_LIST)
 
-    # Build query
-    query = db.query(UserModel)
+    # Build query - filter by organization (multi-tenancy)
+    query = db.query(UserModel).filter(
+        UserModel.organization_id == current_user.organization_id
+    )
 
     # Apply filters
     if role:

@@ -67,6 +67,7 @@ class Organization(Base):
     # Relationships
     memberships = relationship("OrganizationMembership", back_populates="organization", cascade="all, delete-orphan")
     invitations = relationship("Invitation", back_populates="organization", cascade="all, delete-orphan")
+    users = relationship("User", back_populates="organization")
     # Note: shipments relationship will be added when shipments model is updated
 
     # Indexes

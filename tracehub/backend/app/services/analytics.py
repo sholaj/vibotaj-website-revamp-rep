@@ -2,6 +2,7 @@
 
 from datetime import datetime, timedelta
 from typing import Dict, Any, List, Optional
+from uuid import UUID
 from sqlalchemy.orm import Session
 from sqlalchemy import func, and_, case
 
@@ -15,11 +16,42 @@ from .audit_log import AuditAction
 
 
 class AnalyticsService:
-    """Service for generating analytics and metrics."""
+    """Service for generating analytics and metrics.
 
-    def __init__(self, db: Session):
-        """Initialize with database session."""
+    All queries are scoped to the current organization for multi-tenancy.
+    """
+
+    def __init__(self, db: Session, organization_id: Optional[UUID] = None):
+        """Initialize with database session and organization context.
+
+        Args:
+            db: Database session
+            organization_id: Organization ID for multi-tenancy filtering.
+                           If None, returns data for all organizations (admin view).
+        """
         self.db = db
+        self.organization_id = organization_id
+
+    def _shipment_query(self):
+        """Base query for shipments with organization filtering."""
+        query = self.db.query(Shipment)
+        if self.organization_id:
+            query = query.filter(Shipment.organization_id == self.organization_id)
+        return query
+
+    def _document_query(self):
+        """Base query for documents with organization filtering."""
+        query = self.db.query(Document)
+        if self.organization_id:
+            query = query.join(Shipment).filter(Shipment.organization_id == self.organization_id)
+        return query
+
+    def _container_event_query(self):
+        """Base query for container events with organization filtering."""
+        query = self.db.query(ContainerEvent)
+        if self.organization_id:
+            query = query.join(Shipment).filter(Shipment.organization_id == self.organization_id)
+        return query
 
     def get_shipment_stats(self) -> Dict[str, Any]:
         """
@@ -34,14 +66,16 @@ class AnalyticsService:
             - completed_this_month: Number delivered this month
         """
         # Total shipments
-        total = self.db.query(Shipment).count()
+        total = self._shipment_query().count()
 
         # Count by status
+        status_query = self._shipment_query()
         status_counts = (
             self.db.query(
                 Shipment.status,
                 func.count(Shipment.id).label('count')
             )
+            .filter(Shipment.id.in_(status_query.with_entities(Shipment.id)))
             .group_by(Shipment.status)
             .all()
         )
@@ -54,6 +88,11 @@ class AnalyticsService:
                 by_status[status.value] = 0
 
         # Average transit time (for delivered shipments with ATD and ATA)
+        avg_transit_query = self._shipment_query().filter(
+            Shipment.atd.isnot(None),
+            Shipment.ata.isnot(None),
+            Shipment.status.in_([ShipmentStatus.DELIVERED, ShipmentStatus.CLOSED])
+        )
         avg_transit_result = (
             self.db.query(
                 func.avg(
@@ -61,11 +100,7 @@ class AnalyticsService:
                     func.extract('epoch', Shipment.atd)
                 ) / 86400  # Convert seconds to days
             )
-            .filter(
-                Shipment.atd.isnot(None),
-                Shipment.ata.isnot(None),
-                Shipment.status.in_([ShipmentStatus.DELIVERED, ShipmentStatus.CLOSED])
-            )
+            .filter(Shipment.id.in_(avg_transit_query.with_entities(Shipment.id)))
             .scalar()
         )
 
@@ -74,7 +109,7 @@ class AnalyticsService:
         # Recent shipments (last 30 days)
         thirty_days_ago = datetime.utcnow() - timedelta(days=30)
         recent_count = (
-            self.db.query(Shipment)
+            self._shipment_query()
             .filter(Shipment.created_at >= thirty_days_ago)
             .count()
         )
@@ -82,7 +117,7 @@ class AnalyticsService:
         # Completed this month
         month_start = datetime.utcnow().replace(day=1, hour=0, minute=0, second=0, microsecond=0)
         completed_this_month = (
-            self.db.query(Shipment)
+            self._shipment_query()
             .filter(
                 Shipment.status.in_([ShipmentStatus.DELIVERED, ShipmentStatus.CLOSED]),
                 Shipment.updated_at >= month_start
@@ -91,8 +126,9 @@ class AnalyticsService:
         )
 
         # Shipments with delays
+        delayed_query = self._shipment_query()
         delayed_count = (
-            self.db.query(Shipment)
+            delayed_query
             .join(ContainerEvent)
             .filter(ContainerEvent.delay_hours > 0)
             .distinct()
@@ -122,7 +158,10 @@ class AnalyticsService:
             - pending_validation: Documents awaiting validation
         """
         # Total documents
-        total = self.db.query(Document).count()
+        total = self._document_query().count()
+
+        # Get document IDs for filtering
+        doc_ids_query = self._document_query().with_entities(Document.id)
 
         # Count by status
         status_counts = (
@@ -130,6 +169,7 @@ class AnalyticsService:
                 Document.status,
                 func.count(Document.id).label('count')
             )
+            .filter(Document.id.in_(doc_ids_query))
             .group_by(Document.status)
             .all()
         )
@@ -147,6 +187,7 @@ class AnalyticsService:
                 Document.document_type,
                 func.count(Document.id).label('count')
             )
+            .filter(Document.id.in_(doc_ids_query))
             .group_by(Document.document_type)
             .all()
         )
@@ -158,19 +199,23 @@ class AnalyticsService:
 
         # Calculate completion rate
         # A shipment is "complete" if it has at least 5 validated/compliance_ok documents
+        shipment_ids_query = self._shipment_query().with_entities(Shipment.id)
         shipments_with_complete_docs = (
             self.db.query(Document.shipment_id)
-            .filter(Document.status.in_([
-                DocumentStatus.VALIDATED,
-                DocumentStatus.COMPLIANCE_OK,
-                DocumentStatus.LINKED
-            ]))
+            .filter(
+                Document.shipment_id.in_(shipment_ids_query),
+                Document.status.in_([
+                    DocumentStatus.VALIDATED,
+                    DocumentStatus.COMPLIANCE_OK,
+                    DocumentStatus.LINKED
+                ])
+            )
             .group_by(Document.shipment_id)
             .having(func.count(Document.id) >= 5)
             .count()
         )
 
-        total_shipments = self.db.query(Shipment).count()
+        total_shipments = self._shipment_query().count()
         completion_rate = (
             round((shipments_with_complete_docs / total_shipments) * 100, 1)
             if total_shipments > 0 else 0
@@ -179,7 +224,7 @@ class AnalyticsService:
         # Expiring soon (within 30 days)
         thirty_days_from_now = datetime.utcnow() + timedelta(days=30)
         expiring_soon = (
-            self.db.query(Document)
+            self._document_query()
             .filter(
                 Document.expiry_date.isnot(None),
                 Document.expiry_date <= thirty_days_from_now.date(),
@@ -191,7 +236,7 @@ class AnalyticsService:
         # Recently uploaded (last 7 days)
         seven_days_ago = datetime.utcnow() - timedelta(days=7)
         recently_uploaded = (
-            self.db.query(Document)
+            self._document_query()
             .filter(Document.created_at >= seven_days_ago)
             .count()
         )
@@ -216,7 +261,7 @@ class AnalyticsService:
             - eudr_coverage: Percentage with EUDR documentation
             - shipments_needing_attention: Shipments with compliance flags
         """
-        total_shipments = self.db.query(Shipment).count()
+        total_shipments = self._shipment_query().count()
 
         if total_shipments == 0:
             return {
@@ -230,7 +275,7 @@ class AnalyticsService:
         # Shipments with all required docs validated
         # Using docs_complete status as proxy for compliance
         compliant_count = (
-            self.db.query(Shipment)
+            self._shipment_query()
             .filter(Shipment.status.in_([
                 ShipmentStatus.DOCS_COMPLETE,
                 ShipmentStatus.IN_TRANSIT,
@@ -244,9 +289,11 @@ class AnalyticsService:
         compliant_rate = round((compliant_count / total_shipments) * 100, 1)
 
         # EUDR documentation coverage
+        shipment_ids_query = self._shipment_query().with_entities(Shipment.id)
         shipments_with_eudr = (
             self.db.query(Document.shipment_id)
             .filter(
+                Document.shipment_id.in_(shipment_ids_query),
                 Document.document_type == DocumentType.EUDR_DUE_DILIGENCE,
                 Document.status.in_([
                     DocumentStatus.VALIDATED,
@@ -263,13 +310,16 @@ class AnalyticsService:
         # Shipments needing attention (docs_pending or failed docs)
         shipments_with_failed_docs = (
             self.db.query(Document.shipment_id)
-            .filter(Document.status == DocumentStatus.COMPLIANCE_FAILED)
+            .filter(
+                Document.shipment_id.in_(shipment_ids_query),
+                Document.status == DocumentStatus.COMPLIANCE_FAILED
+            )
             .distinct()
             .subquery()
         )
 
         needing_attention = (
-            self.db.query(Shipment)
+            self._shipment_query()
             .filter(
                 (Shipment.status == ShipmentStatus.DOCS_PENDING) |
                 (Shipment.id.in_(shipments_with_failed_docs))
@@ -279,7 +329,7 @@ class AnalyticsService:
 
         # Failed document count
         failed_documents = (
-            self.db.query(Document)
+            self._document_query()
             .filter(Document.status == DocumentStatus.COMPLIANCE_FAILED)
             .count()
         )
@@ -287,13 +337,13 @@ class AnalyticsService:
         # Issues summary
         issues_summary = {
             "missing_documents": (
-                self.db.query(Shipment)
+                self._shipment_query()
                 .filter(Shipment.status == ShipmentStatus.DOCS_PENDING)
                 .count()
             ),
             "failed_validation": failed_documents,
             "expiring_certificates": (
-                self.db.query(Document)
+                self._document_query()
                 .filter(
                     Document.expiry_date.isnot(None),
                     Document.expiry_date <= (datetime.utcnow() + timedelta(days=30)).date()
@@ -322,7 +372,10 @@ class AnalyticsService:
             - api_calls_today: Tracking API calls today (from audit log)
         """
         # Total events
-        total_events = self.db.query(ContainerEvent).count()
+        total_events = self._container_event_query().count()
+
+        # Get event IDs for filtering
+        event_ids_query = self._container_event_query().with_entities(ContainerEvent.id)
 
         # Events by type
         type_counts = (
@@ -330,6 +383,7 @@ class AnalyticsService:
                 ContainerEvent.event_type,
                 func.count(ContainerEvent.id).label('count')
             )
+            .filter(ContainerEvent.id.in_(event_ids_query))
             .group_by(ContainerEvent.event_type)
             .all()
         )
@@ -338,7 +392,7 @@ class AnalyticsService:
 
         # Delays detected
         delays_detected = (
-            self.db.query(ContainerEvent)
+            self._container_event_query()
             .filter(ContainerEvent.delay_hours > 0)
             .count()
         )
@@ -346,7 +400,10 @@ class AnalyticsService:
         # Average delay
         avg_delay = (
             self.db.query(func.avg(ContainerEvent.delay_hours))
-            .filter(ContainerEvent.delay_hours > 0)
+            .filter(
+                ContainerEvent.id.in_(event_ids_query),
+                ContainerEvent.delay_hours > 0
+            )
             .scalar()
         )
 
@@ -355,27 +412,26 @@ class AnalyticsService:
         # Recent tracking activity (last 24 hours)
         yesterday = datetime.utcnow() - timedelta(days=1)
         recent_events = (
-            self.db.query(ContainerEvent)
+            self._container_event_query()
             .filter(ContainerEvent.created_at >= yesterday)
             .count()
         )
 
-        # API calls today from audit log
+        # API calls today from audit log (org filtered if needed)
         today_start = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
-        api_calls_today = (
-            self.db.query(AuditLog)
-            .filter(
-                AuditLog.action.like("tracking.%"),
-                AuditLog.timestamp >= today_start
-            )
-            .count()
+        audit_query = self.db.query(AuditLog).filter(
+            AuditLog.action.like("tracking.%"),
+            AuditLog.timestamp >= today_start
         )
+        if self.organization_id:
+            audit_query = audit_query.filter(AuditLog.organization_id == self.organization_id)
+        api_calls_today = audit_query.count()
 
         # Containers being tracked (unique containers with events)
         containers_tracked = (
-            self.db.query(Shipment.container_number)
+            self._shipment_query()
             .join(ContainerEvent)
-            .distinct()
+            .distinct(Shipment.container_number)
             .count()
         )
 
@@ -450,12 +506,16 @@ class AnalyticsService:
         else:
             date_trunc = func.date_trunc('month', Shipment.created_at)
 
+        shipment_ids_query = self._shipment_query().with_entities(Shipment.id)
         results = (
             self.db.query(
                 date_trunc.label('date'),
                 func.count(Shipment.id).label('count')
             )
-            .filter(Shipment.created_at >= start_date)
+            .filter(
+                Shipment.id.in_(shipment_ids_query),
+                Shipment.created_at >= start_date
+            )
             .group_by(date_trunc)
             .order_by(date_trunc)
             .all()
@@ -468,11 +528,13 @@ class AnalyticsService:
 
     def get_document_status_distribution(self) -> List[Dict[str, Any]]:
         """Get document count by status for pie chart."""
+        doc_ids_query = self._document_query().with_entities(Document.id)
         results = (
             self.db.query(
                 Document.status,
                 func.count(Document.id).label('count')
             )
+            .filter(Document.id.in_(doc_ids_query))
             .group_by(Document.status)
             .all()
         )
@@ -483,6 +545,12 @@ class AnalyticsService:
         ]
 
 
-def get_analytics_service(db: Session) -> AnalyticsService:
-    """Factory function to create analytics service."""
-    return AnalyticsService(db)
+def get_analytics_service(db: Session, organization_id: Optional[UUID] = None) -> AnalyticsService:
+    """Factory function to create analytics service.
+
+    Args:
+        db: Database session
+        organization_id: Organization ID for multi-tenancy filtering.
+                        If None, returns data for all organizations (admin view).
+    """
+    return AnalyticsService(db, organization_id)

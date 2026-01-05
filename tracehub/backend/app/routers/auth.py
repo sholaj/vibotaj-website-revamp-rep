@@ -189,12 +189,15 @@ async def get_current_active_user(
             from uuid import UUID
             role = UserRole.ADMIN  # Demo user gets admin role
             permissions = [p.value for p in get_role_permissions(role)]
+            # Demo user belongs to VIBOTAJ organization
+            vibotaj_org_id = UUID("00000000-0000-0000-0000-000000000001")
             return CurrentUser(
                 id=UUID("00000000-0000-0000-0000-000000000000"),
                 email=settings.demo_email,
                 full_name=settings.demo_full_name,
                 role=role,
                 is_active=True,
+                organization_id=vibotaj_org_id,
                 permissions=permissions
             )
         raise credentials_exception
@@ -215,6 +218,7 @@ async def get_current_active_user(
         full_name=user.full_name,
         role=user.role,
         is_active=user.is_active,
+        organization_id=user.organization_id,
         permissions=permissions
     )
 

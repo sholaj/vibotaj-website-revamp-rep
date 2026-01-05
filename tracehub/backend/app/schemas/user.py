@@ -102,6 +102,7 @@ class CurrentUser(BaseModel):
     full_name: str
     role: UserRole
     is_active: bool
+    organization_id: UUID  # Multi-tenancy: the user's organization
     permissions: List[str] = []
 
     class Config:
