@@ -35,21 +35,25 @@ class AnalyticsService:
     def _shipment_query(self):
         """Base query for shipments with organization filtering."""
         query = self.db.query(Shipment)
-        if self.organization_id:
+        # Only filter by organization_id if Shipment model has the column
+        # (multi-tenancy migration pending for some tables)
+        if self.organization_id and hasattr(Shipment, 'organization_id'):
             query = query.filter(Shipment.organization_id == self.organization_id)
         return query
 
     def _document_query(self):
         """Base query for documents with organization filtering."""
         query = self.db.query(Document)
-        if self.organization_id:
+        # Only filter if Shipment has organization_id
+        if self.organization_id and hasattr(Shipment, 'organization_id'):
             query = query.join(Shipment).filter(Shipment.organization_id == self.organization_id)
         return query
 
     def _container_event_query(self):
         """Base query for container events with organization filtering."""
         query = self.db.query(ContainerEvent)
-        if self.organization_id:
+        # Only filter if Shipment has organization_id
+        if self.organization_id and hasattr(Shipment, 'organization_id'):
             query = query.join(Shipment).filter(Shipment.organization_id == self.organization_id)
         return query
 
