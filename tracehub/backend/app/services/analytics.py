@@ -427,7 +427,8 @@ class AnalyticsService:
             AuditLog.action.like("tracking.%"),
             AuditLog.timestamp >= today_start
         )
-        if self.organization_id:
+        # Only filter AuditLog if it has organization_id (pending migration)
+        if self.organization_id and hasattr(AuditLog, 'organization_id'):
             audit_query = audit_query.filter(AuditLog.organization_id == self.organization_id)
         api_calls_today = audit_query.count()
 
