@@ -34,3 +34,22 @@ repos:
       - id: detect-private-key
       - id: no-commit-to-branch
         args: ['--branch', 'main', '--branch', 'production']
+
+  # Run tests on commit
+  - repo: local
+    hooks:
+      - id: pytest-backend
+        name: Run backend tests (on backend changes)
+        entry: bash -c 'cd tracehub/backend && pytest tests/ -x --tb=short -q'
+        language: system
+        pass_filenames: false
+        files: ^tracehub/backend/(app|tests)/.*\.py$
+        stages: [commit]
+      
+      - id: vitest-frontend
+        name: Run frontend tests (on frontend changes)
+        entry: bash -c 'cd tracehub/frontend && npm run test -- --run'
+        language: system
+        pass_filenames: false
+        files: ^tracehub/frontend/src/.*\.(ts|tsx)$
+        stages: [commit]
