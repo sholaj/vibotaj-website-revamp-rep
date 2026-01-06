@@ -1,11 +1,13 @@
-"""Add missing shipment and container_events columns
+"""Add remaining missing columns
 
-Revision ID: 009
-Revises: 008
+Revision ID: 010
+Revises: 009
 Create Date: 2026-01-06
 
-Comprehensive fix for schema mismatch between models and production database.
-Adds all missing columns to shipments and container_events tables.
+Adds remaining columns that were missing from shipments and container_events tables.
+Migration 009 added booking_ref, carrier_code, carrier_name.
+This migration adds: exporter_name, importer_name, eudr_compliant, eudr_statement_id,
+and event_status for container_events.
 """
 from typing import Sequence, Union
 
@@ -13,57 +15,18 @@ from alembic import op
 import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
-revision: str = '009'
-down_revision: Union[str, None] = '008'
+revision: str = '010'
+down_revision: Union[str, None] = '009'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    """Add missing columns to shipments and container_events tables."""
+    """Add remaining missing columns."""
 
     # ============================================
-    # SHIPMENTS TABLE - Add all missing columns
+    # SHIPMENTS TABLE - Add remaining columns
     # ============================================
-
-    # Add booking_ref if it doesn't exist
-    op.execute("""
-        DO $$
-        BEGIN
-            IF NOT EXISTS (
-                SELECT 1 FROM information_schema.columns
-                WHERE table_name = 'shipments' AND column_name = 'booking_ref'
-            ) THEN
-                ALTER TABLE shipments ADD COLUMN booking_ref VARCHAR(50);
-            END IF;
-        END $$;
-    """)
-
-    # Add carrier_code if it doesn't exist
-    op.execute("""
-        DO $$
-        BEGIN
-            IF NOT EXISTS (
-                SELECT 1 FROM information_schema.columns
-                WHERE table_name = 'shipments' AND column_name = 'carrier_code'
-            ) THEN
-                ALTER TABLE shipments ADD COLUMN carrier_code VARCHAR(10);
-            END IF;
-        END $$;
-    """)
-
-    # Add carrier_name if it doesn't exist
-    op.execute("""
-        DO $$
-        BEGIN
-            IF NOT EXISTS (
-                SELECT 1 FROM information_schema.columns
-                WHERE table_name = 'shipments' AND column_name = 'carrier_name'
-            ) THEN
-                ALTER TABLE shipments ADD COLUMN carrier_name VARCHAR(100);
-            END IF;
-        END $$;
-    """)
 
     # Add exporter_name if it doesn't exist
     op.execute("""
