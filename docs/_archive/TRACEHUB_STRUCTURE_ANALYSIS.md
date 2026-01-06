@@ -19,10 +19,10 @@ The `tracehub/` directory is the **main application codebase** for the TraceHub 
 tracehub/
 ├── backend/                    # Python FastAPI backend
 │   ├── app/                    # Main application code
-│   │   ├── models/            # SQLAlchemy data models (13 files)
-│   │   ├── routers/           # API endpoints (11 files)
-│   │   ├── services/          # Business logic (16 files)
-│   │   ├── schemas/           # Pydantic schemas (7 files)
+│   │   ├── models/            # SQLAlchemy data models (12 files)
+│   │   ├── routers/           # API endpoints (10 files)
+│   │   ├── services/          # Business logic (15 files)
+│   │   ├── schemas/           # Pydantic schemas (6 files)
 │   │   ├── middleware/        # HTTP middleware
 │   │   ├── utils/             # Utility functions
 │   │   ├── main.py            # Application entry point (378 lines)
@@ -30,9 +30,9 @@ tracehub/
 │   │   └── database.py        # Database connection
 │   ├── alembic/               # Database migrations
 │   │   └── versions/          # Migration scripts
-│   ├── tests/                 # Test suite (3 files)
+│   ├── tests/                 # Test suite (4 files: 2 tests + fixtures + __init__)
 │   │   ├── conftest.py        # Test fixtures
-│   │   └── test_compliance.py # Compliance tests
+│   │   └── test_compliance.py # Compliance tests (201 lines)
 │   ├── scripts/               # Utility scripts (5 test scripts)
 │   ├── requirements.txt       # Python dependencies
 │   └── pytest.ini             # Test configuration
@@ -186,7 +186,12 @@ tracehub/
 ## Recommendations
 
 ### Priority 1: Expand Test Coverage
-**Gap:** Only 2 test files (plus fixtures) for 49 application files
+**Gap:** Only 2 test files (plus conftest.py fixtures and __init__.py) for 49 application files
+
+**File Count Breakdown:**
+- Core app modules: 12 models + 10 routers + 15 services + 6 schemas = 43 files
+- Supporting files: main.py, config.py, database.py + middleware + utils = ~6 files
+- **Total application code:** ~49 Python files (excluding __init__.py, tests, and scripts)
 
 **Recommendation:**
 - Add unit tests for critical services (compliance, EUDR, document classification)
