@@ -104,6 +104,7 @@ jobs:
           VIZION_API_KEY=${{ secrets.VIZION_API_KEY }}
           ANTHROPIC_API_KEY=${{ secrets.ANTHROPIC_API_KEY }}
           DEMO_PASSWORD=${{ secrets.DEMO_PASSWORD }}
+          CORS_ORIGINS=["https://tracehub.vibotaj.com","http://localhost:3000"]
           DEBUG=false
           EOF
             # Remove leading whitespace from .env file
