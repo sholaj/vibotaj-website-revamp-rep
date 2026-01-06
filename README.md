@@ -122,6 +122,7 @@ vibotaj-website-revamp-rep/
 | [POC Plan](docs/strategy/tracehub-poc-plan.md) | Single-shipment POC implementation plan |
 | [Design System](docs/design/design-system.md) | Brand colors, typography, components |
 | [CEO Vision](claude.md) | Directional task request from leadership |
+| [Claude Setup](docs/claude-setup/README.md) | MCP servers and sub-agents for AI-assisted development |
 
 ### Key Architecture Concepts
 

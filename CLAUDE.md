@@ -91,6 +91,32 @@ refactor: description
 
 ---
 
+## Advanced Features & Workflow
+
+### MCP Servers - Up-to-Date Documentation
+
+Claude's training data may be outdated. Use MCP (Multi-Capability Protocol) servers to fetch current documentation reliably:
+
+- **Context 7**: Automatically brings up-to-date docs when prompted
+- **Database MCP**: Query databases directly for debugging
+- **Browser MCP**: Automate browser testing and debugging
+- **File System MCP**: Search and analyze codebase efficiently
+
+📖 **Full Guide**: [docs/claude-setup/MCP_SERVERS.md](docs/claude-setup/MCP_SERVERS.md)
+
+### Sub-Agents - Parallel Workflows
+
+Sub-agents are isolated Claude instances that run tasks in parallel with the main session:
+
+- Each sub-agent has its own context window and tools
+- Offloads work cleanly (documentation, testing, refactoring)
+- Define by specific tasks, not human-like roles
+- Improves productivity through parallel execution
+
+📖 **Full Guide**: [docs/claude-setup/SUB_AGENTS.md](docs/claude-setup/SUB_AGENTS.md)
+
+---
+
 ## Current Focus
 
 **Sprint 8: EUDR Correction & Multi-Tenancy**
