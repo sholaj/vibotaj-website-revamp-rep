@@ -82,7 +82,7 @@ jobs:
           ANTHROPIC_API_KEY=${{ secrets.ANTHROPIC_API_KEY }}
           DEMO_PASSWORD=${{ secrets.DEMO_PASSWORD }}
           DEBUG=true
-          CORS_ORIGINS=https://staging.tracehub.vibotaj.com,http://localhost:3100
+          CORS_ORIGINS=["https://staging.tracehub.vibotaj.com","http://localhost:3100"]
           BACKEND_PORT=8100
           FRONTEND_PORT=3100
           EOF
