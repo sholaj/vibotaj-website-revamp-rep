@@ -109,13 +109,13 @@ tracehub/
 #### Existing Tests
 - ✅ **Test Infrastructure:** `pytest` configured in `backend/pytest.ini`
 - ✅ **Test Fixtures:** `tests/conftest.py` - Database fixtures and test setup
-- ✅ **Compliance Tests:** `tests/test_compliance.py` (8134 lines) - EUDR validation tests
+- ✅ **Compliance Tests:** `tests/test_compliance.py` (201 lines) - EUDR validation tests
 - ✅ **Makefile Commands:**
   - `make test` - Run test suite
   - `make test-coverage` - Generate coverage report
 
 #### Test Coverage Gap
-- ⚠️ **Only 3 test files** for 56 Python application files
+- ⚠️ **Only 2 actual test files** (plus conftest.py for fixtures) for 56 Python application files
 - ⚠️ **Missing tests for:**
   - Most routers (API endpoints)
   - Service layer business logic
@@ -245,12 +245,17 @@ mv tracehub/MIGRATION_*.md tracehub/docs/sprints/sprint8/
 ```
 
 ### Priority 4: Environment Configuration
-**Gap:** Multiple `.env.example` files at different levels
+**Current State:** Multiple `.env.example` files at different levels for modularity
+```
+tracehub/
+├── .env.example (root - container orchestration)
+├── .env.production.example (production overrides)
+├── .env.staging.example (staging overrides)
+├── backend/.env.example (backend-specific vars)
+└── frontend/.env.example (frontend-specific vars)
+```
 
-**Recommendation:**
-- Keep one `.env.example` at `tracehub/` root with all variables documented
-- Add environment-specific overrides in comments
-- Add `.env.development`, `.env.staging`, `.env.production` templates
+**Note:** This is actually a best practice for monorepo structure. Each component has its own .env.example documenting its specific requirements. Consider this **acceptable as-is** unless consolidation becomes necessary for deployment simplicity.
 
 ---
 
