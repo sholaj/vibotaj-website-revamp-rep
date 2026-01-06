@@ -30,7 +30,7 @@ tracehub/
 │   │   └── database.py        # Database connection
 │   ├── alembic/               # Database migrations
 │   │   └── versions/          # Migration scripts
-│   ├── tests/                 # Test suite (4 files: 2 tests + fixtures + __init__)
+│   ├── tests/                 # Test suite (3 files: 1 test + fixtures + __init__)
 │   │   ├── conftest.py        # Test fixtures
 │   │   └── test_compliance.py # Compliance tests (201 lines)
 │   ├── scripts/               # Utility scripts (5 test scripts)
@@ -115,7 +115,7 @@ tracehub/
   - `make test-coverage` - Generate coverage report
 
 #### Test Coverage Gap
-- ⚠️ **Only 2 actual test files** (plus conftest.py fixtures and __init__.py) for 49 Python application files
+- ⚠️ **Only 1 actual test file** (test_compliance.py) plus conftest.py (fixtures) and __init__.py for 49 Python application files
 - ⚠️ **Missing tests for:**
   - Most routers (API endpoints)
   - Service layer business logic
@@ -186,12 +186,12 @@ tracehub/
 ## Recommendations
 
 ### Priority 1: Expand Test Coverage
-**Gap:** Only 2 test files (plus conftest.py fixtures and __init__.py) for 49 application files
+**Gap:** Only 1 actual test file (test_compliance.py) plus conftest.py (fixtures) and __init__.py for 49 application files
 
 **File Count Breakdown:**
 - Core app modules: 12 models + 10 routers + 15 services + 6 schemas = 43 files
-- Supporting files: main.py, config.py, database.py + middleware + utils = ~6 files
-- **Total application code:** ~49 Python files (excluding __init__.py, tests, and scripts)
+- Supporting files: 3 middleware + 3 root files (main.py, config.py, database.py) = 6 files
+- **Total application code:** 49 Python files (excluding __init__.py, tests, and scripts)
 
 **Recommendation:**
 - Add unit tests for critical services (compliance, EUDR, document classification)
