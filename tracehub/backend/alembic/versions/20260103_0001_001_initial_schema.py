@@ -24,9 +24,10 @@ def upgrade() -> None:
     """Create all tables for TraceHub initial schema."""
 
     # Create enum types (with DO block to handle IF NOT EXISTS)
+    # UserRole values must match Python enum: admin, compliance, logistics_agent, buyer, supplier, viewer
     op.execute("""
         DO $$ BEGIN
-            CREATE TYPE userrole AS ENUM ('admin', 'manager', 'operator', 'supplier', 'viewer');
+            CREATE TYPE userrole AS ENUM ('admin', 'compliance', 'logistics_agent', 'buyer', 'supplier', 'viewer');
         EXCEPTION WHEN duplicate_object THEN NULL; END $$;
     """)
     op.execute("""
@@ -72,7 +73,7 @@ def upgrade() -> None:
         sa.Column('email', sa.String(length=255), nullable=False),
         sa.Column('hashed_password', sa.String(length=255), nullable=False),
         sa.Column('full_name', sa.String(length=255), nullable=False),
-        sa.Column('role', postgresql.ENUM('admin', 'manager', 'operator', 'supplier', 'viewer', name='userrole', create_type=False), nullable=False),
+        sa.Column('role', postgresql.ENUM('admin', 'compliance', 'logistics_agent', 'buyer', 'supplier', 'viewer', name='userrole', create_type=False), nullable=False),
         sa.Column('is_active', sa.Boolean(), nullable=False, server_default='true'),
         sa.Column('last_login', sa.DateTime(timezone=True), nullable=True),
         sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
