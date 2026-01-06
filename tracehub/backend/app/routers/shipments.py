@@ -150,86 +150,112 @@ async def get_shipment(
     import logging
     logger = logging.getLogger(__name__)
 
-    try:
-        # Eagerly load products to ensure HS code lookup works for compliance
-        # Filter by organization for multi-tenancy security
-        shipment = (
-            db.query(Shipment)
-            .options(joinedload(Shipment.products))
-            .filter(
-                Shipment.id == shipment_id,
-                Shipment.organization_id == current_user.organization_id
-            )
-            .first()
+    # Eagerly load products to ensure HS code lookup works for compliance
+    # Filter by organization for multi-tenancy security
+    shipment = (
+        db.query(Shipment)
+        .options(joinedload(Shipment.products))
+        .filter(
+            Shipment.id == shipment_id,
+            Shipment.organization_id == current_user.organization_id
         )
-        if not shipment:
-            raise HTTPException(status_code=404, detail="Shipment not found")
-        logger.info(f"Shipment loaded: {shipment.reference}")
+        .first()
+    )
+    if not shipment:
+        raise HTTPException(status_code=404, detail="Shipment not found")
 
-        # Get latest container event
-        latest_event = (
-            db.query(ContainerEvent)
-            .filter(ContainerEvent.shipment_id == shipment_id)
-            .order_by(ContainerEvent.event_time.desc())
-            .first()
-        )
-        logger.info(f"Latest event: {latest_event}")
+    # Get latest container event
+    latest_event = (
+        db.query(ContainerEvent)
+        .filter(ContainerEvent.shipment_id == shipment_id)
+        .order_by(ContainerEvent.event_time.desc())
+        .first()
+    )
 
-        # Get document summary
-        documents = db.query(Document).filter(Document.shipment_id == shipment_id).all()
-        logger.info(f"Documents count: {len(documents)}")
+    # Get document summary
+    documents = db.query(Document).filter(Document.shipment_id == shipment_id).all()
+    required_docs = get_required_documents(shipment)
+    doc_completeness = check_document_completeness(documents, required_docs)
 
-        required_docs = get_required_documents(shipment)
-        logger.info(f"Required docs: {required_docs}")
+    # Explicitly serialize to avoid Pydantic nested conversion issues
+    from ..schemas.shipment import ShipmentResponse, EventInfo, DocumentInfo
 
-        doc_completeness = check_document_completeness(documents, required_docs)
-        logger.info(f"Doc completeness: {doc_completeness}")
+    # Build response dict manually to debug
+    shipment_dict = {
+        "id": shipment.id,
+        "reference": shipment.reference,
+        "container_number": shipment.container_number,
+        "bl_number": shipment.bl_number,
+        "booking_ref": shipment.booking_ref,
+        "vessel_name": shipment.vessel_name,
+        "voyage_number": shipment.voyage_number,
+        "carrier_code": shipment.carrier_code,
+        "carrier_name": shipment.carrier_name,
+        "etd": shipment.etd,
+        "eta": shipment.eta,
+        "atd": shipment.atd,
+        "ata": shipment.ata,
+        "pol_code": shipment.pol_code,
+        "pol_name": shipment.pol_name,
+        "pod_code": shipment.pod_code,
+        "pod_name": shipment.pod_name,
+        "incoterms": shipment.incoterms,
+        "status": shipment.status.value if hasattr(shipment.status, 'value') else shipment.status,
+        "exporter_name": shipment.exporter_name,
+        "importer_name": shipment.importer_name,
+        "eudr_compliant": shipment.eudr_compliant,
+        "eudr_statement_id": shipment.eudr_statement_id,
+        "organization_id": shipment.organization_id,
+        "created_at": shipment.created_at,
+        "updated_at": shipment.updated_at,
+        "products": [
+            {
+                "id": p.id,
+                "hs_code": p.hs_code,
+                "description": p.description,
+                "quantity_net_kg": p.quantity_net_kg,
+                "quantity_gross_kg": p.quantity_gross_kg,
+                "packaging_type": getattr(p, 'packaging_type', None) or getattr(p, 'packaging', None),
+            }
+            for p in shipment.products
+        ]
+    }
+    shipment_data = ShipmentResponse(**shipment_dict)
 
-        # Explicitly build response to catch serialization errors
-        from ..schemas.shipment import ShipmentResponse, EventInfo, DocumentInfo
+    # Serialize event
+    event_data = None
+    if latest_event:
+        event_dict = {
+            "id": latest_event.id,
+            "event_status": latest_event.event_status.value if hasattr(latest_event.event_status, 'value') else str(latest_event.event_status),
+            "event_time": latest_event.event_time,
+            "location_code": latest_event.location_code,
+            "location_name": latest_event.location_name,
+            "vessel_name": latest_event.vessel_name,
+            "voyage_number": latest_event.voyage_number,
+        }
+        event_data = EventInfo(**event_dict)
 
-        # Serialize shipment
-        try:
-            shipment_data = ShipmentResponse.model_validate(shipment)
-            logger.info("Shipment serialized successfully")
-        except Exception as e:
-            logger.error(f"Failed to serialize shipment: {type(e).__name__}: {e}")
-            raise
+    # Serialize documents
+    doc_data = []
+    for doc in documents:
+        doc_dict = {
+            "id": doc.id,
+            "document_type": doc.document_type.value if hasattr(doc.document_type, 'value') else str(doc.document_type),
+            "name": doc.name,
+            "status": doc.status.value if hasattr(doc.status, 'value') else str(doc.status),
+            "reference_number": doc.reference_number,
+            "issue_date": getattr(doc, 'issue_date', None) or getattr(doc, 'document_date', None),
+            "file_path": doc.file_path,
+        }
+        doc_data.append(DocumentInfo(**doc_dict))
 
-        # Serialize event
-        event_data = None
-        if latest_event:
-            try:
-                event_data = EventInfo.model_validate(latest_event)
-                logger.info("Event serialized successfully")
-            except Exception as e:
-                logger.error(f"Failed to serialize event: {type(e).__name__}: {e}")
-                raise
-
-        # Serialize documents
-        doc_data = []
-        for i, doc in enumerate(documents):
-            try:
-                doc_data.append(DocumentInfo.model_validate(doc))
-            except Exception as e:
-                logger.error(f"Failed to serialize document {i}: {type(e).__name__}: {e}")
-                logger.error(f"Document fields: id={doc.id}, type={doc.document_type}, status={doc.status}, name={doc.name}")
-                raise
-        logger.info(f"Documents serialized: {len(doc_data)}")
-
-        return ShipmentDetailResponse(
-            shipment=shipment_data,
-            latest_event=event_data,
-            documents=doc_data,
-            document_summary=doc_completeness
-        )
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Unhandled error in get_shipment: {type(e).__name__}: {e}")
-        import traceback
-        logger.error(traceback.format_exc())
-        raise
+    return ShipmentDetailResponse(
+        shipment=shipment_data,
+        latest_event=event_data,
+        documents=doc_data,
+        document_summary=doc_completeness
+    )
 
 
 @router.get("/{shipment_id}/documents")
