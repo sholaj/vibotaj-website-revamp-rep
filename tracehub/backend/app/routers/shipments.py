@@ -140,6 +140,38 @@ async def list_shipments(
     return shipments
 
 
+@router.get("/{shipment_id}/debug")
+async def get_shipment_debug(
+    shipment_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: CurrentUser = Depends(get_current_active_user)
+):
+    """Debug endpoint to identify serialization issues."""
+    shipment = (
+        db.query(Shipment)
+        .options(joinedload(Shipment.products))
+        .filter(
+            Shipment.id == shipment_id,
+            Shipment.organization_id == current_user.organization_id
+        )
+        .first()
+    )
+    if not shipment:
+        raise HTTPException(status_code=404, detail="Shipment not found")
+
+    # Return raw data as dict
+    return {
+        "shipment_id": str(shipment.id),
+        "reference": shipment.reference,
+        "status": shipment.status.value if hasattr(shipment.status, 'value') else str(shipment.status),
+        "product_count": len(shipment.products),
+        "products": [
+            {"id": str(p.id), "hs_code": p.hs_code}
+            for p in shipment.products
+        ]
+    }
+
+
 @router.get("/{shipment_id}", response_model=ShipmentDetailResponse)
 async def get_shipment(
     shipment_id: UUID,
@@ -147,9 +179,6 @@ async def get_shipment(
     current_user: CurrentUser = Depends(get_current_active_user)
 ):
     """Get shipment details with documents and tracking status."""
-    import logging
-    logger = logging.getLogger(__name__)
-
     # Eagerly load products to ensure HS code lookup works for compliance
     # Filter by organization for multi-tenancy security
     shipment = (
