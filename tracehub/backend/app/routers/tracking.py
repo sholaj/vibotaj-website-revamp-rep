@@ -201,15 +201,21 @@ async def refresh_tracking(
             except ValueError:
                 timestamp = datetime.utcnow()
 
+        # Helper to truncate strings to max length
+        def truncate(value, max_len):
+            if value and len(value) > max_len:
+                return value[:max_len]
+            return value
+
         event = ContainerEvent(
             shipment_id=shipment_id,
             organization_id=shipment.organization_id,
             event_status=event_status,
             event_time=timestamp,
-            location_name=event_data.get("location"),
-            location_code=event_data.get("location_code"),
-            vessel_name=event_data.get("vessel"),
-            voyage_number=event_data.get("voyage"),
+            location_name=truncate(event_data.get("location"), 255),
+            location_code=truncate(event_data.get("location_code"), 20),
+            vessel_name=truncate(event_data.get("vessel"), 100),
+            voyage_number=truncate(event_data.get("voyage"), 50),
             description=event_data.get("description"),
             source="jsoncargo",
             raw_data=event_data
