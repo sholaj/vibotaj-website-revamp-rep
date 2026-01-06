@@ -353,7 +353,7 @@ class ApiClient {
     formData.append('username', credentials.username)
     formData.append('password', credentials.password)
 
-    const response = await this.client.post<LoginResponse>('/auth/login', formData, {
+    const response = await this.client.post<LoginResponse>('auth/login', formData, {
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     })
 
@@ -367,7 +367,7 @@ class ApiClient {
   }
 
   async getCurrentUser(): Promise<User> {
-    return this.cachedGet<User>('/auth/me', 5 * 60 * 1000) // 5 minute cache
+    return this.cachedGet<User>('auth/me', 5 * 60 * 1000) // 5 minute cache
   }
 
   async getCurrentUserFull(): Promise<CurrentUser> {
@@ -401,11 +401,11 @@ class ApiClient {
   // ============================================
 
   async getShipments(): Promise<Shipment[]> {
-    return this.cachedGet<Shipment[]>('/shipments')
+    return this.cachedGet<Shipment[]>('shipments')
   }
 
   async getShipment(id: string): Promise<ShipmentDetailResponse> {
-    return this.cachedGet<ShipmentDetailResponse>(`/shipments/${id}`)
+    return this.cachedGet<ShipmentDetailResponse>(`shipments/${id}`)
   }
 
   async getShipmentBasic(id: string): Promise<Shipment> {
@@ -418,7 +418,7 @@ class ApiClient {
   // ============================================
 
   async getShipmentDocuments(shipmentId: string): Promise<ShipmentDocumentsResponse> {
-    return this.cachedGet<ShipmentDocumentsResponse>(`/shipments/${shipmentId}/documents`)
+    return this.cachedGet<ShipmentDocumentsResponse>(`shipments/${shipmentId}/documents`)
   }
 
   async uploadDocument(
@@ -455,7 +455,7 @@ class ApiClient {
       formData.append('issuing_authority', metadata.issuing_authority)
     }
 
-    const response = await this.client.post<Document>('/documents/upload', formData, {
+    const response = await this.client.post<Document>('documents/upload', formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
     })
 
@@ -466,14 +466,14 @@ class ApiClient {
   }
 
   async downloadDocument(documentId: string): Promise<Blob> {
-    const response = await this.client.get(`/documents/${documentId}/download`, {
+    const response = await this.client.get(`documents/${documentId}/download`, {
       responseType: 'blob',
     })
     return response.data
   }
 
   async validateDocument(documentId: string, notes?: string): Promise<{ message: string; status: string }> {
-    const response = await this.client.patch(`/documents/${documentId}/validate`, { notes })
+    const response = await this.client.patch(`documents/${documentId}/validate`, { notes })
 
     // Invalidate related caches
     this.cache.invalidate('/shipments/')
@@ -482,7 +482,7 @@ class ApiClient {
   }
 
   async deleteDocument(documentId: string): Promise<{ message: string }> {
-    const response = await this.client.delete(`/documents/${documentId}`)
+    const response = await this.client.delete(`documents/${documentId}`)
 
     // Invalidate related caches
     this.cache.invalidate('/shipments/')
@@ -494,7 +494,7 @@ class ApiClient {
     shipmentId: string
   ): Promise<{ message: string; deleted_count: number }> {
     const response = await this.client.delete(
-      `/documents/shipment/${shipmentId}/all`
+      `documents/shipment/${shipmentId}/all`
     )
 
     // Invalidate related caches
@@ -510,14 +510,14 @@ class ApiClient {
   async getDocumentValidation(documentId: string): Promise<DocumentValidationResponse> {
     return this.executeWithRetry<DocumentValidationResponse>({
       method: 'GET',
-      url: `/documents/${documentId}/validation`,
+      url: `documents/${documentId}/validation`,
     })
   }
 
   async getDocumentTransitions(documentId: string): Promise<DocumentTransitionsResponse> {
     return this.executeWithRetry<DocumentTransitionsResponse>({
       method: 'GET',
-      url: `/documents/${documentId}/transitions`,
+      url: `documents/${documentId}/transitions`,
     })
   }
 
@@ -526,7 +526,7 @@ class ApiClient {
     targetStatus: string,
     notes?: string
   ): Promise<TransitionResponse> {
-    const response = await this.client.post(`/documents/${documentId}/transition`, {
+    const response = await this.client.post(`documents/${documentId}/transition`, {
       target_status: targetStatus,
       notes,
     })
@@ -539,7 +539,7 @@ class ApiClient {
   }
 
   async approveDocument(documentId: string, notes?: string): Promise<TransitionResponse> {
-    const response = await this.client.post(`/documents/${documentId}/approve`, { notes })
+    const response = await this.client.post(`documents/${documentId}/approve`, { notes })
 
     this.cache.invalidate('/shipments/')
     this.cache.invalidate('/documents/')
@@ -548,7 +548,7 @@ class ApiClient {
   }
 
   async rejectDocument(documentId: string, notes: string): Promise<TransitionResponse> {
-    const response = await this.client.post(`/documents/${documentId}/reject`, { notes })
+    const response = await this.client.post(`documents/${documentId}/reject`, { notes })
 
     this.cache.invalidate('/shipments/')
     this.cache.invalidate('/documents/')
@@ -566,7 +566,7 @@ class ApiClient {
       extra_data?: Record<string, unknown>
     }
   ): Promise<{ message: string; document_id: string }> {
-    const response = await this.client.patch(`/documents/${documentId}/metadata`, metadata)
+    const response = await this.client.patch(`documents/${documentId}/metadata`, metadata)
 
     this.cache.invalidate('/shipments/')
     this.cache.invalidate('/documents/')
@@ -582,13 +582,13 @@ class ApiClient {
 
     return this.executeWithRetry<ExpiringDocumentsResponse>({
       method: 'GET',
-      url: `/documents/expiring?${params.toString()}`,
+      url: `documents/expiring?${params.toString()}`,
     })
   }
 
   async getDocumentTypeRequirements(documentType: string): Promise<DocumentRequirementsResponse> {
     return this.cachedGet<DocumentRequirementsResponse>(
-      `/documents/types/${documentType}/requirements`,
+      `documents/types/${documentType}/requirements`,
       5 * 60 * 1000 // 5 minute cache
     )
   }
@@ -596,7 +596,7 @@ class ApiClient {
   async getWorkflowSummary(shipmentId: string): Promise<WorkflowSummaryResponse> {
     return this.executeWithRetry<WorkflowSummaryResponse>({
       method: 'GET',
-      url: `/documents/workflow/summary?shipment_id=${shipmentId}`,
+      url: `documents/workflow/summary?shipment_id=${shipmentId}`,
     })
   }
 
@@ -630,7 +630,7 @@ class ApiClient {
   }> {
     return this.executeWithRetry({
       method: 'GET',
-      url: `/documents/${documentId}/contents`,
+      url: `documents/${documentId}/contents`,
     })
   }
 
@@ -642,7 +642,7 @@ class ApiClient {
     contentId: string,
     notes?: string
   ): Promise<{ message: string; content_id: string; status: string; all_contents_validated: boolean }> {
-    const response = await this.client.post(`/documents/${documentId}/contents/${contentId}/validate`, notes)
+    const response = await this.client.post(`documents/${documentId}/contents/${contentId}/validate`, notes)
     this.cache.invalidate('/documents/')
     this.cache.invalidate('/shipments/')
     return response.data
@@ -656,7 +656,7 @@ class ApiClient {
     contentId: string,
     notes: string
   ): Promise<{ message: string; content_id: string; status: string }> {
-    const response = await this.client.post(`/documents/${documentId}/contents/${contentId}/reject`, { notes })
+    const response = await this.client.post(`documents/${documentId}/contents/${contentId}/reject`, { notes })
     this.cache.invalidate('/documents/')
     this.cache.invalidate('/shipments/')
     return response.data
@@ -682,7 +682,7 @@ class ApiClient {
   }> {
     return this.executeWithRetry({
       method: 'GET',
-      url: `/documents/${documentId}/analyze`,
+      url: `documents/${documentId}/analyze`,
     })
   }
 
@@ -705,7 +705,7 @@ class ApiClient {
   }> {
     return this.executeWithRetry({
       method: 'GET',
-      url: `/documents/shipments/${shipmentId}/duplicates`,
+      url: `documents/shipments/${shipmentId}/duplicates`,
     })
   }
 
@@ -747,13 +747,13 @@ class ApiClient {
 
   async getContainerStatus(containerNumber: string): Promise<ContainerStatusResponse> {
     return this.cachedGet<ContainerStatusResponse>(
-      `/tracking/status/${encodeURIComponent(containerNumber)}`,
+      `tracking/status/${encodeURIComponent(containerNumber)}`,
       30000 // 30 second cache for tracking data
     )
   }
 
   async getLiveTracking(containerNumber: string, shippingLine?: string): Promise<LiveTracking> {
-    let url = `/tracking/live/${encodeURIComponent(containerNumber)}`
+    let url = `tracking/live/${encodeURIComponent(containerNumber)}`
     if (shippingLine) {
       url += `?shipping_line=${encodeURIComponent(shippingLine)}`
     }
@@ -765,14 +765,14 @@ class ApiClient {
   async getTrackingByBol(blNumber: string, shippingLine: string): Promise<LiveTracking> {
     return this.executeWithRetry<LiveTracking>({
       method: 'GET',
-      url: `/tracking/bol/${encodeURIComponent(blNumber)}`,
+      url: `tracking/bol/${encodeURIComponent(blNumber)}`,
       params: { shipping_line: shippingLine },
     })
   }
 
   async refreshTracking(shipmentId: string): Promise<TrackingRefreshResponse> {
     const response = await this.client.post<TrackingRefreshResponse>(
-      `/tracking/refresh/${shipmentId}`
+      `tracking/refresh/${shipmentId}`
     )
 
     // Invalidate tracking caches
@@ -787,7 +787,7 @@ class ApiClient {
   // ============================================
 
   async getContainerEvents(shipmentId: string): Promise<ShipmentEventsResponse> {
-    return this.cachedGet<ShipmentEventsResponse>(`/shipments/${shipmentId}/events`)
+    return this.cachedGet<ShipmentEventsResponse>(`shipments/${shipmentId}/events`)
   }
 
   // ============================================
@@ -795,7 +795,7 @@ class ApiClient {
   // ============================================
 
   async downloadAuditPack(shipmentId: string): Promise<Blob> {
-    const response = await this.client.get(`/shipments/${shipmentId}/audit-pack`, {
+    const response = await this.client.get(`shipments/${shipmentId}/audit-pack`, {
       responseType: 'blob',
     })
     return response.data
@@ -807,7 +807,7 @@ class ApiClient {
 
   async getApiUsage(): Promise<{ used: number; limit: number; reset_date: string } | null> {
     try {
-      return await this.cachedGet('/tracking/usage', 5 * 60 * 1000)
+      return await this.cachedGet('tracking/usage', 5 * 60 * 1000)
     } catch {
       return null
     }
@@ -829,29 +829,29 @@ class ApiClient {
     })
     return this.executeWithRetry<NotificationListResponse>({
       method: 'GET',
-      url: `/notifications?${params.toString()}`,
+      url: `notifications?${params.toString()}`,
     })
   }
 
   async getUnreadNotificationCount(): Promise<number> {
     const response = await this.executeWithRetry<UnreadCountResponse>({
       method: 'GET',
-      url: '/notifications/unread-count',
+      url: 'notifications/unread-count',
     })
     return response.unread_count
   }
 
   async markNotificationRead(notificationId: string): Promise<void> {
-    await this.client.patch(`/notifications/${notificationId}/read`)
+    await this.client.patch(`notifications/${notificationId}/read`)
   }
 
   async markAllNotificationsRead(): Promise<{ marked_count: number }> {
-    const response = await this.client.post('/notifications/read-all')
+    const response = await this.client.post('notifications/read-all')
     return response.data
   }
 
   async deleteNotification(notificationId: string): Promise<void> {
-    await this.client.delete(`/notifications/${notificationId}`)
+    await this.client.delete(`notifications/${notificationId}`)
   }
 
   // ============================================
@@ -859,46 +859,46 @@ class ApiClient {
   // ============================================
 
   async getDashboardStats(): Promise<DashboardStats> {
-    return this.cachedGet<DashboardStats>('/analytics/dashboard', 60000) // 1 minute cache
+    return this.cachedGet<DashboardStats>('analytics/dashboard', 60000) // 1 minute cache
   }
 
   async getShipmentStats(): Promise<ShipmentStats> {
-    return this.cachedGet<ShipmentStats>('/analytics/shipments', 60000)
+    return this.cachedGet<ShipmentStats>('analytics/shipments', 60000)
   }
 
   async getShipmentTrends(days: number = 30, groupBy: string = 'day'): Promise<ShipmentTrendsResponse> {
     return this.cachedGet<ShipmentTrendsResponse>(
-      `/analytics/shipments/trends?days=${days}&group_by=${groupBy}`,
+      `analytics/shipments/trends?days=${days}&group_by=${groupBy}`,
       60000
     )
   }
 
   async getDocumentStats(): Promise<DocumentStats> {
-    return this.cachedGet<DocumentStats>('/analytics/documents', 60000)
+    return this.cachedGet<DocumentStats>('analytics/documents', 60000)
   }
 
   async getDocumentDistribution(): Promise<DocumentDistributionResponse> {
-    return this.cachedGet<DocumentDistributionResponse>('/analytics/documents/distribution', 60000)
+    return this.cachedGet<DocumentDistributionResponse>('analytics/documents/distribution', 60000)
   }
 
   async getComplianceMetrics(): Promise<ComplianceMetrics> {
-    return this.cachedGet<ComplianceMetrics>('/analytics/compliance', 60000)
+    return this.cachedGet<ComplianceMetrics>('analytics/compliance', 60000)
   }
 
   async getTrackingStats(): Promise<TrackingStats> {
-    return this.cachedGet<TrackingStats>('/analytics/tracking', 60000)
+    return this.cachedGet<TrackingStats>('analytics/tracking', 60000)
   }
 
   async getRecentActivity(limit: number = 20): Promise<RecentActivityResponse> {
     return this.cachedGet<RecentActivityResponse>(
-      `/audit-log/recent?limit=${limit}`,
+      `audit-log/recent?limit=${limit}`,
       30000 // 30 second cache for activity
     )
   }
 
   async getHealthStatus(): Promise<HealthStatus> {
     // Health check doesn't require auth, so use a direct call
-    const response = await this.client.get<HealthStatus>('/health')
+    const response = await this.client.get<HealthStatus>('health')
     return response.data
   }
 
@@ -911,7 +911,7 @@ class ApiClient {
    */
   async getEUDRStatus(shipmentId: string): Promise<EUDRStatusResponse> {
     return this.cachedGet<EUDRStatusResponse>(
-      `/eudr/shipment/${shipmentId}/status`,
+      `eudr/shipment/${shipmentId}/status`,
       30000 // 30 second cache
     )
   }
@@ -921,7 +921,7 @@ class ApiClient {
    */
   async validateEUDR(shipmentId: string): Promise<EUDRValidationResponse> {
     const response = await this.client.post<EUDRValidationResponse>(
-      `/eudr/shipment/${shipmentId}/validate`
+      `eudr/shipment/${shipmentId}/validate`
     )
 
     // Invalidate status cache after validation
@@ -935,7 +935,7 @@ class ApiClient {
    */
   async getEUDRReport(shipmentId: string, format: 'json' | 'pdf' = 'json'): Promise<unknown> {
     if (format === 'pdf') {
-      const response = await this.client.get(`/eudr/shipment/${shipmentId}/report?format=pdf`, {
+      const response = await this.client.get(`eudr/shipment/${shipmentId}/report?format=pdf`, {
         responseType: 'blob',
       })
       return response.data
@@ -943,7 +943,7 @@ class ApiClient {
 
     return this.executeWithRetry<unknown>({
       method: 'GET',
-      url: `/eudr/shipment/${shipmentId}/report?format=json`,
+      url: `eudr/shipment/${shipmentId}/report?format=json`,
     })
   }
 
@@ -951,7 +951,7 @@ class ApiClient {
    * Download EUDR report as PDF
    */
   async downloadEUDRReport(shipmentId: string): Promise<Blob> {
-    const response = await this.client.get(`/eudr/shipment/${shipmentId}/report?format=pdf`, {
+    const response = await this.client.get(`eudr/shipment/${shipmentId}/report?format=pdf`, {
       responseType: 'blob',
     })
     return response.data
@@ -965,7 +965,7 @@ class ApiClient {
     verification?: EUDROriginVerificationRequest
   ): Promise<EUDROriginValidationResponse> {
     const response = await this.client.post<EUDROriginValidationResponse>(
-      `/eudr/origin/${originId}/verify`,
+      `eudr/origin/${originId}/verify`,
       verification
     )
 
@@ -979,7 +979,7 @@ class ApiClient {
    * Get deforestation risk assessment for an origin
    */
   async getOriginRisk(originId: string): Promise<EUDRRiskAssessment> {
-    return this.cachedGet<EUDRRiskAssessment>(`/eudr/origin/${originId}/risk`, 60000)
+    return this.cachedGet<EUDRRiskAssessment>(`eudr/origin/${originId}/risk`, 60000)
   }
 
   /**
@@ -987,7 +987,7 @@ class ApiClient {
    */
   async checkGeolocation(request: EUDRGeolocationCheckRequest): Promise<EUDRGeolocationCheckResponse> {
     const response = await this.client.post<EUDRGeolocationCheckResponse>(
-      '/eudr/check/geolocation',
+      'eudr/check/geolocation',
       request
     )
     return response.data
@@ -998,7 +998,7 @@ class ApiClient {
    */
   async checkProductionDate(request: EUDRProductionDateCheckRequest): Promise<EUDRProductionDateCheckResponse> {
     const response = await this.client.post<EUDRProductionDateCheckResponse>(
-      '/eudr/check/production-date',
+      'eudr/check/production-date',
       request
     )
     return response.data
@@ -1008,14 +1008,14 @@ class ApiClient {
    * Get country risk levels for EUDR
    */
   async getCountryRiskLevels(): Promise<EUDRCountryRiskLevels> {
-    return this.cachedGet<EUDRCountryRiskLevels>('/eudr/countries/risk-levels', 5 * 60 * 1000) // 5 min cache
+    return this.cachedGet<EUDRCountryRiskLevels>('eudr/countries/risk-levels', 5 * 60 * 1000) // 5 min cache
   }
 
   /**
    * Get EUDR regulation information
    */
   async getEUDRRegulationInfo(): Promise<EUDRRegulationInfo> {
-    return this.cachedGet<EUDRRegulationInfo>('/eudr/regulation/info', 60 * 60 * 1000) // 1 hour cache
+    return this.cachedGet<EUDRRegulationInfo>('eudr/regulation/info', 60 * 60 * 1000) // 1 hour cache
   }
 
   // ============================================
@@ -1039,7 +1039,7 @@ class ApiClient {
     if (params?.is_active !== undefined) queryParams.append('is_active', params.is_active.toString())
     if (params?.search) queryParams.append('search', params.search)
 
-    const url = `/users?${queryParams.toString()}`
+    const url = `users?${queryParams.toString()}`
     return this.executeWithRetry<UserListResponse>({ method: 'GET', url })
   }
 
@@ -1047,14 +1047,14 @@ class ApiClient {
    * Get a single user by ID
    */
   async getUser(userId: string): Promise<UserResponse> {
-    return this.executeWithRetry<UserResponse>({ method: 'GET', url: `/users/${userId}` })
+    return this.executeWithRetry<UserResponse>({ method: 'GET', url: `users/${userId}` })
   }
 
   /**
    * Create a new user (admin only)
    */
   async createUser(user: UserCreate): Promise<UserResponse> {
-    const response = await this.client.post<UserResponse>('/users', user)
+    const response = await this.client.post<UserResponse>('users', user)
     this.cache.invalidate('/users')
     return response.data
   }
@@ -1063,7 +1063,7 @@ class ApiClient {
    * Update a user
    */
   async updateUser(userId: string, update: UserUpdate): Promise<UserResponse> {
-    const response = await this.client.patch<UserResponse>(`/users/${userId}`, update)
+    const response = await this.client.patch<UserResponse>(`users/${userId}`, update)
     this.cache.invalidate('/users')
     return response.data
   }
@@ -1072,7 +1072,7 @@ class ApiClient {
    * Deactivate a user (soft delete)
    */
   async deactivateUser(userId: string): Promise<{ message: string }> {
-    const response = await this.client.delete(`/users/${userId}`)
+    const response = await this.client.delete(`users/${userId}`)
     this.cache.invalidate('/users')
     return response.data
   }
@@ -1081,7 +1081,7 @@ class ApiClient {
    * Activate a user
    */
   async activateUser(userId: string): Promise<{ message: string }> {
-    const response = await this.client.post(`/users/${userId}/activate`)
+    const response = await this.client.post(`users/${userId}/activate`)
     this.cache.invalidate('/users')
     return response.data
   }
@@ -1090,14 +1090,14 @@ class ApiClient {
    * Get available roles
    */
   async getRoles(): Promise<RolesResponse> {
-    return this.cachedGet<RolesResponse>('/users/roles', 5 * 60 * 1000) // 5 min cache
+    return this.cachedGet<RolesResponse>('users/roles', 5 * 60 * 1000) // 5 min cache
   }
 
   /**
    * Admin reset user password
    */
   async adminResetPassword(userId: string, newPassword: string): Promise<{ message: string }> {
-    const response = await this.client.post(`/users/${userId}/reset-password?new_password=${encodeURIComponent(newPassword)}`)
+    const response = await this.client.post(`users/${userId}/reset-password?new_password=${encodeURIComponent(newPassword)}`)
     return response.data
   }
 

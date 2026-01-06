@@ -10,7 +10,7 @@ from .reference_registry import ReferenceRegistry
 from .container_event import ContainerEvent, EventStatus
 from .notification import Notification, NotificationType
 # Organization must be imported before User due to relationship dependencies
-from .organization import Organization, OrganizationType, OrganizationMembership, OrgRole
+from .organization import Organization, OrganizationType, OrganizationStatus, OrganizationMembership, OrgRole
 from .user import User, UserRole
 from .audit_log import AuditLog
 
@@ -33,6 +33,7 @@ __all__ = [
     "NotificationType",
     "Organization",
     "OrganizationType",
+    "OrganizationStatus",
     "OrganizationMembership",
     "OrgRole",
     "User",

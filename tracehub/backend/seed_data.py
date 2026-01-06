@@ -5,6 +5,7 @@ Run with: python -m seed_data
 
 import os
 import sys
+import uuid
 from datetime import datetime, date, timedelta
 from decimal import Decimal
 
@@ -19,8 +20,10 @@ from app.models import (
     Product,
     Origin,
     Document, DocumentType, DocumentStatus,
-    ContainerEvent, EventType,
-    User, UserRole
+    ContainerEvent, EventStatus,
+    User, UserRole,
+    Organization, OrganizationType, OrganizationStatus,
+    OrganizationMembership, OrgRole
 )
 from passlib.context import CryptContext
 
@@ -35,49 +38,17 @@ def create_tables():
     print("Tables created.")
 
 
-def seed_sample_data(db: Session):
+def seed_sample_data(db: Session, vibotaj_org_id: uuid.UUID, witatrade_org_id: uuid.UUID):
     """Seed database with sample shipment data."""
 
     print("Seeding sample data...")
 
-    # =========================================================================
-    # PARTIES
-    # =========================================================================
-
-    # Supplier: TEMIRA INDUSTRIES
-    supplier_temira = Party(
-        type=PartyType.SUPPLIER,
-        company_name="TEMIRA INDUSTRIES NIGERIA LTD",
-        contact_name="Operations Manager",
-        email="exports@temira.ng",
-        phone="+234 XXX XXX XXXX",
-        address="Lagos, Nigeria",
-        city="Lagos",
-        country="NG",
-        registration_number="RC-TEMIRA",
-        tax_id="NG-TAX-TEMIRA"
-    )
-    db.add(supplier_temira)
-
-    # Buyer: WITATRADE GMBH
-    buyer_witatrade = Party(
-        type=PartyType.BUYER,
-        company_name="WITATRADE GMBH",
-        contact_name="Imports Manager",
-        email="imports@witatrade.de",
-        phone="+49 XXX XXX XXXX",
-        address="98A Duvendahl, Stelle, 21435",
-        city="Stelle",
-        country="DE",
-        registration_number="HRB-WITA",
-        tax_id="DE-WITATRADE"
-    )
-    db.add(buyer_witatrade)
-
-    db.flush()  # Get IDs
+    # Get admin and compliance users for document ownership
+    admin_user = db.query(User).filter_by(email="admin@vibotaj.com").first()
+    compliance_user = db.query(User).filter_by(email="compliance@vibotaj.com").first()
 
     # =========================================================================
-    # SHIPMENT 1: VIBO-2026-001 (REF NO - 1416)
+    # SHIPMENT 1: VIBO-2026-001
     # =========================================================================
 
     etd_1 = datetime(2025, 12, 13)
@@ -87,7 +58,7 @@ def seed_sample_data(db: Session):
         reference="VIBO-2026-001",
         container_number="MRSU3452572",
         bl_number="262495038",
-        booking_reference="MAERSK-550N-001",
+        booking_ref="MAERSK-550N-001",
         vessel_name="RHINE MAERSK",
         voyage_number="550N",
         etd=etd_1,
@@ -96,11 +67,11 @@ def seed_sample_data(db: Session):
         pol_name="Apapa, Lagos",
         pod_code="DEHAM",
         pod_name="Hamburg",
-        final_destination="Stelle, Germany",
         incoterms="FOB",
         status=ShipmentStatus.IN_TRANSIT,
-        buyer_id=buyer_witatrade.id,
-        supplier_id=supplier_temira.id
+        organization_id=vibotaj_org_id,
+        exporter_name="TEMIRA INDUSTRIES NIGERIA LTD",
+        importer_name="WITATRADE GMBH"
     )
     db.add(shipment_1)
     db.flush()
@@ -108,39 +79,38 @@ def seed_sample_data(db: Session):
     # Product for Shipment 1
     product_1 = Product(
         shipment_id=shipment_1.id,
+        organization_id=vibotaj_org_id,
+        name="Crushed Cow Hooves & Horns",
+        description="Crushed Cow Hooves & Horns (HS 0506.90.00)",
         hs_code="0506.90.00",
-        description="Crushed Cow Hooves & Horns",
-        quantity_net_kg=Decimal("25000"),
-        quantity_gross_kg=Decimal("25200"),
-        unit_of_measure="KG",
-        packaging_type="1x40ft Container, 20 CBM",
-        packaging_count=1,
-        batch_lot_number="VIBO-2026-001-LOT1",
+        quantity_net_kg=25000.0,
+        quantity_gross_kg=25200.0,
+        packaging="1x40ft Container",
+        batch_number="VIBO-2026-001",
+        lot_number="LOT-1",
         quality_grade="Export Grade",
-        moisture_percentage=Decimal("12.0"),
-        production_date=date(2025, 11, 30)
+        moisture_content=12.0
     )
     db.add(product_1)
     db.flush()
 
     # Origin for Shipment 1
     origin_1 = Origin(
-        product_id=product_1.id,
-        farm_plot_identifier="NG-LA-TEMIRA-001",
-        geolocation_lat=Decimal("6.4541"),
-        geolocation_lng=Decimal("3.3947"),
+        shipment_id=shipment_1.id,
+        organization_id=vibotaj_org_id,
+        farm_name="TEMIRA Lagos Hub",
+        plot_identifier="NG-LA-001",
+        latitude=6.4541,
+        longitude=3.3947,
         country="NG",
-        region="Lagos State",
-        district="Lagos Industrial",
-        production_start_date=date(2025, 10, 1),
-        production_end_date=date(2025, 11, 30),
-        supplier_id=supplier_temira.id,
-        deforestation_cutoff_compliant=True,
-        deforestation_free_statement="Animal by-products sourced from established slaughterhouses. Not subject to EUDR deforestation provisions."
+        region="Lagos",
+        production_date=datetime(2025, 11, 30),
+        deforestation_free=True,
+        eudr_cutoff_compliant=True
     )
     db.add(origin_1)
 
-    # Documents for Shipment 1 - with actual files
+    # Documents for Shipment 1
     docs_shipment_1 = [
         {
             "document_type": DocumentType.BILL_OF_LADING,
@@ -149,8 +119,8 @@ def seed_sample_data(db: Session):
             "file_path": "VIBO-2026-001/BILL OF LADING - ONE (1).pdf",
             "status": DocumentStatus.VALIDATED,
             "reference_number": "262495038",
-            "issue_date": date(2025, 12, 13),
-            "issuing_authority": "Maersk Line"
+            "document_date": datetime(2025, 12, 13),
+            "issuer": "Maersk Line"
         },
         {
             "document_type": DocumentType.COMMERCIAL_INVOICE,
@@ -159,130 +129,51 @@ def seed_sample_data(db: Session):
             "file_path": "VIBO-2026-001/REF NO - 1416.pdf",
             "status": DocumentStatus.VALIDATED,
             "reference_number": "1416",
-            "issue_date": date(2025, 12, 10)
-        },
-        {
-            "document_type": DocumentType.CERTIFICATE_OF_ORIGIN,
-            "name": "Certificate of Origin - 0029532",
-            "status": DocumentStatus.VALIDATED,
-            "reference_number": "0029532",
-            "issue_date": date(2025, 12, 10),
-            "issuing_authority": "Lagos Chamber of Commerce"
-        },
-        {
-            "document_type": DocumentType.FUMIGATION_CERTIFICATE,
-            "name": "Fumigation Certificate - 77091",
-            "status": DocumentStatus.VALIDATED,
-            "reference_number": "77091",
-            "issue_date": date(2025, 12, 5),
-            "issuing_authority": "NAQS Nigeria"
-        },
-        {
-            "document_type": DocumentType.PACKING_LIST,
-            "name": "Packing List - VIBO-PL-2026-001",
-            "status": DocumentStatus.VALIDATED,
-            "reference_number": "VIBO-PL-2026-001",
-            "issue_date": date(2025, 12, 10)
-        },
-        {
-            "document_type": DocumentType.PHYTOSANITARY_CERTIFICATE,
-            "name": "Federal Produce Inspection Certificate",
-            "status": DocumentStatus.VALIDATED,
-            "reference_number": "FPIS-2025-001",
-            "issue_date": date(2025, 12, 8),
-            "issuing_authority": "Federal Produce Inspection Service"
-        },
-        # Horn & Hoof specific documents (NO EUDR required)
-        {
-            "document_type": DocumentType.EU_TRACES_CERTIFICATE,
-            "name": "EU TRACES Certificate - RC1479592",
-            "status": DocumentStatus.VALIDATED,
-            "reference_number": "RC1479592",
-            "issue_date": date(2025, 12, 9),
-            "issuing_authority": "European Commission TRACES System"
-        },
-        {
-            "document_type": DocumentType.VETERINARY_HEALTH_CERTIFICATE,
-            "name": "Veterinary Health Certificate - VHC-2025-0506",
-            "status": DocumentStatus.VALIDATED,
-            "reference_number": "VHC-2025-0506",
-            "issue_date": date(2025, 12, 7),
-            "issuing_authority": "Nigerian Veterinary Research Institute (NVRI)"
-        },
-        {
-            "document_type": DocumentType.EXPORT_DECLARATION,
-            "name": "Export Declaration - NXP/2025/LA/001234",
-            "status": DocumentStatus.VALIDATED,
-            "reference_number": "NXP/2025/LA/001234",
-            "issue_date": date(2025, 12, 11),
-            "issuing_authority": "Nigeria Customs Service"
-        },
+            "document_date": datetime(2025, 12, 10)
+        }
     ]
 
     for doc_data in docs_shipment_1:
         doc = Document(
             shipment_id=shipment_1.id,
-            uploaded_by="temira_exports",
-            uploaded_at=datetime(2025, 12, 10, 10, 0),
+            organization_id=vibotaj_org_id,
+            uploaded_by=admin_user.id,
             **doc_data
         )
         if doc.status == DocumentStatus.VALIDATED:
             doc.validated_at = datetime(2025, 12, 12, 16, 0)
-            doc.validated_by = "compliance_team"
+            doc.validated_by = compliance_user.id
         db.add(doc)
 
     # Container Events for Shipment 1
     events_shipment_1 = [
         {
-            "event_type": EventType.GATE_IN,
-            "event_timestamp": datetime(2025, 12, 11, 8, 30),
+            "event_status": EventStatus.GATE_IN,
+            "event_time": datetime(2025, 12, 11, 8, 30),
             "location_name": "Apapa Container Terminal",
             "location_code": "NGAPP",
         },
         {
-            "event_type": EventType.LOADED,
-            "event_timestamp": datetime(2025, 12, 12, 14, 0),
+            "event_status": EventStatus.LOADED,
+            "event_time": datetime(2025, 12, 12, 14, 0),
             "location_name": "Apapa, Lagos",
             "location_code": "NGAPP",
             "vessel_name": "RHINE MAERSK",
             "voyage_number": "550N"
-        },
-        {
-            "event_type": EventType.DEPARTED,
-            "event_timestamp": datetime(2025, 12, 13, 18, 0),
-            "location_name": "Apapa, Lagos",
-            "location_code": "NGAPP",
-            "vessel_name": "RHINE MAERSK",
-            "voyage_number": "550N"
-        },
-        {
-            "event_type": EventType.TRANSSHIPMENT,
-            "event_timestamp": datetime(2025, 12, 22, 6, 0),
-            "location_name": "Tangier Med",
-            "location_code": "MAPTM",
-            "vessel_name": "RHINE MAERSK",
-            "voyage_number": "550N"
-        },
-        {
-            "event_type": EventType.DEPARTED,
-            "event_timestamp": datetime(2025, 12, 23, 12, 0),
-            "location_name": "Tangier Med",
-            "location_code": "MAPTM",
-            "vessel_name": "RHINE MAERSK",
-            "voyage_number": "550N"
-        },
+        }
     ]
 
     for event_data in events_shipment_1:
         event = ContainerEvent(
             shipment_id=shipment_1.id,
+            organization_id=vibotaj_org_id,
             source="seed_data",
             **event_data
         )
         db.add(event)
 
     # =========================================================================
-    # SHIPMENT 2: VIBO-2026-002 (REF NO - 1417)
+    # SHIPMENT 2: VIBO-2026-002
     # =========================================================================
 
     etd_2 = datetime(2025, 12, 20)
@@ -292,7 +183,7 @@ def seed_sample_data(db: Session):
         reference="VIBO-2026-002",
         container_number="TCNU7654321",
         bl_number="262495039",
-        booking_reference="MAERSK-550N-002",
+        booking_ref="MAERSK-550N-002",
         vessel_name="RHINE MAERSK",
         voyage_number="551N",
         etd=etd_2,
@@ -301,11 +192,11 @@ def seed_sample_data(db: Session):
         pol_name="Apapa, Lagos",
         pod_code="DEHAM",
         pod_name="Hamburg",
-        final_destination="Stelle, Germany",
         incoterms="FOB",
         status=ShipmentStatus.IN_TRANSIT,
-        buyer_id=buyer_witatrade.id,
-        supplier_id=supplier_temira.id
+        organization_id=vibotaj_org_id,
+        exporter_name="TEMIRA INDUSTRIES NIGERIA LTD",
+        importer_name="WITATRADE GMBH"
     )
     db.add(shipment_2)
     db.flush()
@@ -313,39 +204,38 @@ def seed_sample_data(db: Session):
     # Product for Shipment 2
     product_2 = Product(
         shipment_id=shipment_2.id,
+        organization_id=vibotaj_org_id,
+        name="Crushed Cow Hooves & Horns",
+        description="Crushed Cow Hooves & Horns (HS 0506.90.00)",
         hs_code="0506.90.00",
-        description="Crushed Cow Hooves & Horns",
-        quantity_net_kg=Decimal("22000"),
-        quantity_gross_kg=Decimal("22200"),
-        unit_of_measure="KG",
-        packaging_type="1x40ft Container, 18 CBM",
-        packaging_count=1,
-        batch_lot_number="VIBO-2026-002-LOT1",
+        quantity_net_kg=22000.0,
+        quantity_gross_kg=22200.0,
+        packaging="1x40ft Container",
+        batch_number="VIBO-2026-002",
+        lot_number="LOT-2",
         quality_grade="Export Grade",
-        moisture_percentage=Decimal("11.5"),
-        production_date=date(2025, 12, 5)
+        moisture_content=11.5
     )
     db.add(product_2)
     db.flush()
 
     # Origin for Shipment 2
     origin_2 = Origin(
-        product_id=product_2.id,
-        farm_plot_identifier="NG-LA-TEMIRA-002",
-        geolocation_lat=Decimal("6.4550"),
-        geolocation_lng=Decimal("3.3950"),
+        shipment_id=shipment_2.id,
+        organization_id=vibotaj_org_id,
+        farm_name="TEMIRA Lagos Hub",
+        plot_identifier="NG-LA-002",
+        latitude=6.4550,
+        longitude=3.3950,
         country="NG",
-        region="Lagos State",
-        district="Lagos Industrial",
-        production_start_date=date(2025, 11, 1),
-        production_end_date=date(2025, 12, 5),
-        supplier_id=supplier_temira.id,
-        deforestation_cutoff_compliant=True,
-        deforestation_free_statement="Animal by-products sourced from established slaughterhouses. Not subject to EUDR deforestation provisions."
+        region="Lagos",
+        production_date=datetime(2025, 12, 5),
+        deforestation_free=True,
+        eudr_cutoff_compliant=True
     )
     db.add(origin_2)
 
-    # Documents for Shipment 2 - with actual files
+    # Documents for Shipment 2
     docs_shipment_2 = [
         {
             "document_type": DocumentType.BILL_OF_LADING,
@@ -354,193 +244,138 @@ def seed_sample_data(db: Session):
             "file_path": "VIBO-2026-002/BILL OF LADING - TWO (2).pdf",
             "status": DocumentStatus.VALIDATED,
             "reference_number": "262495039",
-            "issue_date": date(2025, 12, 20),
-            "issuing_authority": "Maersk Line"
-        },
-        {
-            "document_type": DocumentType.COMMERCIAL_INVOICE,
-            "name": "Commercial Invoice - REF NO 1417",
-            "file_name": "REF NO - 1417.pdf",
-            "file_path": "VIBO-2026-002/REF NO - 1417.pdf",
-            "status": DocumentStatus.VALIDATED,
-            "reference_number": "1417",
-            "issue_date": date(2025, 12, 18)
+            "document_date": datetime(2025, 12, 20),
+            "issuer": "Maersk Line"
         },
         {
             "document_type": DocumentType.CERTIFICATE_OF_ORIGIN,
             "name": "Certificate of Origin - 0029533",
-            "status": DocumentStatus.DRAFT,
+            "status": DocumentStatus.UPLOADED,
             "reference_number": "0029533",
-        },
-        {
-            "document_type": DocumentType.FUMIGATION_CERTIFICATE,
-            "name": "Fumigation Certificate",
-            "status": DocumentStatus.DRAFT,
-        },
-        {
-            "document_type": DocumentType.PACKING_LIST,
-            "name": "Packing List - VIBO-PL-2026-002",
-            "status": DocumentStatus.DRAFT,
-            "reference_number": "VIBO-PL-2026-002",
-        },
-        {
-            "document_type": DocumentType.PHYTOSANITARY_CERTIFICATE,
-            "name": "Phytosanitary Certificate",
-            "status": DocumentStatus.DRAFT,
-        },
-        # Horn & Hoof specific documents (NO EUDR required) - pending for shipment 2
-        {
-            "document_type": DocumentType.EU_TRACES_CERTIFICATE,
-            "name": "EU TRACES Certificate - Pending",
-            "status": DocumentStatus.DRAFT,
-        },
-        {
-            "document_type": DocumentType.VETERINARY_HEALTH_CERTIFICATE,
-            "name": "Veterinary Health Certificate - Pending",
-            "status": DocumentStatus.DRAFT,
-        },
-        {
-            "document_type": DocumentType.EXPORT_DECLARATION,
-            "name": "Export Declaration - Pending",
-            "status": DocumentStatus.DRAFT,
-        },
+        }
     ]
 
     for doc_data in docs_shipment_2:
         doc = Document(
             shipment_id=shipment_2.id,
-            uploaded_by="temira_exports",
-            uploaded_at=datetime(2025, 12, 18, 10, 0) if doc_data.get("file_path") else None,
+            organization_id=vibotaj_org_id,
+            uploaded_by=admin_user.id,
             **doc_data
         )
         if doc.status == DocumentStatus.VALIDATED:
             doc.validated_at = datetime(2025, 12, 19, 16, 0)
-            doc.validated_by = "compliance_team"
+            doc.validated_by = compliance_user.id
         db.add(doc)
 
-    # Container Events for Shipment 2
-    events_shipment_2 = [
-        {
-            "event_type": EventType.GATE_IN,
-            "event_timestamp": datetime(2025, 12, 18, 9, 0),
-            "location_name": "Apapa Container Terminal",
-            "location_code": "NGAPP",
-        },
-        {
-            "event_type": EventType.LOADED,
-            "event_timestamp": datetime(2025, 12, 19, 15, 0),
-            "location_name": "Apapa, Lagos",
-            "location_code": "NGAPP",
-            "vessel_name": "RHINE MAERSK",
-            "voyage_number": "551N"
-        },
-        {
-            "event_type": EventType.DEPARTED,
-            "event_timestamp": datetime(2025, 12, 20, 16, 0),
-            "location_name": "Apapa, Lagos",
-            "location_code": "NGAPP",
-            "vessel_name": "RHINE MAERSK",
-            "voyage_number": "551N"
-        },
-    ]
-
-    for event_data in events_shipment_2:
-        event = ContainerEvent(
-            shipment_id=shipment_2.id,
-            source="seed_data",
-            **event_data
-        )
-        db.add(event)
-
     db.commit()
-
-    print(f"\n{'='*60}")
     print("Sample data seeded successfully!")
-    print(f"{'='*60}\n")
-
-    print(f"SHIPMENT 1: {shipment_1.reference}")
-    print(f"  - Container: {shipment_1.container_number}")
-    print(f"  - B/L Number: {shipment_1.bl_number}")
-    print(f"  - Vessel: {shipment_1.vessel_name} / {shipment_1.voyage_number}")
-    print(f"  - Route: {shipment_1.pol_name} -> {shipment_1.pod_name}")
-    print(f"  - Documents: {len(docs_shipment_1)} (all validated)")
-    print(f"  - Events: {len(events_shipment_1)} tracking events")
-
-    print(f"\nSHIPMENT 2: {shipment_2.reference}")
-    print(f"  - Container: {shipment_2.container_number}")
-    print(f"  - B/L Number: {shipment_2.bl_number}")
-    print(f"  - Vessel: {shipment_2.vessel_name} / {shipment_2.voyage_number}")
-    print(f"  - Route: {shipment_2.pol_name} -> {shipment_2.pod_name}")
-    print(f"  - Documents: {len(docs_shipment_2)} (2 uploaded, 4 pending)")
-    print(f"  - Events: {len(events_shipment_2)} tracking events")
 
 
 def seed_users(db: Session):
-    """Seed database with test users."""
-    print("\nSeeding test users...")
+    """Seed database with test users and organizations."""
+    print("\nSeeding organizations and test users...")
+
+    # Check if organizations already exist
+    existing_org = db.query(Organization).first()
+    if not existing_org:
+        # Create VIBOTAJ Organization
+        vibotaj_org = Organization(
+            name="VIBOTAJ Global Nigeria Ltd",
+            slug="vibotaj",
+            type=OrganizationType.VIBOTAJ,
+            status=OrganizationStatus.ACTIVE,
+            contact_email="admin@vibotaj.com",
+            contact_phone="+234 123 456 7890",
+            address={"city": "Lagos", "country": "Nigeria"},
+            tax_id="RC123456",
+            registration_number="RC123456"
+        )
+        db.add(vibotaj_org)
+
+        # Create WITATRADE Organization
+        witatrade_org = Organization(
+            name="WITATRADE GMBH",
+            slug="witatrade",
+            type=OrganizationType.BUYER,
+            status=OrganizationStatus.ACTIVE,
+            contact_email="imports@witatrade.de",
+            contact_phone="+49 40 123456",
+            address={"city": "Hamburg", "country": "Germany"},
+            tax_id="DE123456789",
+            registration_number="HRB123456"
+        )
+        db.add(witatrade_org)
+        db.flush()
+    else:
+        vibotaj_org = db.query(Organization).filter_by(slug="vibotaj").first()
+        witatrade_org = db.query(Organization).filter_by(slug="witatrade").first()
 
     # Check if users already exist
     existing_user = db.query(User).first()
     if existing_user:
         print("Users already exist. Skipping user seed.")
-        return
+        return vibotaj_org.id, witatrade_org.id
 
-    # Create test users for each role
-    users = [
+    # Create test users
+    users_data = [
         {
-            "email": "admin@tracehub.io",
+            "email": "admin@vibotaj.com",
             "full_name": "System Administrator",
-            "password": "Admin123!",
+            "password": "tracehub2026",
             "role": UserRole.ADMIN,
+            "org": vibotaj_org,
+            "org_role": OrgRole.ADMIN
         },
         {
-            "email": "compliance@tracehub.io",
+            "email": "compliance@vibotaj.com",
             "full_name": "Compliance Officer",
-            "password": "Compliance123!",
+            "password": "tracehub2026",
             "role": UserRole.COMPLIANCE,
+            "org": vibotaj_org,
+            "org_role": OrgRole.MANAGER
+        },
+        {
+            "email": "logistic@vibotaj.com",
+            "full_name": "Logistics Manager",
+            "password": "tracehub2026",
+            "role": UserRole.LOGISTICS_AGENT,
+            "org": vibotaj_org,
+            "org_role": OrgRole.MEMBER
         },
         {
             "email": "buyer@witatrade.de",
             "full_name": "Hans Mueller",
-            "password": "Buyer123!",
+            "password": "tracehub2026",
             "role": UserRole.BUYER,
-        },
-        {
-            "email": "supplier@temira.ng",
-            "full_name": "Chioma Nwosu",
-            "password": "Supplier123!",
-            "role": UserRole.SUPPLIER,
-        },
-        {
-            "email": "viewer@tracehub.io",
-            "full_name": "View Only User",
-            "password": "Viewer123!",
-            "role": UserRole.VIEWER,
+            "org": witatrade_org,
+            "org_role": OrgRole.ADMIN
         },
     ]
 
-    for user_data in users:
+    for ud in users_data:
         user = User(
-            email=user_data["email"],
-            full_name=user_data["full_name"],
-            hashed_password=pwd_context.hash(user_data["password"]),
-            role=user_data["role"],
+            email=ud["email"],
+            full_name=ud["full_name"],
+            hashed_password=pwd_context.hash(ud["password"]),
+            role=ud["role"],
+            organization_id=ud["org"].id,
             is_active=True
         )
         db.add(user)
+        db.flush()
+
+        # Add membership
+        membership = OrganizationMembership(
+            user_id=user.id,
+            organization_id=ud["org"].id,
+            org_role=ud["org_role"],
+            status="active"
+        )
+        db.add(membership)
 
     db.commit()
-
-    print(f"\n{'='*60}")
-    print("Test users created successfully!")
-    print(f"{'='*60}")
-    print("\nTest User Credentials:")
-    print("-" * 40)
-    for user_data in users:
-        print(f"  {user_data['role'].value.upper()}:")
-        print(f"    Email: {user_data['email']}")
-        print(f"    Password: {user_data['password']}")
-        print()
+    print("Test users and organizations created.")
+    return vibotaj_org.id, witatrade_org.id
 
 
 def main():
@@ -549,20 +384,18 @@ def main():
 
     db = SessionLocal()
     try:
-        # Seed users first
-        seed_users(db)
+        # Seed users first and get organization IDs
+        vibotaj_id, witatrade_id = seed_users(db)
 
         # Check if shipment data already exists
         existing = db.query(Shipment).first()
         if existing:
             print(f"\nShipment data already exists (shipment {existing.reference}). Skipping shipment seed.")
-            print("To reseed, drop the database tables first.")
             return
 
-        seed_sample_data(db)
+        seed_sample_data(db, vibotaj_id, witatrade_id)
     finally:
         db.close()
-
 
 if __name__ == "__main__":
     main()
