@@ -5,8 +5,7 @@ Run with: python -m seed_data
 
 import os
 import sys
-from datetime import datetime, date, timedelta
-from decimal import Decimal
+from datetime import datetime, timedelta
 
 # Add parent directory to path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -14,7 +13,6 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from sqlalchemy.orm import Session
 from app.database import engine, Base, SessionLocal
 from app.models import (
-    Party, PartyType,
     Shipment, ShipmentStatus,
     Product,
     Origin,
@@ -42,42 +40,6 @@ def seed_sample_data(db: Session, organization_id):
     print("Seeding sample data...")
 
     # =========================================================================
-    # PARTIES
-    # =========================================================================
-
-    # Supplier: TEMIRA INDUSTRIES
-    supplier_temira = Party(
-        type=PartyType.SUPPLIER,
-        company_name="TEMIRA INDUSTRIES NIGERIA LTD",
-        contact_name="Operations Manager",
-        email="exports@temira.ng",
-        phone="+234 XXX XXX XXXX",
-        address="Lagos, Nigeria",
-        city="Lagos",
-        country="NG",
-        registration_number="RC-TEMIRA",
-        tax_id="NG-TAX-TEMIRA"
-    )
-    db.add(supplier_temira)
-
-    # Buyer: WITATRADE GMBH
-    buyer_witatrade = Party(
-        type=PartyType.BUYER,
-        company_name="WITATRADE GMBH",
-        contact_name="Imports Manager",
-        email="imports@witatrade.de",
-        phone="+49 XXX XXX XXXX",
-        address="98A Duvendahl, Stelle, 21435",
-        city="Stelle",
-        country="DE",
-        registration_number="HRB-WITA",
-        tax_id="DE-WITATRADE"
-    )
-    db.add(buyer_witatrade)
-
-    db.flush()  # Get IDs
-
-    # =========================================================================
     # SHIPMENT 1: VIBO-2026-001 (REF NO - 1416)
     # =========================================================================
 
@@ -88,20 +50,21 @@ def seed_sample_data(db: Session, organization_id):
         reference="VIBO-2026-001",
         container_number="MRSU3452572",
         bl_number="262495038",
-        booking_reference="MAERSK-550N-001",
+        booking_ref="MAERSK-550N-001",
         vessel_name="RHINE MAERSK",
         voyage_number="550N",
+        carrier_code="MAEU",
+        carrier_name="Maersk",
         etd=etd_1,
         eta=eta_1,
         pol_code="NGAPP",
         pol_name="Apapa, Lagos",
         pod_code="DEHAM",
         pod_name="Hamburg",
-        final_destination="Stelle, Germany",
         incoterms="FOB",
         status=ShipmentStatus.IN_TRANSIT,
-        buyer_id=buyer_witatrade.id,
-        supplier_id=supplier_temira.id,
+        exporter_name="TEMIRA INDUSTRIES NIGERIA LTD",
+        importer_name="WITATRADE GMBH",
         organization_id=organization_id  # Multi-tenancy
     )
     db.add(shipment_1)
@@ -111,36 +74,37 @@ def seed_sample_data(db: Session, organization_id):
     product_1 = Product(
         shipment_id=shipment_1.id,
         organization_id=organization_id,  # Multi-tenancy
+        name="Crushed Cow Hooves & Horns",
+        description="Crushed animal hooves and horns for industrial processing",
         hs_code="0506.90.00",
-        description="Crushed Cow Hooves & Horns",
-        quantity_net_kg=Decimal("25000"),
-        quantity_gross_kg=Decimal("25200"),
-        unit_of_measure="KG",
-        packaging_type="1x40ft Container, 20 CBM",
-        packaging_count=1,
-        batch_lot_number="VIBO-2026-001-LOT1",
+        quantity_net_kg=25000.0,
+        quantity_gross_kg=25200.0,
+        quantity_units=1,
+        packaging="1x40ft Container, 20 CBM",
+        batch_number="VIBO-2026-001",
+        lot_number="LOT1",
         quality_grade="Export Grade",
-        moisture_percentage=Decimal("12.0"),
-        production_date=date(2025, 11, 30)
+        moisture_content=12.0
     )
     db.add(product_1)
     db.flush()
 
     # Origin for Shipment 1
     origin_1 = Origin(
-        product_id=product_1.id,
+        shipment_id=shipment_1.id,
         organization_id=organization_id,  # Multi-tenancy
-        farm_plot_identifier="NG-LA-TEMIRA-001",
-        geolocation_lat=Decimal("6.4541"),
-        geolocation_lng=Decimal("3.3947"),
+        farm_name="TEMIRA Industries",
+        plot_identifier="NG-LA-TEMIRA-001",
+        latitude=6.4541,
+        longitude=3.3947,
         country="NG",
         region="Lagos State",
-        district="Lagos Industrial",
-        production_start_date=date(2025, 10, 1),
-        production_end_date=date(2025, 11, 30),
-        supplier_id=supplier_temira.id,
-        deforestation_cutoff_compliant=True,
-        deforestation_free_statement="Animal by-products sourced from established slaughterhouses. Not subject to EUDR deforestation provisions."
+        address="Lagos Industrial Zone",
+        production_date=datetime(2025, 11, 30),
+        supplier_name="TEMIRA INDUSTRIES NIGERIA LTD",
+        supplier_id="RC-TEMIRA",
+        deforestation_free=True,
+        eudr_cutoff_compliant=True
     )
     db.add(origin_1)
 
@@ -153,8 +117,8 @@ def seed_sample_data(db: Session, organization_id):
             "file_path": "VIBO-2026-001/BILL OF LADING - ONE (1).pdf",
             "status": DocumentStatus.VALIDATED,
             "reference_number": "262495038",
-            "issue_date": date(2025, 12, 13),
-            "issuing_authority": "Maersk Line"
+            "document_date": datetime(2025, 12, 13),
+            "issuer": "Maersk Line"
         },
         {
             "document_type": DocumentType.COMMERCIAL_INVOICE,
@@ -163,38 +127,38 @@ def seed_sample_data(db: Session, organization_id):
             "file_path": "VIBO-2026-001/REF NO - 1416.pdf",
             "status": DocumentStatus.VALIDATED,
             "reference_number": "1416",
-            "issue_date": date(2025, 12, 10)
+            "document_date": datetime(2025, 12, 10)
         },
         {
             "document_type": DocumentType.CERTIFICATE_OF_ORIGIN,
             "name": "Certificate of Origin - 0029532",
             "status": DocumentStatus.VALIDATED,
             "reference_number": "0029532",
-            "issue_date": date(2025, 12, 10),
-            "issuing_authority": "Lagos Chamber of Commerce"
+            "document_date": datetime(2025, 12, 10),
+            "issuer": "Lagos Chamber of Commerce"
         },
         {
             "document_type": DocumentType.FUMIGATION_CERTIFICATE,
             "name": "Fumigation Certificate - 77091",
             "status": DocumentStatus.VALIDATED,
             "reference_number": "77091",
-            "issue_date": date(2025, 12, 5),
-            "issuing_authority": "NAQS Nigeria"
+            "document_date": datetime(2025, 12, 5),
+            "issuer": "NAQS Nigeria"
         },
         {
             "document_type": DocumentType.PACKING_LIST,
             "name": "Packing List - VIBO-PL-2026-001",
             "status": DocumentStatus.VALIDATED,
             "reference_number": "VIBO-PL-2026-001",
-            "issue_date": date(2025, 12, 10)
+            "document_date": datetime(2025, 12, 10)
         },
         {
             "document_type": DocumentType.PHYTOSANITARY_CERTIFICATE,
             "name": "Federal Produce Inspection Certificate",
             "status": DocumentStatus.VALIDATED,
             "reference_number": "FPIS-2025-001",
-            "issue_date": date(2025, 12, 8),
-            "issuing_authority": "Federal Produce Inspection Service"
+            "document_date": datetime(2025, 12, 8),
+            "issuer": "Federal Produce Inspection Service"
         },
         # Horn & Hoof specific documents (NO EUDR required)
         {
@@ -202,24 +166,24 @@ def seed_sample_data(db: Session, organization_id):
             "name": "EU TRACES Certificate - RC1479592",
             "status": DocumentStatus.VALIDATED,
             "reference_number": "RC1479592",
-            "issue_date": date(2025, 12, 9),
-            "issuing_authority": "European Commission TRACES System"
+            "document_date": datetime(2025, 12, 9),
+            "issuer": "European Commission TRACES System"
         },
         {
             "document_type": DocumentType.VETERINARY_HEALTH_CERTIFICATE,
             "name": "Veterinary Health Certificate - VHC-2025-0506",
             "status": DocumentStatus.VALIDATED,
             "reference_number": "VHC-2025-0506",
-            "issue_date": date(2025, 12, 7),
-            "issuing_authority": "Nigerian Veterinary Research Institute (NVRI)"
+            "document_date": datetime(2025, 12, 7),
+            "issuer": "Nigerian Veterinary Research Institute (NVRI)"
         },
         {
             "document_type": DocumentType.EXPORT_DECLARATION,
             "name": "Export Declaration - NXP/2025/LA/001234",
             "status": DocumentStatus.VALIDATED,
             "reference_number": "NXP/2025/LA/001234",
-            "issue_date": date(2025, 12, 11),
-            "issuing_authority": "Nigeria Customs Service"
+            "document_date": datetime(2025, 12, 11),
+            "issuer": "Nigeria Customs Service"
         },
     ]
 
@@ -227,13 +191,10 @@ def seed_sample_data(db: Session, organization_id):
         doc = Document(
             shipment_id=shipment_1.id,
             organization_id=organization_id,  # Multi-tenancy
-            uploaded_by="temira_exports",
-            uploaded_at=datetime(2025, 12, 10, 10, 0),
             **doc_data
         )
         if doc.status == DocumentStatus.VALIDATED:
             doc.validated_at = datetime(2025, 12, 12, 16, 0)
-            doc.validated_by = "compliance_team"
         db.add(doc)
 
     # Container Events for Shipment 1
@@ -298,20 +259,21 @@ def seed_sample_data(db: Session, organization_id):
         reference="VIBO-2026-002",
         container_number="TCNU7654321",
         bl_number="262495039",
-        booking_reference="MAERSK-550N-002",
+        booking_ref="MAERSK-550N-002",
         vessel_name="RHINE MAERSK",
         voyage_number="551N",
+        carrier_code="MAEU",
+        carrier_name="Maersk",
         etd=etd_2,
         eta=eta_2,
         pol_code="NGAPP",
         pol_name="Apapa, Lagos",
         pod_code="DEHAM",
         pod_name="Hamburg",
-        final_destination="Stelle, Germany",
         incoterms="FOB",
         status=ShipmentStatus.IN_TRANSIT,
-        buyer_id=buyer_witatrade.id,
-        supplier_id=supplier_temira.id,
+        exporter_name="TEMIRA INDUSTRIES NIGERIA LTD",
+        importer_name="WITATRADE GMBH",
         organization_id=organization_id  # Multi-tenancy
     )
     db.add(shipment_2)
@@ -321,36 +283,37 @@ def seed_sample_data(db: Session, organization_id):
     product_2 = Product(
         shipment_id=shipment_2.id,
         organization_id=organization_id,  # Multi-tenancy
+        name="Crushed Cow Hooves & Horns",
+        description="Crushed animal hooves and horns for industrial processing",
         hs_code="0506.90.00",
-        description="Crushed Cow Hooves & Horns",
-        quantity_net_kg=Decimal("22000"),
-        quantity_gross_kg=Decimal("22200"),
-        unit_of_measure="KG",
-        packaging_type="1x40ft Container, 18 CBM",
-        packaging_count=1,
-        batch_lot_number="VIBO-2026-002-LOT1",
+        quantity_net_kg=22000.0,
+        quantity_gross_kg=22200.0,
+        quantity_units=1,
+        packaging="1x40ft Container, 18 CBM",
+        batch_number="VIBO-2026-002",
+        lot_number="LOT1",
         quality_grade="Export Grade",
-        moisture_percentage=Decimal("11.5"),
-        production_date=date(2025, 12, 5)
+        moisture_content=11.5
     )
     db.add(product_2)
     db.flush()
 
     # Origin for Shipment 2
     origin_2 = Origin(
-        product_id=product_2.id,
+        shipment_id=shipment_2.id,
         organization_id=organization_id,  # Multi-tenancy
-        farm_plot_identifier="NG-LA-TEMIRA-002",
-        geolocation_lat=Decimal("6.4550"),
-        geolocation_lng=Decimal("3.3950"),
+        farm_name="TEMIRA Industries",
+        plot_identifier="NG-LA-TEMIRA-002",
+        latitude=6.4550,
+        longitude=3.3950,
         country="NG",
         region="Lagos State",
-        district="Lagos Industrial",
-        production_start_date=date(2025, 11, 1),
-        production_end_date=date(2025, 12, 5),
-        supplier_id=supplier_temira.id,
-        deforestation_cutoff_compliant=True,
-        deforestation_free_statement="Animal by-products sourced from established slaughterhouses. Not subject to EUDR deforestation provisions."
+        address="Lagos Industrial Zone",
+        production_date=datetime(2025, 12, 5),
+        supplier_name="TEMIRA INDUSTRIES NIGERIA LTD",
+        supplier_id="RC-TEMIRA",
+        deforestation_free=True,
+        eudr_cutoff_compliant=True
     )
     db.add(origin_2)
 
@@ -363,8 +326,8 @@ def seed_sample_data(db: Session, organization_id):
             "file_path": "VIBO-2026-002/BILL OF LADING - TWO (2).pdf",
             "status": DocumentStatus.VALIDATED,
             "reference_number": "262495039",
-            "issue_date": date(2025, 12, 20),
-            "issuing_authority": "Maersk Line"
+            "document_date": datetime(2025, 12, 20),
+            "issuer": "Maersk Line"
         },
         {
             "document_type": DocumentType.COMMERCIAL_INVOICE,
@@ -373,7 +336,7 @@ def seed_sample_data(db: Session, organization_id):
             "file_path": "VIBO-2026-002/REF NO - 1417.pdf",
             "status": DocumentStatus.VALIDATED,
             "reference_number": "1417",
-            "issue_date": date(2025, 12, 18)
+            "document_date": datetime(2025, 12, 18)
         },
         {
             "document_type": DocumentType.CERTIFICATE_OF_ORIGIN,
@@ -419,13 +382,10 @@ def seed_sample_data(db: Session, organization_id):
         doc = Document(
             shipment_id=shipment_2.id,
             organization_id=organization_id,  # Multi-tenancy
-            uploaded_by="temira_exports",
-            uploaded_at=datetime(2025, 12, 18, 10, 0) if doc_data.get("file_path") else None,
             **doc_data
         )
         if doc.status == DocumentStatus.VALIDATED:
             doc.validated_at = datetime(2025, 12, 19, 16, 0)
-            doc.validated_by = "compliance_team"
         db.add(doc)
 
     # Container Events for Shipment 2
