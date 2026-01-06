@@ -99,7 +99,7 @@ class AnalyticsService:
         avg_transit_query = self._shipment_query().filter(
             Shipment.atd.isnot(None),
             Shipment.ata.isnot(None),
-            Shipment.status.in_([ShipmentStatus.DELIVERED, ShipmentStatus.CLOSED])
+            Shipment.status.in_([ShipmentStatus.DELIVERED, ShipmentStatus.ARCHIVED])
         )
         avg_transit_result = (
             self.db.query(
@@ -127,7 +127,7 @@ class AnalyticsService:
         completed_this_month = (
             self._shipment_query()
             .filter(
-                Shipment.status.in_([ShipmentStatus.DELIVERED, ShipmentStatus.CLOSED]),
+                Shipment.status.in_([ShipmentStatus.DELIVERED, ShipmentStatus.ARCHIVED]),
                 Shipment.updated_at >= month_start
             )
             .count()
@@ -282,7 +282,7 @@ class AnalyticsService:
                 ShipmentStatus.IN_TRANSIT,
                 ShipmentStatus.ARRIVED,
                 ShipmentStatus.DELIVERED,
-                ShipmentStatus.CLOSED,
+                ShipmentStatus.ARCHIVED,
             ]))
             .count()
         )
