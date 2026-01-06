@@ -62,7 +62,62 @@ refactor: description
 
 ---
 
-## Workflow
+## GitOps Workflow - MANDATORY
+
+**Follow this deployment pipeline for ALL changes:**
+
+```
+feature branch → test locally → develop → staging → main → production
+```
+
+### Branch Strategy
+
+| Branch | Purpose | Deploys To |
+|--------|---------|------------|
+| `feature/*` | New features, bug fixes | Local only |
+| `develop` | Integration branch | **Staging** (auto) |
+| `main` | Production-ready code | **Production** (auto) |
+
+### Development Process
+
+1. **Create feature branch** from `main`:
+   ```bash
+   git checkout main && git pull
+   git checkout -b feature/my-feature
+   ```
+
+2. **Develop & test locally**:
+   - Run `make test && make lint`
+   - Test with local Docker: `docker-compose up`
+   - Validate UI with Puppeteer
+
+3. **Push to develop** for staging:
+   ```bash
+   git checkout develop && git pull
+   git merge feature/my-feature
+   git push origin develop  # Triggers staging deployment
+   ```
+
+4. **Verify on staging**:
+   - URL: https://staging.tracehub.vibotaj.com
+   - Run smoke tests
+   - Verify database migrations
+
+5. **Merge to main** for production:
+   ```bash
+   git checkout main && git pull
+   git merge develop
+   git push origin main  # Triggers production deployment
+   ```
+
+### NEVER Skip Steps
+- ❌ Don't push directly to `main` without staging verification
+- ❌ Don't deploy to production without testing on staging
+- ❌ Don't merge untested code to `develop`
+
+---
+
+## Coding Workflow
 
 1. **Before coding:** Check `docs/COMPLIANCE_MATRIX.md` and `docs/decisions/`
 2. **Complex features:** Create PRP in `PRPs/active/`
