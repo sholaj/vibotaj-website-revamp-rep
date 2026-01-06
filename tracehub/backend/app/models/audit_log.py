@@ -2,7 +2,7 @@
 
 import uuid
 from datetime import datetime
-from sqlalchemy import Column, String, DateTime, Text, Index
+from sqlalchemy import Column, String, DateTime, Text, Index, ForeignKey
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from ..database import Base
 
@@ -13,6 +13,14 @@ class AuditLog(Base):
     __tablename__ = "audit_logs"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+
+    # Multi-tenancy: Link to organization
+    organization_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("organizations.id", ondelete="CASCADE"),
+        nullable=True,  # Nullable for system actions or legacy data
+        index=True
+    )
 
     # Who performed the action
     user_id = Column(String(100), nullable=True)  # Can be null for system actions

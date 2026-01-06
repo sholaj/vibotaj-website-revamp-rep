@@ -77,6 +77,7 @@ class AuditLogger:
         *,
         user_id: Optional[str] = None,
         username: Optional[str] = None,
+        organization_id: Optional[str] = None,
         ip_address: Optional[str] = None,
         user_agent: Optional[str] = None,
         resource_type: Optional[str] = None,
@@ -97,6 +98,7 @@ class AuditLogger:
             action: The action being performed (use AuditAction constants)
             user_id: ID of the user performing the action
             username: Username of the user
+            organization_id: ID of the organization context
             ip_address: Client IP address
             user_agent: Client user agent string
             resource_type: Type of resource being acted upon
@@ -116,6 +118,7 @@ class AuditLogger:
         session = db or self.db
 
         audit_entry = AuditLog(
+            organization_id=organization_id,
             user_id=user_id,
             username=username,
             ip_address=ip_address,
