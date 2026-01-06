@@ -144,9 +144,20 @@ jobs:
             exit 1
           fi
 
-          # Test staging frontend (port 3100)
-          ssh ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }} \
-            "curl -sf http://localhost:3100/ || echo 'Frontend health check failed'"
+          # Test staging frontend health (port 3100)
+          if ! ssh ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }} \
+            "curl -sf http://localhost:3100/health"; then
+            echo "Frontend health check failed - collecting logs..."
+            ssh ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }} << 'ENDSSH'
+              cd /home/tracehub/staging
+              export COMPOSE_FILE=docker-compose.staging.yml
+              echo "=== Container Status ==="
+              docker compose ps -a
+              echo "=== Frontend Logs ==="
+              docker compose logs --tail=100 frontend || echo "No frontend logs"
+          ENDSSH
+            exit 1
+          fi
 
           echo "Staging deployment verification complete"
 
