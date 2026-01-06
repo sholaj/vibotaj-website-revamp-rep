@@ -394,6 +394,20 @@ def get_required_documents(shipment: Shipment) -> List[DocumentType]:
     return get_required_documents_by_hs_code(hs_code, destination)
 
 
+def _get_status_value(status) -> str:
+    """Get status value as string, handling both enum and string types."""
+    if hasattr(status, 'value'):
+        return status.value
+    return str(status) if status else ''
+
+
+def _get_doc_type_value(doc_type) -> str:
+    """Get document type value as string, handling both enum and string types."""
+    if hasattr(doc_type, 'value'):
+        return doc_type.value
+    return str(doc_type) if doc_type else ''
+
+
 def check_document_completeness(
     documents: List[Document],
     required_types: List[DocumentType]
@@ -407,29 +421,39 @@ def check_document_completeness(
     Returns:
         DocumentSummary with completeness information
     """
-    # Index documents by type
-    doc_by_type: Dict[DocumentType, Document] = {}
+    # Index documents by type (use string values for comparison)
+    doc_by_type: Dict[str, Document] = {}
     for doc in documents:
+        doc_type_str = _get_doc_type_value(doc.document_type)
+        status_str = _get_status_value(doc.status)
         # Keep the most recent/best status document of each type
-        if doc.document_type not in doc_by_type:
-            doc_by_type[doc.document_type] = doc
-        elif doc.status.value > doc_by_type[doc.document_type].status.value:
-            doc_by_type[doc.document_type] = doc
+        if doc_type_str not in doc_by_type:
+            doc_by_type[doc_type_str] = doc
+        else:
+            existing_status = _get_status_value(doc_by_type[doc_type_str].status)
+            if status_str > existing_status:
+                doc_by_type[doc_type_str] = doc
 
     # Check completeness
     complete_count = 0
     pending_count = 0
     missing_types = []
 
+    # Statuses that indicate completion
+    complete_statuses = {'VALIDATED', 'COMPLIANCE_OK', 'LINKED'}
+    pending_statuses = {'UPLOADED'}
+
     for doc_type in required_types:
-        if doc_type in doc_by_type:
-            doc = doc_by_type[doc_type]
-            if doc.status in [DocumentStatus.VALIDATED, DocumentStatus.COMPLIANCE_OK, DocumentStatus.LINKED]:
+        doc_type_str = _get_doc_type_value(doc_type)
+        if doc_type_str in doc_by_type:
+            doc = doc_by_type[doc_type_str]
+            status_str = _get_status_value(doc.status)
+            if status_str in complete_statuses:
                 complete_count += 1
-            elif doc.status == DocumentStatus.UPLOADED:
+            elif status_str in pending_statuses:
                 pending_count += 1
         else:
-            missing_types.append(DOCUMENT_NAMES.get(doc_type, doc_type.value))
+            missing_types.append(DOCUMENT_NAMES.get(doc_type, _get_doc_type_value(doc_type)))
 
     return DocumentSummary(
         total_required=len(required_types),
