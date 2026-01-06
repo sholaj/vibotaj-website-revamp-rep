@@ -56,7 +56,7 @@ def generate_audit_pack(shipment: Shipment, db: Session) -> io.BytesIO:
         events = (
             db.query(ContainerEvent)
             .filter(ContainerEvent.shipment_id == shipment.id)
-            .order_by(ContainerEvent.event_timestamp.asc())
+            .order_by(ContainerEvent.event_time.asc())
             .all()
         )
         tracking_log = {
@@ -64,8 +64,8 @@ def generate_audit_pack(shipment: Shipment, db: Session) -> io.BytesIO:
             "exported_at": datetime.utcnow().isoformat(),
             "events": [
                 {
-                    "type": e.event_type.value,
-                    "timestamp": e.event_timestamp.isoformat() if e.event_timestamp else None,
+                    "type": e.event_status.value,
+                    "timestamp": e.event_time.isoformat() if e.event_time else None,
                     "location": e.location_name,
                     "vessel": e.vessel_name,
                     "voyage": e.voyage_number,
@@ -241,7 +241,7 @@ def generate_summary_pdf(shipment: Shipment, db: Session) -> io.BytesIO:
     events = (
         db.query(ContainerEvent)
         .filter(ContainerEvent.shipment_id == shipment.id)
-        .order_by(ContainerEvent.event_timestamp.asc())
+        .order_by(ContainerEvent.event_time.asc())
         .all()
     )
     if events:
@@ -249,8 +249,8 @@ def generate_summary_pdf(shipment: Shipment, db: Session) -> io.BytesIO:
         event_data = [["Date", "Event", "Location", "Vessel"]]
         for e in events:
             event_data.append([
-                e.event_timestamp.strftime("%Y-%m-%d %H:%M") if e.event_timestamp else "-",
-                e.event_type.value.replace("_", " ").title(),
+                e.event_time.strftime("%Y-%m-%d %H:%M") if e.event_time else "-",
+                e.event_status.value.replace("_", " ").title(),
                 e.location_name or "-",
                 e.vessel_name or "-",
             ])

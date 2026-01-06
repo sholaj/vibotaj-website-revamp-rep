@@ -19,7 +19,7 @@ from app.models import (
     Product,
     Origin,
     Document, DocumentType, DocumentStatus,
-    ContainerEvent, EventType,
+    ContainerEvent, EventStatus,
     User, UserRole
 )
 from passlib.context import CryptContext
@@ -234,38 +234,38 @@ def seed_sample_data(db: Session):
     # Container Events for Shipment 1
     events_shipment_1 = [
         {
-            "event_type": EventType.GATE_IN,
-            "event_timestamp": datetime(2025, 12, 11, 8, 30),
+            "event_status": EventStatus.GATE_IN,
+            "event_time": datetime(2025, 12, 11, 8, 30),
             "location_name": "Apapa Container Terminal",
             "location_code": "NGAPP",
         },
         {
-            "event_type": EventType.LOADED,
-            "event_timestamp": datetime(2025, 12, 12, 14, 0),
+            "event_status": EventStatus.LOADED,
+            "event_time": datetime(2025, 12, 12, 14, 0),
             "location_name": "Apapa, Lagos",
             "location_code": "NGAPP",
             "vessel_name": "RHINE MAERSK",
             "voyage_number": "550N"
         },
         {
-            "event_type": EventType.DEPARTED,
-            "event_timestamp": datetime(2025, 12, 13, 18, 0),
+            "event_status": EventStatus.DEPARTED,
+            "event_time": datetime(2025, 12, 13, 18, 0),
             "location_name": "Apapa, Lagos",
             "location_code": "NGAPP",
             "vessel_name": "RHINE MAERSK",
             "voyage_number": "550N"
         },
         {
-            "event_type": EventType.TRANSSHIPMENT,
-            "event_timestamp": datetime(2025, 12, 22, 6, 0),
+            "event_status": EventStatus.TRANSSHIPMENT,
+            "event_time": datetime(2025, 12, 22, 6, 0),
             "location_name": "Tangier Med",
             "location_code": "MAPTM",
             "vessel_name": "RHINE MAERSK",
             "voyage_number": "550N"
         },
         {
-            "event_type": EventType.DEPARTED,
-            "event_timestamp": datetime(2025, 12, 23, 12, 0),
+            "event_status": EventStatus.DEPARTED,
+            "event_time": datetime(2025, 12, 23, 12, 0),
             "location_name": "Tangier Med",
             "location_code": "MAPTM",
             "vessel_name": "RHINE MAERSK",
@@ -421,22 +421,22 @@ def seed_sample_data(db: Session):
     # Container Events for Shipment 2
     events_shipment_2 = [
         {
-            "event_type": EventType.GATE_IN,
-            "event_timestamp": datetime(2025, 12, 18, 9, 0),
+            "event_status": EventStatus.GATE_IN,
+            "event_time": datetime(2025, 12, 18, 9, 0),
             "location_name": "Apapa Container Terminal",
             "location_code": "NGAPP",
         },
         {
-            "event_type": EventType.LOADED,
-            "event_timestamp": datetime(2025, 12, 19, 15, 0),
+            "event_status": EventStatus.LOADED,
+            "event_time": datetime(2025, 12, 19, 15, 0),
             "location_name": "Apapa, Lagos",
             "location_code": "NGAPP",
             "vessel_name": "RHINE MAERSK",
             "voyage_number": "551N"
         },
         {
-            "event_type": EventType.DEPARTED,
-            "event_timestamp": datetime(2025, 12, 20, 16, 0),
+            "event_status": EventStatus.DEPARTED,
+            "event_time": datetime(2025, 12, 20, 16, 0),
             "location_name": "Apapa, Lagos",
             "location_code": "NGAPP",
             "vessel_name": "RHINE MAERSK",
