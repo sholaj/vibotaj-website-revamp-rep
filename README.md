@@ -119,6 +119,7 @@ vibotaj-website-revamp-rep/
 | Document | Description |
 |----------|-------------|
 | [Architecture](docs/architecture/tracehub-architecture.md) | Full system architecture, data model, API design, lifecycle diagrams |
+| [Operational Pillars](docs/OPERATIONAL_PILLARS.md) | DevOps infrastructure, CI/CD, GitOps, and operational practices |
 | [POC Plan](docs/strategy/tracehub-poc-plan.md) | Single-shipment POC implementation plan |
 | [Design System](docs/design/design-system.md) | Brand colors, typography, components |
 | [CEO Vision](claude.md) | Directional task request from leadership |

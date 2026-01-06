@@ -184,8 +184,10 @@ refactor: description
 | Path | Purpose |
 |------|---------|
 | `docs/COMPLIANCE_MATRIX.md` | HS codes & required documents |
+| `docs/OPERATIONAL_PILLARS.md` | DevOps infrastructure & CI/CD pipeline |
 | `docs/decisions/` | Architecture decisions |
 | `tracehub/` | Main application code |
+| `tracehub/DEVOPS.md` | Complete DevOps procedures |
 | `PRPs/active/` | Current implementation blueprints |
 
 ---
