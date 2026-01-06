@@ -5,11 +5,11 @@
  */
 
 import { useState, useEffect, useCallback } from 'react'
-import { Users as UsersIcon, Plus, Search, Shield, Check, X, RefreshCw, UserPlus } from 'lucide-react'
+import { Users as UsersIcon, Plus, Search, Shield, Check, X, RefreshCw, UserPlus, Key, Lock, Edit2 } from 'lucide-react'
 import api, { ApiClientError } from '../api/client'
 import { useAuth, Permission } from '../contexts/AuthContext'
 import PermissionGuard from '../components/PermissionGuard'
-import type { UserResponse, UserRole, RoleInfo, UserCreate } from '../types'
+import type { UserResponse, UserRole, RoleInfo, UserCreate, UserUpdate } from '../types'
 
 // Role badge styling
 const roleBadgeStyles: Record<UserRole, string> = {
@@ -28,6 +28,181 @@ const roleLabels: Record<UserRole, string> = {
   buyer: 'Buyer',
   supplier: 'Supplier',
   viewer: 'Viewer',
+}
+
+function EditUserModal({
+  isOpen,
+  onClose,
+  onUpdated,
+  user,
+  roles,
+}: {
+  isOpen: boolean
+  onClose: () => void
+  onUpdated: () => void
+  user: UserResponse | null
+  roles: RoleInfo[]
+}) {
+  const [formData, setFormData] = useState<UserUpdate>({})
+  const [newPassword, setNewPassword] = useState('')
+  const [error, setError] = useState<string | null>(null)
+  const [success, setSuccess] = useState<string | null>(null)
+  const [loading, setLoading] = useState(false)
+
+  useEffect(() => {
+    if (user) {
+      setFormData({
+        email: user.email,
+        full_name: user.full_name,
+        role: user.role,
+        is_active: user.is_active,
+      })
+      setNewPassword('')
+      setSuccess(null)
+      setError(null)
+    }
+  }, [user])
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!user) return
+    setError(null)
+    setSuccess(null)
+    setLoading(true)
+
+    try {
+      await api.updateUser(user.id, formData)
+      setSuccess('User updated successfully')
+      onUpdated()
+    } catch (err: any) {
+      setError(err.response?.data?.detail || 'Failed to update user')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleResetPassword = async () => {
+    if (!user || !newPassword) return
+    setError(null)
+    setSuccess(null)
+    setLoading(true)
+
+    try {
+      await api.adminResetPassword(user.id, newPassword)
+      setSuccess('Password reset successfully')
+      setNewPassword('')
+    } catch (err: any) {
+      setError(err.response?.data?.detail || 'Failed to reset password')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  if (!isOpen || !user) return null
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4 max-h-[90vh] overflow-y-auto">
+        <div className="p-6 border-b border-gray-200 flex justify-between items-center">
+          <h3 className="text-lg font-semibold text-gray-900 flex items-center">
+            <Edit2 className="h-5 w-5 mr-2 text-primary-600" />
+            Edit User: {user.full_name}
+          </h3>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
+            <X className="h-6 w-6" />
+          </button>
+        </div>
+
+        <div className="p-6 space-y-6">
+          {error && (
+            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded text-sm">
+              {error}
+            </div>
+          )}
+          {success && (
+            <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded text-sm">
+              {success}
+            </div>
+          )}
+
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <h4 className="text-sm font-semibold text-gray-400 uppercase tracking-wider">Profile Information</h4>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Full Name</label>
+              <input
+                type="text"
+                required
+                value={formData.full_name || ''}
+                onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-primary-500"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+              <input
+                type="email"
+                required
+                value={formData.email || ''}
+                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-primary-500"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Role</label>
+              <select
+                value={formData.role || ''}
+                onChange={(e) => setFormData({ ...formData, role: e.target.value as UserRole })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-primary-500"
+              >
+                {roles.filter(r => r.can_assign || r.value === user.role).map((role) => (
+                  <option key={role.value} value={role.value}>
+                    {role.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full py-2 bg-primary-600 text-white rounded-md hover:bg-primary-700 disabled:opacity-50"
+            >
+              Update Profile
+            </button>
+          </form>
+
+          <div className="pt-6 border-t border-gray-200">
+            <h4 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4">Security</h4>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Reset Password</label>
+                <div className="flex space-x-2">
+                  <div className="relative flex-1">
+                    <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                    <input
+                      type="password"
+                      value={newPassword}
+                      onChange={(e) => setNewPassword(e.target.value)}
+                      className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-primary-500"
+                      placeholder="New password"
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleResetPassword}
+                    disabled={loading || !newPassword}
+                    className="px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 disabled:opacity-50 flex items-center"
+                  >
+                    <Key className="h-4 w-4 mr-2" />
+                    Reset
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
 }
 
 function CreateUserModal({
@@ -186,6 +361,8 @@ export default function Users() {
   const [search, setSearch] = useState('')
   const [roleFilter, setRoleFilter] = useState<UserRole | ''>('')
   const [showCreateModal, setShowCreateModal] = useState(false)
+  const [selectedUser, setSelectedUser] = useState<UserResponse | null>(null)
+  const [showEditModal, setShowEditModal] = useState(false)
 
   const fetchUsers = useCallback(async () => {
     setLoading(true)
@@ -218,7 +395,8 @@ export default function Users() {
     fetchUsers()
   }, [fetchUsers])
 
-  const handleToggleActive = async (user: UserResponse) => {
+  const handleToggleActive = async (user: UserResponse, e: React.MouseEvent) => {
+    e.stopPropagation() // Prevent row click
     try {
       if (user.is_active) {
         await api.deactivateUser(user.id)
@@ -233,6 +411,11 @@ export default function Users() {
         setError('Failed to update user status')
       }
     }
+  }
+
+  const handleRowClick = (user: UserResponse) => {
+    setSelectedUser(user)
+    setShowEditModal(true)
   }
 
   // Check if user has permission to view this page
@@ -349,7 +532,11 @@ export default function Users() {
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {users.map((user) => (
-                <tr key={user.id} className="hover:bg-gray-50">
+                <tr
+                  key={user.id}
+                  className="hover:bg-gray-50 cursor-pointer transition-colors"
+                  onClick={() => handleRowClick(user)}
+                >
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div>
                       <div className="text-sm font-medium text-gray-900">
@@ -385,12 +572,11 @@ export default function Users() {
                   <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                     <PermissionGuard permission={Permission.USERS_UPDATE}>
                       <button
-                        onClick={() => handleToggleActive(user)}
-                        className={`text-sm px-3 py-1 rounded ${
-                          user.is_active
-                            ? 'text-red-600 hover:bg-red-50'
-                            : 'text-green-600 hover:bg-green-50'
-                        }`}
+                        onClick={(e) => handleToggleActive(user, e)}
+                        className={`text-sm px-3 py-1 rounded ${user.is_active
+                          ? 'text-red-600 hover:bg-red-50'
+                          : 'text-green-600 hover:bg-green-50'
+                          }`}
                       >
                         {user.is_active ? 'Deactivate' : 'Activate'}
                       </button>
@@ -408,6 +594,18 @@ export default function Users() {
         isOpen={showCreateModal}
         onClose={() => setShowCreateModal(false)}
         onCreated={fetchUsers}
+        roles={roles}
+      />
+
+      {/* Edit User Modal */}
+      <EditUserModal
+        isOpen={showEditModal}
+        onClose={() => {
+          setShowEditModal(false)
+          setSelectedUser(null)
+        }}
+        onUpdated={fetchUsers}
+        user={selectedUser}
         roles={roles}
       />
     </div>
