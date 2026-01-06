@@ -71,7 +71,7 @@ class ProductInfo(BaseModel):
     """Product information in responses."""
     id: UUID
     hs_code: str
-    description: str
+    description: Optional[str] = None
     quantity_net_kg: Optional[float] = None
     quantity_gross_kg: Optional[float] = None
     packaging_type: Optional[str] = None
