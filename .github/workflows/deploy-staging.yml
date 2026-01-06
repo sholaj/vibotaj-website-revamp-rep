@@ -128,8 +128,21 @@ jobs:
           sleep 5
 
           # Test staging backend health (port 8100)
-          ssh ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }} \
-            "curl -sf http://localhost:8100/health || echo 'Backend health check failed'"
+          if ! ssh ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }} \
+            "curl -sf http://localhost:8100/health"; then
+            echo "Backend health check failed - collecting logs..."
+            ssh ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }} << 'ENDSSH'
+              cd /home/tracehub/staging
+              export COMPOSE_FILE=docker-compose.staging.yml
+              echo "=== Container Status ==="
+              docker compose ps -a
+              echo "=== Backend Logs ==="
+              docker compose logs --tail=100 backend || echo "No backend logs"
+              echo "=== DB Logs ==="
+              docker compose logs --tail=20 db || echo "No db logs"
+          ENDSSH
+            exit 1
+          fi
 
           # Test staging frontend (port 3100)
           ssh ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }} \
