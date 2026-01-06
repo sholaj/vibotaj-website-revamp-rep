@@ -18,6 +18,10 @@
 # MCP configuration (contains API tokens)
 .mcp.json
 
+# Pre-commit and security scanning
+.secrets.baseline
+.pre-commit-config.yaml.backup
+
 # ===========================================
 # API KEYS & CREDENTIALS
 # ===========================================
@@ -109,6 +113,7 @@ pip-log.txt
 pip-delete-this-directory.txt
 .pytest_cache/
 .mypy_cache/
+.ruff_cache/
 *.egg-info/
 dist/
 eggs/
