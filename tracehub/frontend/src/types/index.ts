@@ -34,6 +34,7 @@ export interface CurrentUser {
   full_name: string
   role: UserRole
   is_active: boolean
+  organization_id: string
   permissions: string[]
 }
 

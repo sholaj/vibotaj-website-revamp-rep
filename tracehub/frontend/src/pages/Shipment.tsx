@@ -126,6 +126,7 @@ export default function Shipment() {
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false)
   const [selectedDocument, setSelectedDocument] = useState<Document | null>(null)
   const [isReviewPanelOpen, setIsReviewPanelOpen] = useState(false)
+  const [trackingError, setTrackingError] = useState<string | null>(null)
 
   // Fetch shipment data
   const fetchData = useCallback(async () => {
@@ -168,6 +169,7 @@ export default function Shipment() {
     if (!shipment?.container_number || !id) return
 
     setIsRefreshing(true)
+    setTrackingError(null)
 
     try {
       // First, try to refresh from carrier API
@@ -183,7 +185,12 @@ export default function Shipment() {
       setEvents(eventsResponse.events || [])
     } catch (err) {
       console.error('Failed to refresh tracking:', err)
-      // Don't show error for tracking refresh - it's not critical
+      // Show user-friendly error message
+      if (err instanceof ApiClientError) {
+        setTrackingError(err.message || 'Failed to refresh tracking data')
+      } else {
+        setTrackingError('Unable to fetch live tracking. The container may not be tracked yet.')
+      }
     } finally {
       setIsRefreshing(false)
     }
@@ -218,6 +225,24 @@ export default function Shipment() {
   useEffect(() => {
     fetchData()
   }, [fetchData])
+
+  // Fetch live tracking when shipment is loaded
+  useEffect(() => {
+    const fetchLiveTracking = async () => {
+      if (!shipment?.container_number) return
+
+      try {
+        const tracking = await api.getLiveTracking(shipment.container_number)
+        setLiveTracking(tracking)
+        setTrackingError(null)
+      } catch (err) {
+        console.log('Live tracking not available:', err)
+        // Don't show error on initial load - user can click refresh
+      }
+    }
+
+    fetchLiveTracking()
+  }, [shipment?.container_number])
 
   // Create compliance status from document summary
   const compliance: ComplianceStatusType | null = documentSummary
@@ -450,9 +475,25 @@ export default function Shipment() {
           </div>
 
           {/* Live Tracking Card */}
-          {liveTracking && (
-            <div className="card p-6">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4">Live Status</h2>
+          <div className="card p-6">
+            <h2 className="text-lg font-semibold text-gray-900 mb-4">Live Status</h2>
+            {trackingError ? (
+              <div className="bg-warning-50 border border-warning-200 rounded-lg p-4">
+                <div className="flex items-start">
+                  <AlertCircle className="h-5 w-5 text-warning-500 mt-0.5 mr-3 flex-shrink-0" />
+                  <div>
+                    <p className="text-sm text-warning-800">{trackingError}</p>
+                    <button
+                      onClick={refreshTracking}
+                      disabled={isRefreshing}
+                      className="mt-2 text-sm text-warning-700 hover:text-warning-800 underline"
+                    >
+                      Try again
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ) : liveTracking ? (
               <div className="space-y-3 text-sm">
                 <div className="flex justify-between">
                   <span className="text-gray-500">Status</span>
@@ -483,8 +524,13 @@ export default function Shipment() {
                   </div>
                 )}
               </div>
-            </div>
-          )}
+            ) : (
+              <div className="text-center py-4 text-gray-500">
+                <Ship className="h-8 w-8 mx-auto mb-2 text-gray-400" />
+                <p className="text-sm">Click "Sync Live Tracking" to fetch latest data</p>
+              </div>
+            )}
+          </div>
 
           {/* Quick Actions */}
           <div className="card p-6">

@@ -6,7 +6,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { Users as UsersIcon, Plus, Search, Shield, Check, X, RefreshCw, UserPlus } from 'lucide-react'
-import api from '../api/client'
+import api, { ApiClientError } from '../api/client'
 import { useAuth, Permission } from '../contexts/AuthContext'
 import PermissionGuard from '../components/PermissionGuard'
 import type { UserResponse, UserRole, RoleInfo, UserCreate } from '../types'
@@ -60,8 +60,12 @@ function CreateUserModal({
       onCreated()
       onClose()
       setFormData({ email: '', full_name: '', password: '', role: 'viewer' })
-    } catch (err: any) {
-      setError(err.response?.data?.detail || 'Failed to create user')
+    } catch (err) {
+      if (err instanceof ApiClientError) {
+        setError(err.message || 'Failed to create user')
+      } else {
+        setError('Failed to create user')
+      }
     } finally {
       setLoading(false)
     }
@@ -199,8 +203,12 @@ export default function Users() {
 
       setUsers(usersData.items)
       setRoles(rolesData.roles)
-    } catch (err: any) {
-      setError(err.response?.data?.detail || 'Failed to load users')
+    } catch (err) {
+      if (err instanceof ApiClientError) {
+        setError(err.message || 'Failed to load users')
+      } else {
+        setError('Failed to load users')
+      }
     } finally {
       setLoading(false)
     }
@@ -218,8 +226,12 @@ export default function Users() {
         await api.activateUser(user.id)
       }
       fetchUsers()
-    } catch (err: any) {
-      setError(err.response?.data?.detail || 'Failed to update user status')
+    } catch (err) {
+      if (err instanceof ApiClientError) {
+        setError(err.message || 'Failed to update user status')
+      } else {
+        setError('Failed to update user status')
+      }
     }
   }
 
