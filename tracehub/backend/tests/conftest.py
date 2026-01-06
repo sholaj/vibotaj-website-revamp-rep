@@ -5,6 +5,13 @@ These fixtures provide sample data for testing compliance rules,
 especially EUDR (EU Deforestation Regulation) applicability.
 
 Also includes shared fixtures for API testing.
+
+IMPORTANT: All test files should import the shared database configuration
+from this file to ensure proper database connection handling in both
+local development and CI/Docker environments.
+
+Usage in test files:
+    from .conftest import engine, TestingSessionLocal, Base, get_test_database_url
 """
 import pytest
 import os
@@ -27,16 +34,61 @@ from app.services.permissions import get_role_permissions
 # Database Configuration for Tests
 # =============================================================================
 
-# Use PostgreSQL for testing (models use JSONB which SQLite doesn't support)
-# The docker-compose.yml exposes PostgreSQL on port 5433
-TEST_DATABASE_URL = os.environ.get(
-    "TEST_DATABASE_URL",
-    "postgresql://tracehub:tracehub@localhost:5433/tracehub_test"
-)
+def get_test_database_url() -> str:
+    """
+    Determine the correct database URL for tests.
 
-engine = create_engine(TEST_DATABASE_URL)
+    Priority:
+    1. TEST_DATABASE_URL environment variable (set by CI or docker-compose.test.yml)
+    2. DATABASE_URL environment variable (when running in container)
+    3. CI environment detection (GitHub Actions uses port 5432)
+    4. Default localhost connection (when running tests from host machine - port 5433)
+
+    The docker-compose.test.yml sets TEST_DATABASE_URL to point to db-test service.
+    When running in the main backend container, DATABASE_URL points to the db service.
+    GitHub Actions CI uses PostgreSQL service on port 5432.
+    """
+    # First priority: explicit test database URL
+    if os.environ.get("TEST_DATABASE_URL"):
+        return os.environ["TEST_DATABASE_URL"]
+
+    # Second priority: use DATABASE_URL if we're in a container
+    # (indicated by DATABASE_URL starting with db or db-test as host)
+    database_url = os.environ.get("DATABASE_URL", "")
+    if database_url and ("@db:" in database_url or "@db-test:" in database_url):
+        # We're in a container, use the same DB but ensure it's the test database
+        # Replace the database name with tracehub_test if not already
+        if "/tracehub_test" not in database_url:
+            # Keep the base URL but switch to test database
+            base_url = database_url.rsplit("/", 1)[0]
+            return f"{base_url}/tracehub_test"
+        return database_url
+
+    # Third priority: CI environment (GitHub Actions)
+    # CI uses PostgreSQL service on standard port 5432
+    if os.environ.get("CI") or os.environ.get("GITHUB_ACTIONS"):
+        return "postgresql://tracehub_test:test_password@localhost:5432/tracehub_test"
+
+    # Default: running from host machine, connect to exposed port 5433
+    return "postgresql://tracehub:tracehub@localhost:5433/tracehub_test"
+
+
+# Use PostgreSQL for testing (models use JSONB which SQLite doesn't support)
+TEST_DATABASE_URL = get_test_database_url()
+
+# Create engine with pool_pre_ping to handle connection issues gracefully
+engine = create_engine(TEST_DATABASE_URL, pool_pre_ping=True)
 
 TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
+# Export for use in test files - Re-export Base from app.database
+__all__ = [
+    'engine',
+    'TestingSessionLocal',
+    'Base',
+    'get_test_database_url',
+    'TEST_DATABASE_URL',
+]
 
 
 # =============================================================================
