@@ -13,7 +13,7 @@ from ..models import Shipment, Document, ContainerEvent, Product, Organization
 from ..models.shipment import ShipmentStatus
 from ..schemas.shipment import ShipmentResponse, ShipmentDetailResponse, ShipmentListResponse, ShipmentCreate, ShipmentUpdate
 from ..schemas.user import CurrentUser
-from ..routers.auth import get_current_user, get_current_active_user, User
+from ..routers.auth import get_current_active_user
 from ..services.compliance import get_required_documents, check_document_completeness
 from ..services.audit_pack import generate_audit_pack
 from ..services.permissions import Permission, has_permission
@@ -104,13 +104,17 @@ async def list_shipments(
     limit: int = Query(50, ge=1, le=100, description="Maximum number of results"),
     offset: int = Query(0, ge=0, description="Number of results to skip"),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: CurrentUser = Depends(get_current_active_user)
 ):
     """List all shipments with optional filtering.
 
     Returns a list of shipments sorted by creation date (newest first).
+    Filtered by user's organization for multi-tenancy.
     """
-    query = db.query(Shipment)
+    # Filter by organization for multi-tenancy
+    query = db.query(Shipment).filter(
+        Shipment.organization_id == current_user.organization_id
+    )
 
     # Apply status filter if provided
     if status:
@@ -140,14 +144,18 @@ async def list_shipments(
 async def get_shipment(
     shipment_id: UUID,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: CurrentUser = Depends(get_current_active_user)
 ):
     """Get shipment details with documents and tracking status."""
     # Eagerly load products to ensure HS code lookup works for compliance
+    # Filter by organization for multi-tenancy security
     shipment = (
         db.query(Shipment)
         .options(joinedload(Shipment.products))
-        .filter(Shipment.id == shipment_id)
+        .filter(
+            Shipment.id == shipment_id,
+            Shipment.organization_id == current_user.organization_id
+        )
         .first()
     )
     if not shipment:
@@ -178,14 +186,18 @@ async def get_shipment(
 async def get_shipment_documents(
     shipment_id: UUID,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: CurrentUser = Depends(get_current_active_user)
 ):
     """List all documents for a shipment."""
     # Eagerly load products to ensure HS code lookup works for compliance
+    # Filter by organization for multi-tenancy security
     shipment = (
         db.query(Shipment)
         .options(joinedload(Shipment.products))
-        .filter(Shipment.id == shipment_id)
+        .filter(
+            Shipment.id == shipment_id,
+            Shipment.organization_id == current_user.organization_id
+        )
         .first()
     )
     if not shipment:
@@ -206,10 +218,14 @@ async def get_shipment_documents(
 async def get_shipment_events(
     shipment_id: UUID,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: CurrentUser = Depends(get_current_active_user)
 ):
     """Get container event history for a shipment."""
-    shipment = db.query(Shipment).filter(Shipment.id == shipment_id).first()
+    # Filter by organization for multi-tenancy security
+    shipment = db.query(Shipment).filter(
+        Shipment.id == shipment_id,
+        Shipment.organization_id == current_user.organization_id
+    ).first()
     if not shipment:
         raise HTTPException(status_code=404, detail="Shipment not found")
 
@@ -227,10 +243,14 @@ async def get_shipment_events(
 async def download_audit_pack(
     shipment_id: UUID,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: CurrentUser = Depends(get_current_active_user)
 ):
     """Download audit pack ZIP for a shipment."""
-    shipment = db.query(Shipment).filter(Shipment.id == shipment_id).first()
+    # Filter by organization for multi-tenancy security
+    shipment = db.query(Shipment).filter(
+        Shipment.id == shipment_id,
+        Shipment.organization_id == current_user.organization_id
+    ).first()
     if not shipment:
         raise HTTPException(status_code=404, detail="Shipment not found")
 
