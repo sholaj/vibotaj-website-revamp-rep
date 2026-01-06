@@ -39,12 +39,8 @@ class Party(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     # Relationships
-    shipments_as_buyer = relationship(
-        "Shipment", back_populates="buyer", foreign_keys="Shipment.buyer_id"
-    )
-    shipments_as_supplier = relationship(
-        "Shipment", back_populates="supplier", foreign_keys="Shipment.supplier_id"
-    )
+    # Note: shipments_as_buyer and shipments_as_supplier removed in Sprint 8
+    # Shipments now use exporter_name/importer_name string fields instead
     origins = relationship("Origin", back_populates="supplier")
 
     def __repr__(self):

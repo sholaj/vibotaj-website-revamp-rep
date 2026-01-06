@@ -9,7 +9,7 @@ from sqlalchemy import func, and_, case
 from ..models import (
     Shipment, ShipmentStatus,
     Document, DocumentType, DocumentStatus,
-    ContainerEvent, EventType,
+    ContainerEvent, EventStatus,
 )
 from ..models.audit_log import AuditLog
 from .audit_log import AuditAction
@@ -129,15 +129,8 @@ class AnalyticsService:
             .count()
         )
 
-        # Shipments with delays
-        delayed_query = self._shipment_query()
-        delayed_count = (
-            delayed_query
-            .join(ContainerEvent)
-            .filter(ContainerEvent.delay_hours > 0)
-            .distinct()
-            .count()
-        )
+        # Shipments with delays (not tracked in production schema)
+        delayed_count = 0
 
         return {
             "total": total,
@@ -381,37 +374,24 @@ class AnalyticsService:
         # Get event IDs for filtering
         event_ids_query = self._container_event_query().with_entities(ContainerEvent.id)
 
-        # Events by type
-        type_counts = (
+        # Events by status
+        status_counts = (
             self.db.query(
-                ContainerEvent.event_type,
+                ContainerEvent.event_status,
                 func.count(ContainerEvent.id).label('count')
             )
             .filter(ContainerEvent.id.in_(event_ids_query))
-            .group_by(ContainerEvent.event_type)
+            .group_by(ContainerEvent.event_status)
             .all()
         )
 
-        events_by_type = {event_type.value: count for event_type, count in type_counts}
+        events_by_type = {event_status.value: count for event_status, count in status_counts}
 
-        # Delays detected
-        delays_detected = (
-            self._container_event_query()
-            .filter(ContainerEvent.delay_hours > 0)
-            .count()
-        )
+        # Delays detected (production schema doesn't have delay_hours, so return 0)
+        delays_detected = 0
 
-        # Average delay
-        avg_delay = (
-            self.db.query(func.avg(ContainerEvent.delay_hours))
-            .filter(
-                ContainerEvent.id.in_(event_ids_query),
-                ContainerEvent.delay_hours > 0
-            )
-            .scalar()
-        )
-
-        avg_delay_hours = round(avg_delay, 1) if avg_delay else 0
+        # Average delay (not available in production schema)
+        avg_delay_hours = 0
 
         # Recent tracking activity (last 24 hours)
         yesterday = datetime.utcnow() - timedelta(days=1)

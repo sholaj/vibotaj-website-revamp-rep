@@ -9,9 +9,9 @@ from datetime import datetime
 import io
 
 from ..database import get_db
-from ..models import Shipment, Document, ContainerEvent, Product, Party
+from ..models import Shipment, Document, ContainerEvent, Product, Organization
 from ..models.shipment import ShipmentStatus
-from ..schemas.shipment import ShipmentResponse, ShipmentDetailResponse, ShipmentListResponse, ShipmentCreate
+from ..schemas.shipment import ShipmentResponse, ShipmentDetailResponse, ShipmentListResponse, ShipmentCreate, ShipmentUpdate
 from ..schemas.user import CurrentUser
 from ..routers.auth import get_current_user, get_current_active_user, User
 from ..services.compliance import get_required_documents, check_document_completeness
@@ -54,14 +54,24 @@ async def create_shipment(
             detail=f"A shipment with reference '{shipment_data.reference}' already exists"
         )
 
-    # Create the shipment
+    # Verify organization exists
+    organization = db.query(Organization).filter(Organization.id == shipment_data.organization_id).first()
+    if not organization:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Organization with id '{shipment_data.organization_id}' not found"
+        )
+
+    # Create the shipment (updated for Sprint 8 schema)
     shipment = Shipment(
         reference=shipment_data.reference,
         container_number=shipment_data.container_number,
         bl_number=shipment_data.bl_number,
-        booking_reference=shipment_data.booking_reference,
+        booking_ref=shipment_data.booking_ref,  # Renamed from booking_reference
         vessel_name=shipment_data.vessel_name,
         voyage_number=shipment_data.voyage_number,
+        carrier_code=shipment_data.carrier_code,  # New field
+        carrier_name=shipment_data.carrier_name,  # New field
         etd=shipment_data.etd,
         eta=shipment_data.eta,
         atd=shipment_data.atd,
@@ -70,9 +80,13 @@ async def create_shipment(
         pol_name=shipment_data.pol_name,
         pod_code=shipment_data.pod_code,
         pod_name=shipment_data.pod_name,
-        final_destination=shipment_data.final_destination,
         incoterms=shipment_data.incoterms,
-        status=shipment_data.status or ShipmentStatus.IN_TRANSIT,
+        status=shipment_data.status or ShipmentStatus.DRAFT,  # Changed default
+        exporter_name=shipment_data.exporter_name,  # New field
+        importer_name=shipment_data.importer_name,  # New field
+        eudr_compliant=shipment_data.eudr_compliant,  # New field
+        eudr_statement_id=shipment_data.eudr_statement_id,  # New field
+        organization_id=shipment_data.organization_id,  # Required for multi-tenancy
         created_at=datetime.utcnow(),
         updated_at=datetime.utcnow()
     )

@@ -6,6 +6,167 @@ critical rule that horn/hoof products (HS 0506/0507) are NOT covered by EUDR.
 """
 import pytest
 
+from app.services.compliance import (
+    is_eudr_required,
+    get_required_documents_by_hs_code,
+    EUDR_HS_CODES,
+)
+from app.models import DocumentType
+
+
+class TestIsEUDRRequired:
+    """Tests for the is_eudr_required() function.
+
+    This is the centralized function that determines if an HS code
+    requires EUDR compliance documentation.
+    """
+
+    def test_horn_not_eudr_required(self):
+        """HS 0506 (horn) does NOT require EUDR."""
+        assert is_eudr_required("0506") is False
+        assert is_eudr_required("0506.10") is False
+        assert is_eudr_required("0506.90.00") is False
+
+    def test_hoof_not_eudr_required(self):
+        """HS 0507 (hoof) does NOT require EUDR."""
+        assert is_eudr_required("0507") is False
+        assert is_eudr_required("0507.90") is False
+        assert is_eudr_required("0507.10.00") is False
+
+    def test_sweet_potato_not_eudr_required(self):
+        """HS 0714.20 (sweet potato pellets) does NOT require EUDR."""
+        assert is_eudr_required("0714") is False
+        assert is_eudr_required("0714.20") is False
+
+    def test_hibiscus_not_eudr_required(self):
+        """HS 0902.10 (hibiscus flowers) does NOT require EUDR."""
+        assert is_eudr_required("0902") is False
+        assert is_eudr_required("0902.10") is False
+
+    def test_ginger_not_eudr_required(self):
+        """HS 0910.11 (dried ginger) does NOT require EUDR."""
+        assert is_eudr_required("0910") is False
+        assert is_eudr_required("0910.11") is False
+
+    def test_cocoa_is_eudr_required(self):
+        """HS 1801 (cocoa beans) IS covered by EUDR."""
+        assert is_eudr_required("1801") is True
+        assert is_eudr_required("1801.00") is True
+        assert is_eudr_required("1801.00.00") is True
+
+    def test_coffee_is_eudr_required(self):
+        """HS 0901 (coffee) IS covered by EUDR."""
+        assert is_eudr_required("0901") is True
+        assert is_eudr_required("0901.11") is True
+
+    def test_palm_oil_is_eudr_required(self):
+        """HS 1511 (palm oil) IS covered by EUDR."""
+        assert is_eudr_required("1511") is True
+        assert is_eudr_required("1511.10") is True
+
+    def test_rubber_is_eudr_required(self):
+        """HS 4001 (rubber) IS covered by EUDR."""
+        assert is_eudr_required("4001") is True
+        assert is_eudr_required("4001.10") is True
+
+    def test_soya_is_eudr_required(self):
+        """HS 1201 (soya) IS covered by EUDR."""
+        assert is_eudr_required("1201") is True
+        assert is_eudr_required("1201.90") is True
+
+    def test_unknown_hs_code_not_eudr_required(self):
+        """Unknown HS codes default to NOT requiring EUDR."""
+        assert is_eudr_required("9999") is False
+        assert is_eudr_required("0000.00") is False
+
+    def test_empty_hs_code_not_eudr_required(self):
+        """Empty or invalid HS codes return False."""
+        assert is_eudr_required("") is False
+        assert is_eudr_required("   ") is False
+
+    @pytest.mark.parametrize("hs_code,expected", [
+        ("0506.10", False),  # Horn - NO EUDR
+        ("0507.90", False),  # Hoof - NO EUDR
+        ("0714.20", False),  # Sweet potato - NO EUDR
+        ("0902.10", False),  # Hibiscus - NO EUDR
+        ("0910.11", False),  # Ginger - NO EUDR
+        ("1801.00", True),   # Cocoa - YES EUDR
+        ("0901.00", True),   # Coffee - YES EUDR
+        ("1511.00", True),   # Palm oil - YES EUDR
+        ("4001.00", True),   # Rubber - YES EUDR
+        ("1201.00", True),   # Soya - YES EUDR
+    ])
+    def test_eudr_by_hs_code_parametrized(self, hs_code, expected):
+        """Parametrized test for EUDR requirement by HS code."""
+        result = is_eudr_required(hs_code)
+        assert result == expected, f"HS {hs_code}: expected {expected}, got {result}"
+
+
+class TestGetRequiredDocumentsByHsCode:
+    """Tests for the get_required_documents_by_hs_code() function.
+
+    This function returns required document types based on HS code and destination.
+    """
+
+    def test_horn_requires_traces_and_vet_cert(self):
+        """Horn (0506) requires EU TRACES and Veterinary Health Certificate."""
+        docs = get_required_documents_by_hs_code("0506", "DE")
+        assert DocumentType.EU_TRACES_CERTIFICATE in docs
+        assert DocumentType.VETERINARY_HEALTH_CERTIFICATE in docs
+        # Should NOT require EUDR docs
+        assert DocumentType.EUDR_DUE_DILIGENCE not in docs
+
+    def test_hoof_requires_traces_and_vet_cert(self):
+        """Hoof (0507) requires EU TRACES and Veterinary Health Certificate."""
+        docs = get_required_documents_by_hs_code("0507", "DE")
+        assert DocumentType.EU_TRACES_CERTIFICATE in docs
+        assert DocumentType.VETERINARY_HEALTH_CERTIFICATE in docs
+        assert DocumentType.EUDR_DUE_DILIGENCE not in docs
+
+    def test_sweet_potato_requires_phyto_and_quality(self):
+        """Sweet potato (0714) requires Phyto and Quality certificates."""
+        docs = get_required_documents_by_hs_code("0714", "DE")
+        assert DocumentType.PHYTOSANITARY_CERTIFICATE in docs
+        assert DocumentType.QUALITY_CERTIFICATE in docs
+        assert DocumentType.CERTIFICATE_OF_ORIGIN in docs
+        # Should NOT require EUDR or animal product docs
+        assert DocumentType.EUDR_DUE_DILIGENCE not in docs
+        assert DocumentType.EU_TRACES_CERTIFICATE not in docs
+        assert DocumentType.VETERINARY_HEALTH_CERTIFICATE not in docs
+
+    def test_hibiscus_requires_phyto(self):
+        """Hibiscus (0902) requires Phytosanitary Certificate."""
+        docs = get_required_documents_by_hs_code("0902", "DE")
+        assert DocumentType.PHYTOSANITARY_CERTIFICATE in docs
+        assert DocumentType.CERTIFICATE_OF_ORIGIN in docs
+        assert DocumentType.EUDR_DUE_DILIGENCE not in docs
+
+    def test_ginger_requires_phyto(self):
+        """Ginger (0910) requires Phytosanitary Certificate."""
+        docs = get_required_documents_by_hs_code("0910", "DE")
+        assert DocumentType.PHYTOSANITARY_CERTIFICATE in docs
+        assert DocumentType.CERTIFICATE_OF_ORIGIN in docs
+        assert DocumentType.EUDR_DUE_DILIGENCE not in docs
+
+    def test_cocoa_requires_eudr_docs(self):
+        """Cocoa (1801) requires EUDR documentation."""
+        docs = get_required_documents_by_hs_code("1801", "DE")
+        assert DocumentType.EUDR_DUE_DILIGENCE in docs
+        assert DocumentType.CERTIFICATE_OF_ORIGIN in docs
+
+    def test_all_shipments_require_basic_docs(self):
+        """All shipments require basic export documents."""
+        basic_docs = [
+            DocumentType.BILL_OF_LADING,
+            DocumentType.COMMERCIAL_INVOICE,
+            DocumentType.CERTIFICATE_OF_ORIGIN,
+        ]
+
+        for hs_code in ["0506", "0714", "0902", "0910", "1801"]:
+            docs = get_required_documents_by_hs_code(hs_code, "DE")
+            for basic_doc in basic_docs:
+                assert basic_doc in docs, f"{basic_doc} should be required for {hs_code}"
+
 
 class TestEUDRCompliance:
     """EUDR compliance rule tests.
@@ -72,23 +233,11 @@ class TestEUDRCompliance:
         ("1511.00", True),   # Palm oil - YES EUDR
     ])
     def test_eudr_by_hs_code(self, hs_code, expected):
-        """Test EUDR requirement by HS code.
-        
-        This is the core logic that should be implemented in the
-        compliance module. It checks the HS code against EUDR Annex I.
-        
-        TODO: Replace this with actual is_eudr_required function
-              from app.services.compliance import is_eudr_required
-        
-        Note: EUDR_CODES list should be maintained in a single location
-              (e.g., app/services/compliance.py or config) to ensure
-              consistency with docs/COMPLIANCE_MATRIX.md
+        """Test EUDR requirement by HS code using centralized function.
+
+        This now uses the actual is_eudr_required function from compliance module.
         """
-        # Simplified implementation for demonstration
-        # This duplicates the logic for test purposes only
-        EUDR_CODES = ['1801', '0901', '1511', '4001', '1201']
-        result = any(hs_code.startswith(c) for c in EUDR_CODES)
-        
+        result = is_eudr_required(hs_code)
         assert result == expected, f"HS {hs_code} EUDR check failed: expected {expected}, got {result}"
 
 
@@ -161,11 +310,8 @@ class TestComplianceMatrix:
         When: Checking EUDR applicability
         Then: All current products are NOT EUDR-applicable
         """
-        EUDR_CODES = ['1801', '0901', '1511', '4001', '1201']
-        
         for hs_code in non_eudr_hs_codes.keys():
-            is_eudr = any(hs_code.startswith(c) for c in EUDR_CODES)
-            assert is_eudr is False, \
+            assert is_eudr_required(hs_code) is False, \
                 f"{non_eudr_hs_codes[hs_code]} (HS {hs_code}) should NOT be EUDR-applicable"
 
 

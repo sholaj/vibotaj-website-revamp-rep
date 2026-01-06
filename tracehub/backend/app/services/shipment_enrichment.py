@@ -172,11 +172,8 @@ class ShipmentEnrichmentService:
                 f"Could not resolve port '{extracted.port_of_discharge_name}' to UN/LOCODE"
             )
 
-        # Update Final Destination
-        if extracted.final_destination:
-            if not shipment.final_destination or overwrite:
-                shipment.final_destination = extracted.final_destination
-                result.updates_applied.append(f"final_destination: {extracted.final_destination}")
+        # Note: final_destination field removed from Shipment model in Sprint 8
+        # The POD (port of discharge) fields serve this purpose now
 
         # Update Vessel
         if extracted.vessel_name:

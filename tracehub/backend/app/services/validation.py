@@ -105,6 +105,44 @@ class ExtraDataFieldRule(ValidationRule):
 
 
 @dataclass
+class ExpectedValueRule(ValidationRule):
+    """Validates that a field equals an expected value."""
+    expected_value: str = ""
+
+    def validate(self, document: Document) -> Optional[str]:
+        value = getattr(document, self.field, None)
+        if value is None:
+            return None  # Let RequiredFieldRule handle missing
+
+        if isinstance(value, str):
+            value = value.strip()
+
+        if value != self.expected_value:
+            return f"{self.description} must be '{self.expected_value}', got '{value}'"
+        return None
+
+
+@dataclass
+class ContainsValueRule(ValidationRule):
+    """Validates that a field contains one of the expected values."""
+    expected_values: List[str] = field(default_factory=list)
+
+    def validate(self, document: Document) -> Optional[str]:
+        value = getattr(document, self.field, None)
+        if value is None:
+            return None  # Let RequiredFieldRule handle missing
+
+        if isinstance(value, str):
+            value_lower = value.lower()
+            for expected in self.expected_values:
+                if expected.lower() in value_lower:
+                    return None
+            expected_list = ", ".join(self.expected_values)
+            return f"{self.description} should contain one of: {expected_list}"
+        return None
+
+
+@dataclass
 class ValidationResult:
     """Result of validating a document."""
     is_valid: bool
@@ -239,6 +277,42 @@ DOCUMENT_VALIDATION_RULES: Dict[DocumentType, List[ValidationRule]] = {
         FileUploadedRule(),
         RequiredFieldRule("reference_number", "Declaration Number"),
         RequiredFieldRule("issue_date", "Declaration Date"),
+    ],
+
+    DocumentType.EU_TRACES_CERTIFICATE: [
+        FileUploadedRule(),
+        RequiredFieldRule("reference_number", "TRACES Reference Number"),
+        RequiredFieldRule("issue_date", "Issue Date"),
+        DateNotFutureRule("issue_date", "Issue Date"),
+        RequiredFieldRule("issuing_authority", "Issuing Authority"),
+        ExpectedValueRule(
+            field="reference_number",
+            description="TRACES Reference Number",
+            expected_value="RC1479592",
+            severity=ValidationSeverity.ERROR
+        ),
+    ],
+
+    DocumentType.VETERINARY_HEALTH_CERTIFICATE: [
+        FileUploadedRule(),
+        RequiredFieldRule("reference_number", "Certificate Number"),
+        RequiredFieldRule("issue_date", "Issue Date"),
+        DateNotFutureRule("issue_date", "Issue Date"),
+        RequiredFieldRule("issuing_authority", "Veterinary Authority"),
+        RequiredFieldRule("expiry_date", "Expiry Date"),
+        DateNotExpiredRule("expiry_date", "Certificate", grace_days=0),
+        ContainsValueRule(
+            field="issuing_authority",
+            description="Veterinary Authority",
+            expected_values=["Nigeria", "Nigerian", "NVRI", "Federal"],
+            severity=ValidationSeverity.WARNING
+        ),
+    ],
+
+    DocumentType.EXPORT_DECLARATION: [
+        FileUploadedRule(),
+        RequiredFieldRule("reference_number", "Declaration Number"),
+        RequiredFieldRule("issue_date", "Issue Date"),
     ],
 
     DocumentType.CONTRACT: [

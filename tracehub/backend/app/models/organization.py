@@ -68,7 +68,10 @@ class Organization(Base):
     memberships = relationship("OrganizationMembership", back_populates="organization", cascade="all, delete-orphan")
     invitations = relationship("Invitation", back_populates="organization", cascade="all, delete-orphan")
     users = relationship("User", back_populates="organization", foreign_keys="User.organization_id")
-    # Note: shipments relationship will be added when shipments model is updated
+    shipments = relationship("Shipment", back_populates="organization", cascade="all, delete-orphan")
+    products = relationship("Product", back_populates="organization", cascade="all, delete-orphan")
+    container_events = relationship("ContainerEvent", back_populates="organization", cascade="all, delete-orphan")
+    origins = relationship("Origin", back_populates="organization", cascade="all, delete-orphan")
 
     # Indexes
     __table_args__ = (

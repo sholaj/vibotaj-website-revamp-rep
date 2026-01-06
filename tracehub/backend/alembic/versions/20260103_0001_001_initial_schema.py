@@ -23,15 +23,47 @@ depends_on: Union[str, Sequence[str], None] = None
 def upgrade() -> None:
     """Create all tables for TraceHub initial schema."""
 
-    # Create enum types
-    op.execute("CREATE TYPE IF NOT EXISTS userrole AS ENUM ('admin', 'manager', 'operator', 'supplier', 'viewer')")
-    op.execute("CREATE TYPE IF NOT EXISTS shipmentstatus AS ENUM ('DRAFT', 'DOCS_PENDING', 'DOCS_COMPLETE', 'IN_TRANSIT', 'ARRIVED', 'CUSTOMS', 'DELIVERED', 'ARCHIVED')")
-    op.execute("CREATE TYPE IF NOT EXISTS documenttype AS ENUM ('BILL_OF_LADING', 'COMMERCIAL_INVOICE', 'PACKING_LIST', 'CERTIFICATE_OF_ORIGIN', 'PHYTOSANITARY_CERTIFICATE', 'FUMIGATION_CERTIFICATE', 'INSURANCE_CERTIFICATE', 'CONTRACT', 'CUSTOMS_DECLARATION', 'OTHER')")
-    op.execute("CREATE TYPE IF NOT EXISTS documentstatus AS ENUM ('UPLOADED', 'PENDING_VALIDATION', 'VALIDATED', 'REJECTED', 'EXPIRED')")
-    op.execute("CREATE TYPE IF NOT EXISTS partytype AS ENUM ('EXPORTER', 'IMPORTER', 'SUPPLIER', 'BUYER', 'SHIPPING_LINE', 'CUSTOMS_AGENT', 'OTHER')")
-    op.execute("CREATE TYPE IF NOT EXISTS eventstatus AS ENUM ('BOOKED', 'GATE_IN', 'LOADED', 'DEPARTED', 'IN_TRANSIT', 'TRANSSHIPMENT', 'ARRIVED', 'DISCHARGED', 'GATE_OUT', 'DELIVERED', 'OTHER')")
-    op.execute("CREATE TYPE IF NOT EXISTS risklevel AS ENUM ('LOW', 'MEDIUM', 'HIGH', 'CRITICAL')")
-    op.execute("CREATE TYPE IF NOT EXISTS notificationtype AS ENUM ('DOCUMENT_UPLOADED', 'DOCUMENT_VALIDATED', 'DOCUMENT_REJECTED', 'SHIPMENT_CREATED', 'SHIPMENT_STATUS_CHANGED', 'CONTAINER_UPDATE', 'COMPLIANCE_ALERT', 'DEADLINE_REMINDER', 'SYSTEM')")
+    # Create enum types (with DO block to handle IF NOT EXISTS)
+    op.execute("""
+        DO $$ BEGIN
+            CREATE TYPE userrole AS ENUM ('admin', 'manager', 'operator', 'supplier', 'viewer');
+        EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+    """)
+    op.execute("""
+        DO $$ BEGIN
+            CREATE TYPE shipmentstatus AS ENUM ('DRAFT', 'DOCS_PENDING', 'DOCS_COMPLETE', 'IN_TRANSIT', 'ARRIVED', 'CUSTOMS', 'DELIVERED', 'ARCHIVED');
+        EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+    """)
+    op.execute("""
+        DO $$ BEGIN
+            CREATE TYPE documenttype AS ENUM ('BILL_OF_LADING', 'COMMERCIAL_INVOICE', 'PACKING_LIST', 'CERTIFICATE_OF_ORIGIN', 'PHYTOSANITARY_CERTIFICATE', 'FUMIGATION_CERTIFICATE', 'INSURANCE_CERTIFICATE', 'CONTRACT', 'CUSTOMS_DECLARATION', 'OTHER');
+        EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+    """)
+    op.execute("""
+        DO $$ BEGIN
+            CREATE TYPE documentstatus AS ENUM ('UPLOADED', 'PENDING_VALIDATION', 'VALIDATED', 'REJECTED', 'EXPIRED');
+        EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+    """)
+    op.execute("""
+        DO $$ BEGIN
+            CREATE TYPE partytype AS ENUM ('EXPORTER', 'IMPORTER', 'SUPPLIER', 'BUYER', 'SHIPPING_LINE', 'CUSTOMS_AGENT', 'OTHER');
+        EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+    """)
+    op.execute("""
+        DO $$ BEGIN
+            CREATE TYPE eventstatus AS ENUM ('BOOKED', 'GATE_IN', 'LOADED', 'DEPARTED', 'IN_TRANSIT', 'TRANSSHIPMENT', 'ARRIVED', 'DISCHARGED', 'GATE_OUT', 'DELIVERED', 'OTHER');
+        EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+    """)
+    op.execute("""
+        DO $$ BEGIN
+            CREATE TYPE risklevel AS ENUM ('LOW', 'MEDIUM', 'HIGH', 'CRITICAL');
+        EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+    """)
+    op.execute("""
+        DO $$ BEGIN
+            CREATE TYPE notificationtype AS ENUM ('DOCUMENT_UPLOADED', 'DOCUMENT_VALIDATED', 'DOCUMENT_REJECTED', 'SHIPMENT_CREATED', 'SHIPMENT_STATUS_CHANGED', 'CONTAINER_UPDATE', 'COMPLIANCE_ALERT', 'DEADLINE_REMINDER', 'SYSTEM');
+        EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+    """)
 
     # Create users table
     op.create_table(

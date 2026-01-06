@@ -21,12 +21,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Root-level Makefile for common development commands
 - Pre-commit hooks configuration for secret scanning
 - Test structure with compliance test examples
+- **Sprint 9: Compliance Matrix Implementation**
+  - Centralized `is_eudr_required()` function in backend (`app/services/compliance.py`)
+  - Centralized `isEUDRRequired()` utility in frontend (`src/utils/compliance.ts`)
+  - Document requirements for all product types (0506, 0507, 0714, 0902, 0910, 1801)
+  - EU TRACES Certificate validation rules (must show RC1479592)
+  - Veterinary Health Certificate validation rules (Nigerian authority warning)
+  - Export Declaration validation rules
+  - 48 passing compliance tests with TDD approach
+  - Sprint 9 documentation (`docs/sprints/SPRINT-9-COMPLIANCE-MATRIX.md`)
 
 ### Changed
 - Repository structure consolidated and reorganized
 - Documentation moved to `/docs/` directory
 - Root-level documentation archived to `docs/_archive/root-cleanup/`
 - `.gitignore` updated with additional security-critical patterns
+- **Shipment.tsx** now uses centralized compliance utility instead of hardcoded HS codes
 
 ### Fixed
 - Corrected EUDR applicability for horn/hoof products (HS 0506/0507) - NOT covered by EUDR

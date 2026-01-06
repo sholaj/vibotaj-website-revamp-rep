@@ -3,11 +3,11 @@
 from .party import Party, PartyType
 from .shipment import Shipment, ShipmentStatus
 from .product import Product
-from .origin import Origin, RiskLevel, VerificationMethod
+from .origin import Origin, RiskLevel
 from .document import Document, DocumentType, DocumentStatus
 from .document_content import DocumentContent
 from .reference_registry import ReferenceRegistry
-from .container_event import ContainerEvent, EventType
+from .container_event import ContainerEvent, EventStatus
 from .notification import Notification, NotificationType
 # Organization must be imported before User due to relationship dependencies
 from .organization import Organization, OrganizationType, OrganizationMembership, OrgRole
@@ -22,14 +22,13 @@ __all__ = [
     "Product",
     "Origin",
     "RiskLevel",
-    "VerificationMethod",
     "Document",
     "DocumentType",
     "DocumentStatus",
     "DocumentContent",
     "ReferenceRegistry",
     "ContainerEvent",
-    "EventType",
+    "EventStatus",
     "Notification",
     "NotificationType",
     "Organization",

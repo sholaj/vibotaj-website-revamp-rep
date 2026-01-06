@@ -1,4 +1,7 @@
-"""Shipment schemas for API responses."""
+"""Shipment schemas for API responses.
+
+Updated to match production database schema (Sprint 8).
+"""
 
 from pydantic import BaseModel
 from typing import Optional, List
@@ -13,9 +16,11 @@ class ShipmentCreate(BaseModel):
     reference: str
     container_number: str
     bl_number: Optional[str] = None
-    booking_reference: Optional[str] = None
+    booking_ref: Optional[str] = None  # Renamed from booking_reference
     vessel_name: Optional[str] = None
     voyage_number: Optional[str] = None
+    carrier_code: Optional[str] = None  # New field
+    carrier_name: Optional[str] = None  # New field
     etd: Optional[datetime] = None
     eta: Optional[datetime] = None
     atd: Optional[datetime] = None
@@ -24,22 +29,42 @@ class ShipmentCreate(BaseModel):
     pol_name: Optional[str] = None
     pod_code: Optional[str] = None
     pod_name: Optional[str] = None
-    final_destination: Optional[str] = None
     incoterms: Optional[str] = None
-    status: Optional[ShipmentStatus] = ShipmentStatus.IN_TRANSIT
+    status: Optional[ShipmentStatus] = ShipmentStatus.DRAFT  # Changed default
+    exporter_name: Optional[str] = None  # New field (replaces supplier_id)
+    importer_name: Optional[str] = None  # New field (replaces buyer_id)
+    eudr_compliant: Optional[bool] = False  # New field
+    eudr_statement_id: Optional[str] = None  # New field
+    organization_id: UUID  # Required for multi-tenancy
     # For historical shipments, set is_historical=True
     is_historical: Optional[bool] = False
     notes: Optional[str] = None
 
 
-class PartyInfo(BaseModel):
-    """Party information in responses."""
-    id: UUID
-    company_name: str
-    country: Optional[str] = None
-
-    class Config:
-        from_attributes = True
+class ShipmentUpdate(BaseModel):
+    """Schema for updating a shipment."""
+    reference: Optional[str] = None
+    container_number: Optional[str] = None
+    bl_number: Optional[str] = None
+    booking_ref: Optional[str] = None
+    vessel_name: Optional[str] = None
+    voyage_number: Optional[str] = None
+    carrier_code: Optional[str] = None
+    carrier_name: Optional[str] = None
+    etd: Optional[datetime] = None
+    eta: Optional[datetime] = None
+    atd: Optional[datetime] = None
+    ata: Optional[datetime] = None
+    pol_code: Optional[str] = None
+    pol_name: Optional[str] = None
+    pod_code: Optional[str] = None
+    pod_name: Optional[str] = None
+    incoterms: Optional[str] = None
+    status: Optional[ShipmentStatus] = None
+    exporter_name: Optional[str] = None
+    importer_name: Optional[str] = None
+    eudr_compliant: Optional[bool] = None
+    eudr_statement_id: Optional[str] = None
 
 
 class ProductInfo(BaseModel):
@@ -93,15 +118,28 @@ class DocumentSummary(BaseModel):
     is_complete: bool
 
 
+class OrganizationInfo(BaseModel):
+    """Organization information in responses."""
+    id: UUID
+    name: str
+    slug: str
+    type: str
+
+    class Config:
+        from_attributes = True
+
+
 class ShipmentResponse(BaseModel):
-    """Basic shipment response."""
+    """Basic shipment response matching production database schema."""
     id: UUID
     reference: str
     container_number: str
     bl_number: Optional[str] = None
-    booking_reference: Optional[str] = None
+    booking_ref: Optional[str] = None  # Renamed from booking_reference
     vessel_name: Optional[str] = None
     voyage_number: Optional[str] = None
+    carrier_code: Optional[str] = None  # New field
+    carrier_name: Optional[str] = None  # New field
     etd: Optional[datetime] = None
     eta: Optional[datetime] = None
     atd: Optional[datetime] = None
@@ -110,9 +148,13 @@ class ShipmentResponse(BaseModel):
     pol_name: Optional[str] = None
     pod_code: Optional[str] = None
     pod_name: Optional[str] = None
-    final_destination: Optional[str] = None
     incoterms: Optional[str] = None
     status: ShipmentStatus
+    exporter_name: Optional[str] = None  # New field (replaces supplier relationship)
+    importer_name: Optional[str] = None  # New field (replaces buyer relationship)
+    eudr_compliant: Optional[bool] = False  # New field
+    eudr_statement_id: Optional[str] = None  # New field
+    organization_id: UUID  # New field for multi-tenancy
     created_at: datetime
     updated_at: datetime
     # Include products for HS code-based compliance checks (e.g., Horn & Hoof exemption)
@@ -134,6 +176,7 @@ class ShipmentListResponse(BaseModel):
 class ShipmentDetailResponse(BaseModel):
     """Detailed shipment response with related entities."""
     shipment: ShipmentResponse
+    organization: Optional[OrganizationInfo] = None
     latest_event: Optional[EventInfo] = None
     documents: List[DocumentInfo] = []
     document_summary: DocumentSummary

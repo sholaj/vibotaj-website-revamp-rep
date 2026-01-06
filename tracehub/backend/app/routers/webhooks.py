@@ -10,7 +10,7 @@ import json
 
 from ..database import get_db
 from ..config import get_settings
-from ..models import Shipment, ContainerEvent, EventType, ShipmentStatus
+from ..models import Shipment, ContainerEvent, EventStatus, ShipmentStatus
 from ..services.notifications import (
     notify_shipment_status_change,
     notify_eta_changed
@@ -19,48 +19,50 @@ from ..services.notifications import (
 router = APIRouter()
 settings = get_settings()
 
-# Map JSONCargo event types to our EventType enum
+# Map JSONCargo event types to our EventStatus enum
 JSONCARGO_EVENT_MAP = {
-    "CONTAINER_LOADED": EventType.LOADED,
-    "VESSEL_DEPARTED": EventType.DEPARTED,
-    "VESSEL_ARRIVED": EventType.ARRIVED,
-    "CONTAINER_DISCHARGED": EventType.DISCHARGED,
-    "CONTAINER_DELIVERED": EventType.DELIVERED,
-    "TRANSSHIPMENT": EventType.TRANSSHIPMENT,
-    "GATE_IN": EventType.GATE_IN,
-    "GATE_OUT": EventType.GATE_OUT,
+    "CONTAINER_LOADED": EventStatus.LOADED,
+    "VESSEL_DEPARTED": EventStatus.DEPARTED,
+    "VESSEL_ARRIVED": EventStatus.ARRIVED,
+    "CONTAINER_DISCHARGED": EventStatus.DISCHARGED,
+    "CONTAINER_DELIVERED": EventStatus.DELIVERED,
+    "TRANSSHIPMENT": EventStatus.TRANSSHIPMENT,
+    "GATE_IN": EventStatus.GATE_IN,
+    "GATE_OUT": EventStatus.GATE_OUT,
+    "BOOKED": EventStatus.BOOKED,
+    "IN_TRANSIT": EventStatus.IN_TRANSIT,
 }
 
-# Map carrier webhook event types to our EventType enum
+# Map carrier webhook event types to our EventStatus enum
 CARRIER_EVENT_MAP = {
     # Standard event names
-    "loaded": EventType.LOADED,
-    "departed": EventType.DEPARTED,
-    "arrived": EventType.ARRIVED,
-    "discharged": EventType.DISCHARGED,
-    "delivered": EventType.DELIVERED,
-    "transshipment": EventType.TRANSSHIPMENT,
-    "gate_in": EventType.GATE_IN,
-    "gate_out": EventType.GATE_OUT,
-    "customs_hold": EventType.CUSTOMS_HOLD,
-    "customs_released": EventType.CUSTOMS_RELEASED,
-    # Alternate names
-    "LOADED": EventType.LOADED,
-    "DEPARTED": EventType.DEPARTED,
-    "ARRIVED": EventType.ARRIVED,
-    "DISCHARGED": EventType.DISCHARGED,
-    "DELIVERED": EventType.DELIVERED,
-    "POD": EventType.ARRIVED,  # Proof of Delivery at port
-    "PICKUP": EventType.GATE_OUT,
-    "EMPTY_RETURN": EventType.EMPTY_RETURN,
+    "loaded": EventStatus.LOADED,
+    "departed": EventStatus.DEPARTED,
+    "arrived": EventStatus.ARRIVED,
+    "discharged": EventStatus.DISCHARGED,
+    "delivered": EventStatus.DELIVERED,
+    "transshipment": EventStatus.TRANSSHIPMENT,
+    "gate_in": EventStatus.GATE_IN,
+    "gate_out": EventStatus.GATE_OUT,
+    "booked": EventStatus.BOOKED,
+    "in_transit": EventStatus.IN_TRANSIT,
+    # Alternate names (uppercase)
+    "LOADED": EventStatus.LOADED,
+    "DEPARTED": EventStatus.DEPARTED,
+    "ARRIVED": EventStatus.ARRIVED,
+    "DISCHARGED": EventStatus.DISCHARGED,
+    "DELIVERED": EventStatus.DELIVERED,
+    "POD": EventStatus.ARRIVED,  # Proof of Delivery at port
+    "PICKUP": EventStatus.GATE_OUT,
+    "BOOKED": EventStatus.BOOKED,
+    "IN_TRANSIT": EventStatus.IN_TRANSIT,
 }
 
 # Events that trigger notifications
 NOTIFICATION_EVENTS = {
-    EventType.DEPARTED: True,
-    EventType.ARRIVED: True,
-    EventType.DELIVERED: True,
-    EventType.CUSTOMS_HOLD: True,
+    EventStatus.DEPARTED: True,
+    EventStatus.ARRIVED: True,
+    EventStatus.DELIVERED: True,
 }
 
 
@@ -148,54 +150,49 @@ async def jsoncargo_webhook(request: Request, db: Session = Depends(get_db)):
     for event_data in payload.get("events", [payload]):
         # Map event type
         jsoncargo_type = event_data.get("event_type") or event_data.get("type")
-        event_type = JSONCARGO_EVENT_MAP.get(jsoncargo_type)
+        event_status = JSONCARGO_EVENT_MAP.get(jsoncargo_type)
 
-        if not event_type:
-            continue
+        if not event_status:
+            event_status = EventStatus.OTHER
 
-        # Check for duplicate
-        external_id = event_data.get("id") or f"{container_number}-{jsoncargo_type}-{event_data.get('timestamp')}"
-        existing = db.query(ContainerEvent).filter(
-            ContainerEvent.external_id == external_id
-        ).first()
-
-        if existing:
-            continue
+        # Parse timestamp
+        timestamp_str = event_data.get("timestamp", "")
+        try:
+            event_time = datetime.fromisoformat(timestamp_str.replace("Z", "+00:00")) if timestamp_str else datetime.utcnow()
+        except ValueError:
+            event_time = datetime.utcnow()
 
         # Create event
         event = ContainerEvent(
             shipment_id=shipment.id,
-            event_type=event_type,
-            event_timestamp=datetime.fromisoformat(
-                event_data.get("timestamp", "").replace("Z", "+00:00")
-            ) if event_data.get("timestamp") else datetime.utcnow(),
+            organization_id=shipment.organization_id,
+            event_status=event_status,
+            event_time=event_time,
             location_name=event_data.get("location", {}).get("name") or event_data.get("location"),
             location_code=event_data.get("location", {}).get("locode"),
-            location_lat=event_data.get("location", {}).get("coordinates", {}).get("lat"),
-            location_lng=event_data.get("location", {}).get("coordinates", {}).get("lng"),
             vessel_name=event_data.get("vessel", {}).get("name") or event_data.get("vessel"),
             voyage_number=event_data.get("vessel", {}).get("voyage") or event_data.get("voyage"),
-            external_id=external_id,
+            description=event_data.get("description"),
             source="jsoncargo",
-            raw_payload=event_data
+            raw_data=event_data
         )
         db.add(event)
         events_processed += 1
 
         # Update shipment status based on event
-        if event_type == EventType.DEPARTED and shipment.status in [
-            ShipmentStatus.CREATED, ShipmentStatus.DOCS_PENDING, ShipmentStatus.DOCS_COMPLETE
+        if event_status == EventStatus.DEPARTED and shipment.status in [
+            ShipmentStatus.DRAFT, ShipmentStatus.DOCS_PENDING, ShipmentStatus.DOCS_COMPLETE
         ]:
             shipment.status = ShipmentStatus.IN_TRANSIT
-            shipment.atd = event.event_timestamp
+            shipment.atd = event.event_time
             status_changed = True
 
-        elif event_type == EventType.ARRIVED and shipment.status == ShipmentStatus.IN_TRANSIT:
+        elif event_status == EventStatus.ARRIVED and shipment.status == ShipmentStatus.IN_TRANSIT:
             shipment.status = ShipmentStatus.ARRIVED
-            shipment.ata = event.event_timestamp
+            shipment.ata = event.event_time
             status_changed = True
 
-        elif event_type == EventType.DELIVERED and shipment.status in [
+        elif event_status == EventStatus.DELIVERED and shipment.status in [
             ShipmentStatus.IN_TRANSIT, ShipmentStatus.ARRIVED
         ]:
             shipment.status = ShipmentStatus.DELIVERED
@@ -310,32 +307,17 @@ async def carrier_webhook(
 
     # Map event type
     event_type_str = payload.get("event_type") or payload.get("type")
-    event_type = CARRIER_EVENT_MAP.get(event_type_str, EventType.UNKNOWN)
+    event_status = CARRIER_EVENT_MAP.get(event_type_str, EventStatus.OTHER)
 
     # Parse timestamp
     timestamp_str = payload.get("timestamp")
     if timestamp_str:
         try:
-            event_timestamp = datetime.fromisoformat(timestamp_str.replace("Z", "+00:00"))
+            event_time = datetime.fromisoformat(timestamp_str.replace("Z", "+00:00"))
         except ValueError:
-            event_timestamp = datetime.utcnow()
+            event_time = datetime.utcnow()
     else:
-        event_timestamp = datetime.utcnow()
-
-    # Generate external ID for deduplication
-    external_id = payload.get("id") or f"{container_number}-{event_type_str}-{timestamp_str}"
-
-    # Check for duplicate event
-    existing = db.query(ContainerEvent).filter(
-        ContainerEvent.external_id == external_id
-    ).first()
-
-    if existing:
-        return {
-            "status": "duplicate",
-            "message": "Event already processed",
-            "event_id": external_id
-        }
+        event_time = datetime.utcnow()
 
     # Extract location info
     location = payload.get("location", {})
@@ -350,35 +332,34 @@ async def carrier_webhook(
     # Create container event
     event = ContainerEvent(
         shipment_id=shipment.id,
-        event_type=event_type,
-        event_timestamp=event_timestamp,
+        organization_id=shipment.organization_id,
+        event_status=event_status,
+        event_time=event_time,
         location_name=location.get("name"),
         location_code=location.get("code") or location.get("locode"),
-        location_lat=location.get("lat") or location.get("latitude"),
-        location_lng=location.get("lng") or location.get("longitude"),
         vessel_name=vessel.get("name"),
         voyage_number=vessel.get("voyage") or vessel.get("voyage_number"),
-        external_id=external_id,
+        description=payload.get("description"),
         source=payload.get("carrier", "carrier_webhook"),
-        raw_payload=payload
+        raw_data=payload
     )
     db.add(event)
 
     # Update shipment status based on event
     status_changed = False
-    if event_type == EventType.DEPARTED and shipment.status in [
-        ShipmentStatus.CREATED, ShipmentStatus.DOCS_PENDING, ShipmentStatus.DOCS_COMPLETE
+    if event_status == EventStatus.DEPARTED and shipment.status in [
+        ShipmentStatus.DRAFT, ShipmentStatus.DOCS_PENDING, ShipmentStatus.DOCS_COMPLETE
     ]:
         shipment.status = ShipmentStatus.IN_TRANSIT
-        shipment.atd = event_timestamp
+        shipment.atd = event_time
         status_changed = True
 
-    elif event_type == EventType.ARRIVED and shipment.status == ShipmentStatus.IN_TRANSIT:
+    elif event_status == EventStatus.ARRIVED and shipment.status == ShipmentStatus.IN_TRANSIT:
         shipment.status = ShipmentStatus.ARRIVED
-        shipment.ata = event_timestamp
+        shipment.ata = event_time
         status_changed = True
 
-    elif event_type == EventType.DELIVERED and shipment.status in [
+    elif event_status == EventStatus.DELIVERED and shipment.status in [
         ShipmentStatus.IN_TRANSIT, ShipmentStatus.ARRIVED
     ]:
         shipment.status = ShipmentStatus.DELIVERED
@@ -409,7 +390,7 @@ async def carrier_webhook(
             event_details={
                 "location": location.get("name"),
                 "vessel": vessel.get("name"),
-                "timestamp": event_timestamp.isoformat()
+                "timestamp": event_time.isoformat()
             }
         )
 
@@ -427,8 +408,7 @@ async def carrier_webhook(
     return {
         "status": "processed",
         "container_number": container_number,
-        "event_type": event_type.value,
-        "event_id": external_id,
+        "event_status": event_status.value,
         "status_changed": status_changed,
         "eta_changed": eta_changed,
         "new_status": shipment.status.value if status_changed else None

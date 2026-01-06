@@ -3,27 +3,25 @@
 import uuid
 import enum
 from datetime import datetime
-from sqlalchemy import Column, String, DateTime, ForeignKey, Enum, Integer, Numeric
+from sqlalchemy import Column, String, DateTime, ForeignKey, Enum, Text
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import relationship
 from ..database import Base
 
 
-class EventType(str, enum.Enum):
-    """Container tracking event types."""
-    BOOKING_CONFIRMED = "booking_confirmed"
-    GATE_IN = "gate_in"
-    LOADED = "loaded"
-    DEPARTED = "departed"
-    TRANSSHIPMENT = "transshipment"
-    ARRIVED = "arrived"
-    DISCHARGED = "discharged"
-    GATE_OUT = "gate_out"
-    DELIVERED = "delivered"
-    CUSTOMS_HOLD = "customs_hold"
-    CUSTOMS_RELEASED = "customs_released"
-    EMPTY_RETURN = "empty_return"
-    UNKNOWN = "unknown"
+class EventStatus(str, enum.Enum):
+    """Container tracking event status types (matches production DB)."""
+    BOOKED = "BOOKED"
+    GATE_IN = "GATE_IN"
+    LOADED = "LOADED"
+    DEPARTED = "DEPARTED"
+    IN_TRANSIT = "IN_TRANSIT"
+    TRANSSHIPMENT = "TRANSSHIPMENT"
+    ARRIVED = "ARRIVED"
+    DISCHARGED = "DISCHARGED"
+    GATE_OUT = "GATE_OUT"
+    DELIVERED = "DELIVERED"
+    OTHER = "OTHER"
 
 
 class ContainerEvent(Base):
@@ -32,35 +30,34 @@ class ContainerEvent(Base):
     __tablename__ = "container_events"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    shipment_id = Column(UUID(as_uuid=True), ForeignKey("shipments.id"), nullable=False)
+    shipment_id = Column(UUID(as_uuid=True), ForeignKey("shipments.id", ondelete="CASCADE"), nullable=False, index=True)
+    organization_id = Column(UUID(as_uuid=True), ForeignKey("organizations.id", ondelete="RESTRICT"), nullable=False, index=True)
 
-    # Event details
-    event_type = Column(Enum(EventType), nullable=False)
-    event_timestamp = Column(DateTime, nullable=False)
+    # Event details (matches production schema)
+    event_status = Column(Enum(EventStatus, name="eventstatus", create_type=False), nullable=False)
+    event_time = Column(DateTime(timezone=True), nullable=False, index=True)
 
     # Location
+    location_code = Column(String(20))  # UN/LOCODE
     location_name = Column(String(255))
-    location_code = Column(String(10))  # UN/LOCODE
-    location_lat = Column(Numeric(10, 7))
-    location_lng = Column(Numeric(10, 7))
 
     # Vessel info
     vessel_name = Column(String(100))
     voyage_number = Column(String(50))
 
-    # Delay tracking
-    delay_hours = Column(Integer)
+    # Description
+    description = Column(Text)
 
     # Source tracking
-    source = Column(String(50), default="jsoncargo")  # API source
-    external_id = Column(String(100))  # ID from tracking API
-    raw_payload = Column(JSONB)  # Original API response
+    source = Column(String(50))  # API source
+    raw_data = Column(JSONB)  # Original API response
 
     # Timestamps
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime(timezone=True), nullable=False, default=datetime.utcnow)
 
     # Relationships
     shipment = relationship("Shipment", back_populates="container_events")
+    organization = relationship("Organization", back_populates="container_events")
 
     def __repr__(self):
-        return f"<ContainerEvent {self.event_type.value} at {self.location_name}>"
+        return f"<ContainerEvent {self.event_status.value} at {self.location_name}>"

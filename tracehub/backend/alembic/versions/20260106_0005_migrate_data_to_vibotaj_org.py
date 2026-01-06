@@ -192,7 +192,7 @@ def upgrade() -> None:
         UPDATE parties
         SET organization_id = :org_id
         WHERE organization_id IS NULL
-        RETURNING id, company_name
+        RETURNING id, name
     """), {"org_id": str(VIBOTAJ_ORG_ID)})
 
     party_count = parties_updated.rowcount

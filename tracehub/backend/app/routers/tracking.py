@@ -7,7 +7,7 @@ from datetime import datetime
 from typing import Optional
 
 from ..database import get_db
-from ..models import Shipment, ContainerEvent, EventType
+from ..models import Shipment, ContainerEvent, EventStatus
 from ..routers.auth import get_current_user, User
 from ..services.jsoncargo import get_jsoncargo_client
 
@@ -36,7 +36,7 @@ async def get_container_status(
     latest_event = (
         db.query(ContainerEvent)
         .filter(ContainerEvent.shipment_id == shipment.id)
-        .order_by(ContainerEvent.event_timestamp.desc())
+        .order_by(ContainerEvent.event_time.desc())
         .first()
     )
 
@@ -55,8 +55,8 @@ async def get_container_status(
         "pol": {"code": shipment.pol_code, "name": shipment.pol_name},
         "pod": {"code": shipment.pod_code, "name": shipment.pod_name},
         "latest_event": {
-            "type": latest_event.event_type.value if latest_event else None,
-            "timestamp": latest_event.event_timestamp if latest_event else None,
+            "status": latest_event.event_status.value if latest_event else None,
+            "timestamp": latest_event.event_time if latest_event else None,
             "location": latest_event.location_name if latest_event else None,
         } if latest_event else None,
         "live_tracking": live_status
@@ -154,23 +154,12 @@ async def refresh_tracking(
 
     # Sync events to database
     for event_data in tracking_data.get("events", []):
-        external_id = event_data.get("id")
-
-        # Check if event already exists
-        if external_id:
-            existing = db.query(ContainerEvent).filter(
-                ContainerEvent.shipment_id == shipment_id,
-                ContainerEvent.external_id == external_id
-            ).first()
-            if existing:
-                continue
-
-        # Map event type
-        event_type_str = event_data.get("type", "UNKNOWN")
+        # Map event type to EventStatus
+        event_type_str = event_data.get("type", "OTHER").upper()
         try:
-            event_type = EventType(event_type_str.lower())
+            event_status = EventStatus(event_type_str)
         except ValueError:
-            event_type = EventType.UNKNOWN
+            event_status = EventStatus.OTHER
 
         # Parse timestamp
         timestamp = event_data.get("timestamp")
@@ -182,15 +171,16 @@ async def refresh_tracking(
 
         event = ContainerEvent(
             shipment_id=shipment_id,
-            event_type=event_type,
-            event_timestamp=timestamp,
+            organization_id=shipment.organization_id,
+            event_status=event_status,
+            event_time=timestamp,
             location_name=event_data.get("location"),
             location_code=event_data.get("location_code"),
             vessel_name=event_data.get("vessel"),
             voyage_number=event_data.get("voyage"),
-            external_id=external_id,
+            description=event_data.get("description"),
             source="jsoncargo",
-            raw_payload=event_data
+            raw_data=event_data
         )
         db.add(event)
         events_added += 1

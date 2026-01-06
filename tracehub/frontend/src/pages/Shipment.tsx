@@ -41,18 +41,14 @@ import DocumentUploadModal from '../components/DocumentUploadModal'
 import DocumentReviewPanel from '../components/DocumentReviewPanel'
 import EUDRStatusCard from '../components/EUDRStatusCard'
 import { format, formatDistanceToNow } from 'date-fns'
-
-// Horn & Hoof HS codes - these products are exempt from EUDR
-const HORN_HOOF_HS_CODES = ['0506', '0507']
+import { isHornHoofProduct } from '../utils/compliance'
 
 // Check if shipment contains Horn & Hoof products (exempt from EUDR)
 function isHornHoofShipment(shipment: ShipmentType | null): boolean {
   if (!shipment?.products || shipment.products.length === 0) {
     return false
   }
-  return shipment.products.some(product =>
-    HORN_HOOF_HS_CODES.some(code => product.hs_code?.startsWith(code))
-  )
+  return shipment.products.some(product => isHornHoofProduct(product.hs_code || ''))
 }
 
 // Status badge configuration
