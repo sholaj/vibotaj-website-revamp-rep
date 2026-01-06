@@ -78,7 +78,7 @@ jobs:
           DB_NAME=tracehub_staging
           DB_PORT=5532
           JWT_SECRET=${{ secrets.PRODUCTION_JWT_SECRET }}
-          VIZION_API_KEY=${{ secrets.VIZION_API_KEY }}
+          JSONCARGO_API_KEY=${{ secrets.JSONCARGO_API_KEY }}
           ANTHROPIC_API_KEY=${{ secrets.ANTHROPIC_API_KEY }}
           DEMO_PASSWORD=${{ secrets.DEMO_PASSWORD }}
           DEBUG=true

@@ -101,7 +101,7 @@ jobs:
           ENVIRONMENT=production
           DATABASE_URL=postgresql://tracehub:${{ secrets.PRODUCTION_DB_PASSWORD }}@db:5432/tracehub
           JWT_SECRET=${{ secrets.PRODUCTION_JWT_SECRET }}
-          VIZION_API_KEY=${{ secrets.VIZION_API_KEY }}
+          JSONCARGO_API_KEY=${{ secrets.JSONCARGO_API_KEY }}
           ANTHROPIC_API_KEY=${{ secrets.ANTHROPIC_API_KEY }}
           DEMO_PASSWORD=${{ secrets.DEMO_PASSWORD }}
           CORS_ORIGINS=["https://tracehub.vibotaj.com","http://localhost:3000"]
