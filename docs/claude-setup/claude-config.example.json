@@ -1,0 +1,30 @@
+{
+  "mcpServers": {
+    "context7": {
+      "command": "npx",
+      "args": ["@context7/mcp-server"],
+      "env": {
+        "CONTEXT7_API_KEY": "your-context7-api-key-here"
+      },
+      "description": "Fetches up-to-date documentation from official sources"
+    },
+    "tracehub-db": {
+      "command": "npx",
+      "args": ["@modelcontextprotocol/server-postgres"],
+      "env": {
+        "POSTGRES_URL": "postgresql://tracehub:your_password@localhost:5432/tracehub"
+      },
+      "description": "PostgreSQL database access for TraceHub development"
+    },
+    "filesystem": {
+      "command": "npx",
+      "args": ["@modelcontextprotocol/server-filesystem"],
+      "env": {
+        "ALLOWED_PATHS": [
+          "/path/to/vibotaj-website-revamp-rep"
+        ]
+      },
+      "description": "File system access for repository operations"
+    }
+  }
+}

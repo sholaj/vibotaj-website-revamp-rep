@@ -21,6 +21,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Root-level Makefile for common development commands
 - Pre-commit hooks configuration for secret scanning
 - Test structure with compliance test examples
+- **Claude Setup Documentation** (`docs/claude-setup/`)
+  - MCP Servers guide for up-to-date documentation retrieval
+  - Sub-Agents guide for parallel workflow optimization
+  - Example configuration files for Claude Desktop
+  - Integration guides for TraceHub development
 
 ### Changed
 - Repository structure consolidated and reorganized
