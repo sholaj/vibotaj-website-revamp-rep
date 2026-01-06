@@ -39,9 +39,9 @@ class Party(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     # Relationships
-    # Note: shipments_as_buyer and shipments_as_supplier removed in Sprint 8
-    # Shipments now use exporter_name/importer_name string fields instead
-    origins = relationship("Origin", back_populates="supplier")
+    # Note: In Sprint 8, direct FK relationships were removed:
+    # - shipments_as_buyer/supplier removed (shipments use exporter_name/importer_name strings)
+    # - origins relationship removed (origins use supplier_name string, not FK to parties)
 
     def __repr__(self):
         return f"<Party {self.company_name} ({self.type.value})>"
