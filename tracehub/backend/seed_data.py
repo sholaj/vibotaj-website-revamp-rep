@@ -20,7 +20,8 @@ from app.models import (
     Origin,
     Document, DocumentType, DocumentStatus,
     ContainerEvent, EventStatus,
-    User, UserRole
+    User, UserRole,
+    Organization, OrganizationType
 )
 from passlib.context import CryptContext
 
@@ -35,7 +36,7 @@ def create_tables():
     print("Tables created.")
 
 
-def seed_sample_data(db: Session):
+def seed_sample_data(db: Session, organization_id):
     """Seed database with sample shipment data."""
 
     print("Seeding sample data...")
@@ -100,7 +101,8 @@ def seed_sample_data(db: Session):
         incoterms="FOB",
         status=ShipmentStatus.IN_TRANSIT,
         buyer_id=buyer_witatrade.id,
-        supplier_id=supplier_temira.id
+        supplier_id=supplier_temira.id,
+        organization_id=organization_id  # Multi-tenancy
     )
     db.add(shipment_1)
     db.flush()
@@ -108,6 +110,7 @@ def seed_sample_data(db: Session):
     # Product for Shipment 1
     product_1 = Product(
         shipment_id=shipment_1.id,
+        organization_id=organization_id,  # Multi-tenancy
         hs_code="0506.90.00",
         description="Crushed Cow Hooves & Horns",
         quantity_net_kg=Decimal("25000"),
@@ -126,6 +129,7 @@ def seed_sample_data(db: Session):
     # Origin for Shipment 1
     origin_1 = Origin(
         product_id=product_1.id,
+        organization_id=organization_id,  # Multi-tenancy
         farm_plot_identifier="NG-LA-TEMIRA-001",
         geolocation_lat=Decimal("6.4541"),
         geolocation_lng=Decimal("3.3947"),
@@ -222,6 +226,7 @@ def seed_sample_data(db: Session):
     for doc_data in docs_shipment_1:
         doc = Document(
             shipment_id=shipment_1.id,
+            organization_id=organization_id,  # Multi-tenancy
             uploaded_by="temira_exports",
             uploaded_at=datetime(2025, 12, 10, 10, 0),
             **doc_data
@@ -276,6 +281,7 @@ def seed_sample_data(db: Session):
     for event_data in events_shipment_1:
         event = ContainerEvent(
             shipment_id=shipment_1.id,
+            organization_id=organization_id,  # Multi-tenancy
             source="seed_data",
             **event_data
         )
@@ -305,7 +311,8 @@ def seed_sample_data(db: Session):
         incoterms="FOB",
         status=ShipmentStatus.IN_TRANSIT,
         buyer_id=buyer_witatrade.id,
-        supplier_id=supplier_temira.id
+        supplier_id=supplier_temira.id,
+        organization_id=organization_id  # Multi-tenancy
     )
     db.add(shipment_2)
     db.flush()
@@ -313,6 +320,7 @@ def seed_sample_data(db: Session):
     # Product for Shipment 2
     product_2 = Product(
         shipment_id=shipment_2.id,
+        organization_id=organization_id,  # Multi-tenancy
         hs_code="0506.90.00",
         description="Crushed Cow Hooves & Horns",
         quantity_net_kg=Decimal("22000"),
@@ -331,6 +339,7 @@ def seed_sample_data(db: Session):
     # Origin for Shipment 2
     origin_2 = Origin(
         product_id=product_2.id,
+        organization_id=organization_id,  # Multi-tenancy
         farm_plot_identifier="NG-LA-TEMIRA-002",
         geolocation_lat=Decimal("6.4550"),
         geolocation_lng=Decimal("3.3950"),
@@ -409,6 +418,7 @@ def seed_sample_data(db: Session):
     for doc_data in docs_shipment_2:
         doc = Document(
             shipment_id=shipment_2.id,
+            organization_id=organization_id,  # Multi-tenancy
             uploaded_by="temira_exports",
             uploaded_at=datetime(2025, 12, 18, 10, 0) if doc_data.get("file_path") else None,
             **doc_data
@@ -447,6 +457,7 @@ def seed_sample_data(db: Session):
     for event_data in events_shipment_2:
         event = ContainerEvent(
             shipment_id=shipment_2.id,
+            organization_id=organization_id,  # Multi-tenancy
             source="seed_data",
             **event_data
         )
@@ -475,7 +486,48 @@ def seed_sample_data(db: Session):
     print(f"  - Events: {len(events_shipment_2)} tracking events")
 
 
-def seed_users(db: Session):
+def seed_organization(db: Session) -> Organization:
+    """Seed default VIBOTAJ organization."""
+    print("\nSeeding default organization...")
+
+    # Check if organization already exists
+    from uuid import UUID
+    VIBOTAJ_ORG_ID = UUID('00000000-0000-0000-0000-000000000001')
+
+    existing_org = db.query(Organization).filter(Organization.id == VIBOTAJ_ORG_ID).first()
+    if existing_org:
+        print(f"Organization already exists: {existing_org.name}")
+        return existing_org
+
+    # Create VIBOTAJ organization with fixed UUID
+    org = Organization(
+        id=VIBOTAJ_ORG_ID,
+        name="VIBOTAJ Global Nigeria Ltd",
+        slug="vibotaj",
+        type=OrganizationType.VIBOTAJ,
+        contact_email="info@vibotaj.com",
+        contact_phone="+234 XXX XXX XXXX",
+        address={
+            "street": "Lagos, Nigeria",
+            "city": "Lagos",
+            "country": "NG"
+        },
+        registration_number="RC-VIBOTAJ",
+        tax_id="NG-TAX-VIBOTAJ",
+        settings={
+            "default_currency": "EUR",
+            "timezone": "Europe/Berlin"
+        }
+    )
+    db.add(org)
+    db.commit()
+    db.refresh(org)
+
+    print(f"✓ Created organization: {org.name} ({org.id})")
+    return org
+
+
+def seed_users(db: Session, organization_id):
     """Seed database with test users."""
     print("\nSeeding test users...")
 
@@ -525,7 +577,8 @@ def seed_users(db: Session):
             full_name=user_data["full_name"],
             hashed_password=pwd_context.hash(user_data["password"]),
             role=user_data["role"],
-            is_active=True
+            is_active=True,
+            organization_id=organization_id  # Multi-tenancy: link to organization
         )
         db.add(user)
 
@@ -549,8 +602,11 @@ def main():
 
     db = SessionLocal()
     try:
-        # Seed users first
-        seed_users(db)
+        # Seed organization first (required for multi-tenancy)
+        org = seed_organization(db)
+
+        # Seed users with organization
+        seed_users(db, org.id)
 
         # Check if shipment data already exists
         existing = db.query(Shipment).first()
@@ -559,7 +615,7 @@ def main():
             print("To reseed, drop the database tables first.")
             return
 
-        seed_sample_data(db)
+        seed_sample_data(db, org.id)
     finally:
         db.close()
 
