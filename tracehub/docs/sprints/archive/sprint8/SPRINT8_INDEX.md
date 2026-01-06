@@ -25,7 +25,7 @@ This sprint introduces multi-tenancy to TraceHub, transforming it from a single-
 1. Overview: **SPRINT8_MIGRATION_SUMMARY.md** (executive summary)
 2. Architecture: **MIGRATION_PLAN_SPRINT8.md** (sections 1, 2, 6)
 3. Risk Assessment: **MIGRATION_PLAN_SPRINT8.md** (section 10)
-4. Deployment Plan: **DEPLOYMENT_CHECKLIST.md**
+4. Deployment Plan: **[DEPLOYMENT_CHECKLIST.md](../../../deployment/DEPLOYMENT_CHECKLIST.md)**
 
 ### For Database Administrators
 1. Schema Changes: **MIGRATION_PLAN_SPRINT8.md** (section 2)
@@ -35,7 +35,7 @@ This sprint introduces multi-tenancy to TraceHub, transforming it from a single-
 
 ### For Product Owners
 1. Executive Summary: **SPRINT8_MIGRATION_SUMMARY.md**
-2. Timeline: **DEPLOYMENT_CHECKLIST.md** (deployment phases)
+2. Timeline: **[DEPLOYMENT_CHECKLIST.md](../../../deployment/DEPLOYMENT_CHECKLIST.md)** (deployment phases)
 3. Risk Assessment: **MIGRATION_PLAN_SPRINT8.md** (section 10)
 4. Success Criteria: **MIGRATION_PLAN_SPRINT8.md** (section 13)
 
@@ -117,7 +117,7 @@ This sprint introduces multi-tenancy to TraceHub, transforming it from a single-
 
 ---
 
-### 4. DEPLOYMENT_CHECKLIST.md
+### 4. [DEPLOYMENT_CHECKLIST.md](../../../deployment/DEPLOYMENT_CHECKLIST.md)
 **Deployment execution checklist**
 
 **Audience:** Deployment team, DevOps
@@ -198,21 +198,21 @@ Located in: `/tracehub/scripts/`
 ## File Locations
 
 ```
-tracehub/
-├── Documentation (Root)
-│   ├── MIGRATION_PLAN_SPRINT8.md          # 60-page comprehensive plan
-│   ├── MIGRATION_QUICKSTART.md            # Quick reference guide
-│   ├── SPRINT8_MIGRATION_SUMMARY.md       # Executive summary
-│   ├── DEPLOYMENT_CHECKLIST.md            # Deployment checklist
-│   └── SPRINT8_INDEX.md                   # This file
-│
-├── Migration Files (Backend)
-│   └── backend/alembic/versions/
-│       ├── 20260106_0003_create_multitenancy_tables.py
-│       ├── 20260106_0004_add_organization_id_columns.py
-│       ├── 20260106_0005_migrate_data_to_vibotaj_org.py
-│       └── 20260106_0006_add_multitenancy_constraints.py
-│
+tracehub/docs/sprints/archive/sprint8/
+├── MIGRATION_PLAN_SPRINT8.md          # 60-page comprehensive plan
+├── MIGRATION_QUICKSTART.md            # Quick reference guide
+├── SPRINT8_MIGRATION_SUMMARY.md       # Executive summary
+├── SPRINT8_INDEX.md                   # This file
+└── TraceHub_Sprint8_Multi_Tenancy_Task_Request.docx
+
+tracehub/docs/deployment/
+└── DEPLOYMENT_CHECKLIST.md            # Deployment checklist
+
+tracehub/backend/alembic/versions/
+├── 20260106_0003_create_multitenancy_tables.py
+├── 20260106_0004_add_organization_id_columns.py
+├── 20260106_0005_migrate_data_to_vibotaj_org.py
+└── 20260106_0006_add_multitenancy_constraints.py
 ├── Automation Scripts
 │   ├── scripts/
 │   │   ├── README.md                      # Scripts documentation
@@ -244,7 +244,7 @@ tracehub/
 ### Technical Lead (Approval)
 1. **SPRINT8_MIGRATION_SUMMARY.md** - 15 minutes
 2. **MIGRATION_PLAN_SPRINT8.md** (sections 1, 2, 10) - 30 minutes
-3. **DEPLOYMENT_CHECKLIST.md** - 15 minutes
+3. **[DEPLOYMENT_CHECKLIST.md](../../../deployment/DEPLOYMENT_CHECKLIST.md)** - 15 minutes
 4. Review migration files (high-level) - 15 minutes
 
 **Total:** ~75 minutes review
@@ -260,7 +260,7 @@ tracehub/
 ### Product Owner (Approval)
 1. **SPRINT8_MIGRATION_SUMMARY.md** - 15 minutes
 2. **MIGRATION_PLAN_SPRINT8.md** (sections 10, 13) - 20 minutes
-3. **DEPLOYMENT_CHECKLIST.md** (overview) - 10 minutes
+3. **[DEPLOYMENT_CHECKLIST.md](../../../deployment/DEPLOYMENT_CHECKLIST.md)** (overview) - 10 minutes
 
 **Total:** ~45 minutes review
 
@@ -306,7 +306,7 @@ This fixed UUID ensures consistency across all environments.
 
 **Read:**
 - MIGRATION_PLAN_SPRINT8.md (Section 4.1)
-- DEPLOYMENT_CHECKLIST.md (Phase 3: Blue-Green Switch)
+- [DEPLOYMENT_CHECKLIST.md](../../../deployment/DEPLOYMENT_CHECKLIST.md) (Phase 3: Blue-Green Switch)
 
 ---
 
@@ -327,7 +327,7 @@ This fixed UUID ensures consistency across all environments.
 
 **Read:**
 - MIGRATION_QUICKSTART.md
-- DEPLOYMENT_CHECKLIST.md (Alternative: Rolling Restart)
+- [DEPLOYMENT_CHECKLIST.md](../../../deployment/DEPLOYMENT_CHECKLIST.md) (Alternative: Rolling Restart)
 
 ---
 
@@ -418,7 +418,7 @@ If you find issues or have improvements:
 5. Schedule deployment window
 
 ### During Deployment
-1. Follow DEPLOYMENT_CHECKLIST.md
+1. Follow [DEPLOYMENT_CHECKLIST.md](../../../deployment/DEPLOYMENT_CHECKLIST.md)
 2. Document any deviations
 3. Monitor metrics continuously
 4. Keep communication channels open
