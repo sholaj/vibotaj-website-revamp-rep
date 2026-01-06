@@ -1,4 +1,4 @@
-.PHONY: setup test lint security-scan clean help
+.PHONY: setup test test-backend test-frontend lint format security-scan pre-commit clean dev docs validate new-prp git-check quick-start help
 
 help: ## Show this help message
 	@echo 'TraceHub Development Commands'
