@@ -267,6 +267,28 @@ User
 - **Stack**: Docker Compose (Nginx + FastAPI + PostgreSQL)
 - **CI/CD**: GitHub Actions with SSH deployment
 
+For detailed deployment instructions, see [docs/deployment/](docs/deployment/).
+
+## Documentation
+
+Complete documentation is organized in the `docs/` directory:
+
+- **[Documentation Index](docs/INDEX.md)** - Complete navigation guide
+- **[Deployment](docs/deployment/)** - Infrastructure and deployment guides
+- **[DevOps](docs/devops/)** - CI/CD, automation, and GitOps
+- **[Frontend](docs/frontend/)** - UI/UX specifications and components
+- **[Architecture](docs/architecture/)** - System architecture and ADRs
+- **[Strategy](docs/strategy/)** - Product roadmap and planning
+- **[API Specs](docs/api/)** - API specifications
+- **[Sprint Archives](docs/sprints/)** - Historical sprint documentation
+
+### Quick Links
+
+- **Getting Started:** [QUICKSTART.md](QUICKSTART.md)
+- **Deployment:** [docs/deployment/DEPLOYMENT_QUICK_REFERENCE.md](docs/deployment/DEPLOYMENT_QUICK_REFERENCE.md)
+- **Architecture:** [docs/architecture/tracehub-detailed-architecture.md](docs/architecture/tracehub-detailed-architecture.md)
+- **Version History:** [CHANGELOG.md](CHANGELOG.md)
+
 ## License
 
 Proprietary - VIBOTAJ Global Nigeria Ltd

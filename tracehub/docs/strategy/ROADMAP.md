@@ -22,7 +22,7 @@ TraceHub is a container tracking and documentation compliance platform for VIBOT
 | 4 | EUDR Compliance | Compliance tracking, analytics dashboard | Done |
 | 5 | Historical Data | Shipment creation, logistics agent workflow | Done |
 
-See [CHANGELOG.md](./CHANGELOG.md) for detailed feature list.
+See [CHANGELOG.md](../../CHANGELOG.md) for detailed feature list.
 
 ---
 
@@ -155,8 +155,8 @@ See [CHANGELOG.md](./CHANGELOG.md) for detailed feature list.
 To continue development from where we left off:
 
 1. Check current sprint status in this file
-2. Review [CHANGELOG.md](./CHANGELOG.md) for completed features
-3. See [SPRINT_BACKLOG.md](./SPRINT_BACKLOG.md) for detailed task breakdown
+2. Review [CHANGELOG.md](../../CHANGELOG.md) for completed features
+3. See [SPRINT_BACKLOG.md](../sprints/archive/SPRINT_BACKLOG.md) for detailed task breakdown
 4. Check git log for recent changes: `git log --oneline -20`
 
 **Current State:** Sprints 1-5 complete, Sprint 6 ready to start.
@@ -165,8 +165,8 @@ To continue development from where we left off:
 
 ## Related Documentation
 
-- [CHANGELOG.md](./CHANGELOG.md) - Completed features by version
-- [ARCHITECTURE.md](./ARCHITECTURE.md) - System architecture
-- [README.md](./README.md) - Quick start and API reference
-- [SPRINT_BACKLOG.md](./SPRINT_BACKLOG.md) - Detailed task breakdown
+- [CHANGELOG.md](../../CHANGELOG.md) - Completed features by version
+- [ARCHITECTURE.md](../architecture/tracehub-detailed-architecture.md) - System architecture
+- [README.md](../../README.md) - Quick start and API reference
+- [SPRINT_BACKLOG.md](../sprints/archive/SPRINT_BACKLOG.md) - Detailed task breakdown
 - [PRODUCT_ROADMAP.md](./PRODUCT_ROADMAP.md) - Full product strategy (detailed)
