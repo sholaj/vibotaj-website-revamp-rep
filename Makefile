@@ -16,7 +16,11 @@ setup: ## Initial setup - install pre-commit hooks and dependencies
 	pre-commit install || echo "Note: pre-commit not installed yet"
 	@echo ""
 	@echo "Creating secrets baseline..."
-	detect-secrets scan > .secrets.baseline || echo "Note: detect-secrets not installed yet"
+	@if [ ! -f .secrets.baseline ]; then \
+		detect-secrets scan > .secrets.baseline || echo "Note: detect-secrets not installed yet"; \
+	else \
+		echo ".secrets.baseline already exists - skipping. Run 'detect-secrets scan' manually to update."; \
+	fi
 	@echo ""
 	@echo "Setup complete! Remember to:"
 	@echo "  1. Edit .env files with your configuration"

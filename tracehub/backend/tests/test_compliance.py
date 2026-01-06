@@ -76,11 +76,16 @@ class TestEUDRCompliance:
         
         This is the core logic that should be implemented in the
         compliance module. It checks the HS code against EUDR Annex I.
-        """
-        # TODO: Replace this with actual is_eudr_required function
-        # from app.services.compliance import is_eudr_required
         
+        TODO: Replace this with actual is_eudr_required function
+              from app.services.compliance import is_eudr_required
+        
+        Note: EUDR_CODES list should be maintained in a single location
+              (e.g., app/services/compliance.py or config) to ensure
+              consistency with docs/COMPLIANCE_MATRIX.md
+        """
         # Simplified implementation for demonstration
+        # This duplicates the logic for test purposes only
         EUDR_CODES = ['1801', '0901', '1511', '4001', '1201']
         result = any(hs_code.startswith(c) for c in EUDR_CODES)
         

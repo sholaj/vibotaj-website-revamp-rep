@@ -153,7 +153,7 @@ As a [user type], I want to [action], so that [benefit].
 
 ### Critical Validation
 - [ ] **Horn/Hoof (HS 0506/0507): NO EUDR fields added**
-- [ ] Compliance matrix consulted and followed
+- [ ] Compliance matrix (`docs/COMPLIANCE_MATRIX.md`) consulted and followed
 - [ ] Document requirements match HS code
 
 ---

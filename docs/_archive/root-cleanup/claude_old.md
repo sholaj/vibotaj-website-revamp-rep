@@ -1,4 +1,4 @@
-l/Below is a **directional task request** you can send to your development architect, with a clearly defined **proof‑of‑concept deliverable**.
+# Below is a **directional task request** you can send to your development architect, with a clearly defined **proof‑of‑concept deliverable**.
 
 ***
 
