@@ -11,6 +11,7 @@ RUN apt-get update && apt-get install -y \
     poppler-utils \
     libjpeg-dev \
     zlib1g-dev \
+    curl \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy requirements first for caching
