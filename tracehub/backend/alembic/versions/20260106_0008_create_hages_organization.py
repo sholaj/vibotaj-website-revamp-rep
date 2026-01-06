@@ -26,12 +26,13 @@ VIBOTAJ_ORG_ID = uuid.UUID('00000000-0000-0000-0000-000000000001')
 # HAGES users with pre-generated bcrypt password hashes
 # Passwords: Hages2026Helge!, Hages2026Mats!, Hages2026Eike!
 # Users should reset on first login
+# Note: role must use enum name (BUYER), not value (buyer)
 HAGES_USERS = [
     {
         "id": uuid.UUID('00000000-0000-0000-0002-000000000001'),
         "email": "helge.bischoff@hages.de",
         "full_name": "Helge Bischoff",
-        "role": "buyer",
+        "role": "BUYER",
         "org_role": "owner",
         "hashed_password": "$2b$12$oDVLgHGn1H7FfILzA69Pde1dlTALTqJ3FKsUidzNv/mnVBnwV.Bui"
     },
@@ -39,7 +40,7 @@ HAGES_USERS = [
         "id": uuid.UUID('00000000-0000-0000-0002-000000000002'),
         "email": "mats.jarsetz@hages.de",
         "full_name": "Mats Morten Jarsetz",
-        "role": "buyer",
+        "role": "BUYER",
         "org_role": "admin",
         "hashed_password": "$2b$12$BgH7pEU0EifVhsWOKtVO8.wGbDe64QpIvaCIo8lA9.8kYawvFo986"
     },
@@ -47,7 +48,7 @@ HAGES_USERS = [
         "id": uuid.UUID('00000000-0000-0000-0002-000000000003'),
         "email": "eike.pannen@hages.de",
         "full_name": "Eike Pannen",
-        "role": "buyer",
+        "role": "BUYER",
         "org_role": "admin",
         "hashed_password": "$2b$12$EbHTkwYAStX8c/KmELXEW.tJzgu3ccjAu4pyqKTPwb24fIVXRG6t2"
     },
