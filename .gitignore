@@ -195,6 +195,7 @@ logs/
 # TESTING
 # ===========================================
 /coverage/
+.coverage
 .nyc_output/
 *.lcov
 /tests/output/
