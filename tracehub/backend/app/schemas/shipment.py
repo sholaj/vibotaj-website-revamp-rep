@@ -83,8 +83,8 @@ class ProductInfo(BaseModel):
 class EventInfo(BaseModel):
     """Container event in responses."""
     id: UUID
-    event_type: str
-    event_timestamp: datetime
+    event_status: str  # Matches ContainerEvent.event_status
+    event_time: datetime  # Matches ContainerEvent.event_time
     location_code: Optional[str] = None
     location_name: Optional[str] = None
     vessel_name: Optional[str] = None

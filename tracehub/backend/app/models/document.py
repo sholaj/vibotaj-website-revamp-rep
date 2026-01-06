@@ -2,9 +2,9 @@
 
 import uuid
 import enum
-from datetime import datetime, date
-from sqlalchemy import Column, String, DateTime, Date, ForeignKey, Enum, Boolean, Integer, Text
-from sqlalchemy.dialects.postgresql import UUID, JSONB
+from datetime import datetime
+from sqlalchemy import Column, String, DateTime, ForeignKey, Enum, Integer, Text
+from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from ..database import Base
 
@@ -31,63 +31,60 @@ class DocumentType(str, enum.Enum):
 
 
 class DocumentStatus(str, enum.Enum):
-    """Document lifecycle states."""
-    DRAFT = "draft"
-    UPLOADED = "uploaded"
-    VALIDATED = "validated"
-    COMPLIANCE_OK = "compliance_ok"
-    COMPLIANCE_FAILED = "compliance_failed"
-    LINKED = "linked"
-    ARCHIVED = "archived"
+    """Document lifecycle states.
+
+    Note: DB has (UPLOADED, PENDING_VALIDATION, VALIDATED, REJECTED, EXPIRED)
+    but code also uses (DRAFT, COMPLIANCE_OK, COMPLIANCE_FAILED, LINKED, ARCHIVED)
+    Keeping both sets for compatibility until refactor.
+    """
+    # DB values
+    UPLOADED = "UPLOADED"
+    PENDING_VALIDATION = "PENDING_VALIDATION"
+    VALIDATED = "VALIDATED"
+    REJECTED = "REJECTED"
+    EXPIRED = "EXPIRED"
+    # Legacy/code values (TODO: migrate these)
+    DRAFT = "DRAFT"
+    COMPLIANCE_OK = "COMPLIANCE_OK"
+    COMPLIANCE_FAILED = "COMPLIANCE_FAILED"
+    LINKED = "LINKED"
+    ARCHIVED = "ARCHIVED"
 
 
 class Document(Base):
-    """Document entity - files attached to shipments."""
+    """Document entity - files attached to shipments (matches production schema)."""
 
     __tablename__ = "documents"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    shipment_id = Column(UUID(as_uuid=True), ForeignKey("shipments.id"), nullable=False)
+    shipment_id = Column(UUID(as_uuid=True), ForeignKey("shipments.id", ondelete="CASCADE"), nullable=False)
 
     # Document classification
-    document_type = Column(Enum(DocumentType), nullable=False)  # Primary type
-    document_types = Column(JSONB, default=[])  # Multiple types when PDF contains several docs
     name = Column(String(255), nullable=False)
+    document_type = Column(Enum(DocumentType, name="documenttype", create_type=False), nullable=False)
+    status = Column(Enum(DocumentStatus, name="documentstatus", create_type=False), nullable=False)
 
     # File information
-    file_path = Column(String(500))
     file_name = Column(String(255))
-    file_size_bytes = Column(Integer)
+    file_path = Column(String(500))
+    file_size = Column(Integer)  # Named file_size in DB, not file_size_bytes
     mime_type = Column(String(100))
 
-    # Status
-    status = Column(Enum(DocumentStatus), default=DocumentStatus.DRAFT, nullable=False)
-    required = Column(Boolean, default=True)
-
-    # Multi-document PDF flags
-    is_combined = Column(Boolean, default=False)  # True if PDF contains multiple document types
-    content_count = Column(Integer, default=1)  # Number of document types detected in this file
-    page_count = Column(Integer)  # Total pages in the PDF
-
     # Document metadata
-    reference_number = Column(String(100))  # Document's own reference
-    issue_date = Column(Date)
-    expiry_date = Column(Date)
-    issuing_authority = Column(String(255))
+    document_date = Column(DateTime(timezone=True))  # Named document_date in DB, not issue_date
+    expiry_date = Column(DateTime(timezone=True))
+    issuer = Column(String(255))  # Named issuer in DB, not issuing_authority
+    reference_number = Column(String(100))
 
     # Validation
     validation_notes = Column(Text)
-    uploaded_by = Column(String(100))
-    uploaded_at = Column(DateTime)
-    validated_at = Column(DateTime)
-    validated_by = Column(String(100))
-
-    # Additional metadata (flexible)
-    extra_data = Column(JSONB, default={})
+    validated_by = Column(UUID(as_uuid=True), ForeignKey("users.id"))
+    validated_at = Column(DateTime(timezone=True))
+    uploaded_by = Column(UUID(as_uuid=True), ForeignKey("users.id"))
 
     # Timestamps
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime(timezone=True), default=datetime.utcnow)
+    updated_at = Column(DateTime(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow)
 
     # Relationships
     shipment = relationship("Shipment", back_populates="documents")

@@ -157,7 +157,7 @@ async def get_shipment(
     latest_event = (
         db.query(ContainerEvent)
         .filter(ContainerEvent.shipment_id == shipment_id)
-        .order_by(ContainerEvent.event_timestamp.desc())
+        .order_by(ContainerEvent.event_time.desc())
         .first()
     )
 
@@ -216,7 +216,7 @@ async def get_shipment_events(
     events = (
         db.query(ContainerEvent)
         .filter(ContainerEvent.shipment_id == shipment_id)
-        .order_by(ContainerEvent.event_timestamp.asc())
+        .order_by(ContainerEvent.event_time.asc())
         .all()
     )
 
