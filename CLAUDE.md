@@ -93,7 +93,57 @@ refactor: description
 
 ## Current Focus
 
-**Sprint 8: EUDR Correction & Multi-Tenancy**
-- [ ] Remove EUDR fields from horn/hoof products
-- [ ] Implement organization model
-- [ ] Onboard HAGES as pilot customer
+**Sprint 8: EUDR Correction & Multi-Tenancy** - COMPLETED
+- [x] Remove EUDR fields from horn/hoof products
+- [x] Implement organization model
+- [x] Onboard HAGES as pilot customer
+
+---
+
+## Browser UI Testing
+
+**Puppeteer MCP Server** is installed for automated browser testing.
+
+### Available Tools
+After Claude Code restart, these puppeteer tools are available:
+- `puppeteer_launch` - Launch browser instance
+- `puppeteer_navigate` - Navigate to URL
+- `puppeteer_screenshot` - Capture screenshots
+- `puppeteer_click` - Click elements
+- `puppeteer_type` - Type text into inputs
+- `puppeteer_get_text` - Extract text from elements
+- `puppeteer_evaluate` - Execute JavaScript
+- `puppeteer_wait_for_selector` - Wait for elements
+
+### Example: Test Login Flow
+```
+1. Launch browser: puppeteer_launch
+2. Navigate: puppeteer_navigate to https://tracehub.vibotaj.com
+3. Type email: puppeteer_type in email input
+4. Type password: puppeteer_type in password input
+5. Click login: puppeteer_click on login button
+6. Screenshot: puppeteer_screenshot to verify
+```
+
+### Management
+```bash
+npx puppeteer-mcp-claude status    # Check installation
+npx puppeteer-mcp-claude uninstall # Remove if needed
+```
+
+---
+
+## Test Accounts
+
+### HAGES Organization (Buyer)
+| User | Email | Password |
+|------|-------|----------|
+| Helge Bischoff (owner) | helge.bischoff@hages.de | Hages2026Helge! |
+| Mats Morten Jarsetz (admin) | mats.jarsetz@hages.de | Hages2026Mats! |
+| Eike Pannen (admin) | eike.pannen@hages.de | Hages2026Eike! |
+
+### VIBOTAJ Organization (Exporter)
+| User | Email | Notes |
+|------|-------|-------|
+| Admin | admin@vibotaj.com | System admin |
+| Shola | shola@vibotaj.com | CEO/CTO |
