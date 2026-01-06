@@ -12,7 +12,6 @@ This migration creates:
 from typing import Sequence, Union
 from alembic import op
 import sqlalchemy as sa
-from passlib.context import CryptContext
 import uuid
 
 revision: str = '008'
@@ -20,14 +19,13 @@ down_revision: Union[str, None] = '007'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
-# Password hashing context
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-
 # Fixed UUIDs for reproducibility
 HAGES_ORG_ID = uuid.UUID('00000000-0000-0000-0000-000000000002')
 VIBOTAJ_ORG_ID = uuid.UUID('00000000-0000-0000-0000-000000000001')
 
-# HAGES users with initial passwords
+# HAGES users with pre-generated bcrypt password hashes
+# Passwords: Hages2026Helge!, Hages2026Mats!, Hages2026Eike!
+# Users should reset on first login
 HAGES_USERS = [
     {
         "id": uuid.UUID('00000000-0000-0000-0002-000000000001'),
@@ -35,7 +33,7 @@ HAGES_USERS = [
         "full_name": "Helge Bischoff",
         "role": "buyer",
         "org_role": "owner",
-        "password": "Hages2026Helge!"  # Will be reset on first login
+        "hashed_password": "$2b$12$oDVLgHGn1H7FfILzA69Pde1dlTALTqJ3FKsUidzNv/mnVBnwV.Bui"
     },
     {
         "id": uuid.UUID('00000000-0000-0000-0002-000000000002'),
@@ -43,7 +41,7 @@ HAGES_USERS = [
         "full_name": "Mats Morten Jarsetz",
         "role": "buyer",
         "org_role": "admin",
-        "password": "Hages2026Mats!"  # Will be reset on first login
+        "hashed_password": "$2b$12$BgH7pEU0EifVhsWOKtVO8.wGbDe64QpIvaCIo8lA9.8kYawvFo986"
     },
     {
         "id": uuid.UUID('00000000-0000-0000-0002-000000000003'),
@@ -51,7 +49,7 @@ HAGES_USERS = [
         "full_name": "Eike Pannen",
         "role": "buyer",
         "org_role": "admin",
-        "password": "Hages2026Eike!"  # Will be reset on first login
+        "hashed_password": "$2b$12$EbHTkwYAStX8c/KmELXEW.tJzgu3ccjAu4pyqKTPwb24fIVXRG6t2"
     },
 ]
 
@@ -106,8 +104,6 @@ def upgrade() -> None:
     print("Step 2/3: Creating HAGES users...")
 
     for user_data in HAGES_USERS:
-        hashed_password = pwd_context.hash(user_data["password"])
-
         connection.execute(sa.text("""
             INSERT INTO users (
                 id, email, full_name, hashed_password, role,
@@ -131,7 +127,7 @@ def upgrade() -> None:
             "user_id": str(user_data["id"]),
             "email": user_data["email"],
             "full_name": user_data["full_name"],
-            "hashed_password": hashed_password,
+            "hashed_password": user_data["hashed_password"],
             "role": user_data["role"],
             "org_id": str(HAGES_ORG_ID)
         })
@@ -176,11 +172,10 @@ def upgrade() -> None:
     print(f"Type:          buyer")
     print(f"Users:         {len(HAGES_USERS)} created")
     print("-"*60)
-    print("User Credentials (initial - should be reset on first login):")
+    print("Users created:")
     for user in HAGES_USERS:
         print(f"  {user['full_name']} ({user['org_role']})")
         print(f"    Email: {user['email']}")
-        print(f"    Password: {user['password']}")
     print("="*60 + "\n")
 
 
