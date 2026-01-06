@@ -69,7 +69,7 @@ tracehub/
 
 **YES** - The `tracehub/` directory contains the complete TraceHub application:
 
-- **Backend:** FastAPI (Python 3.11) with 56 Python files
+- **Backend:** FastAPI (Python 3.11) with 49 Python files (excluding __init__.py)
 - **Frontend:** React 18 (TypeScript) with 22 TS/TSX files
 - **Database:** PostgreSQL with Alembic migrations
 - **Documentation:** Architecture, API specs, and sprint docs
@@ -80,13 +80,13 @@ tracehub/
 **YES** - Excellent separation of concerns:
 
 #### Backend (FastAPI)
-- ✅ **Models** (13 files): SQLAlchemy ORM models for database entities
+- ✅ **Models** (12 files): SQLAlchemy ORM models for database entities
   - `user.py`, `organization.py`, `shipment.py`, `document.py`, etc.
-- ✅ **Routers** (11 files): API endpoint handlers
+- ✅ **Routers** (10 files): API endpoint handlers
   - `auth.py`, `shipments.py`, `documents.py`, `eudr.py`, etc.
-- ✅ **Services** (16 files): Business logic layer
+- ✅ **Services** (15 files): Business logic layer
   - `compliance.py`, `eudr.py`, `document_classifier.py`, `pdf_processor.py`, etc.
-- ✅ **Schemas** (7 files): Pydantic models for request/response validation
+- ✅ **Schemas** (6 files): Pydantic models for request/response validation
   - `user.py`, `shipment.py`, `document.py`, `organization.py`, etc.
 - ✅ **Middleware**: Request tracking, rate limiting, error handling
 - ✅ **Utils**: Helper functions and utilities
@@ -115,7 +115,7 @@ tracehub/
   - `make test-coverage` - Generate coverage report
 
 #### Test Coverage Gap
-- ⚠️ **Only 2 actual test files** (plus conftest.py for fixtures) for 56 Python application files
+- ⚠️ **Only 2 actual test files** (plus conftest.py fixtures and __init__.py) for 49 Python application files
 - ⚠️ **Missing tests for:**
   - Most routers (API endpoints)
   - Service layer business logic
@@ -186,7 +186,7 @@ tracehub/
 ## Recommendations
 
 ### Priority 1: Expand Test Coverage
-**Gap:** Only 3 formal test files for 56+ application files
+**Gap:** Only 2 test files (plus fixtures) for 49 application files
 
 **Recommendation:**
 - Add unit tests for critical services (compliance, EUDR, document classification)
