@@ -36,8 +36,8 @@ This sprint introduces multi-tenancy to TraceHub, transforming it from a single-
 ### For Product Owners
 1. Executive Summary: **SPRINT8_MIGRATION_SUMMARY.md**
 2. Timeline: **[DEPLOYMENT_CHECKLIST.md](../../../deployment/DEPLOYMENT_CHECKLIST.md)** (deployment phases)
-3. Risk Assessment: **MIGRATION_PLAN_SPRINT8.md** (section 10)
-4. Success Criteria: **MIGRATION_PLAN_SPRINT8.md** (section 13)
+3. Risk Assessment: **[MIGRATION_PLAN_SPRINT8.md](MIGRATION_PLAN_SPRINT8.md)** (section 10)
+4. Success Criteria: **[MIGRATION_PLAN_SPRINT8.md](MIGRATION_PLAN_SPRINT8.md)** (section 13)
 
 ---
 
