@@ -202,6 +202,48 @@ git checkout -b feature/tracehub-backend
 
 ---
 
+## Operational Pillars
+
+TraceHub is built on modern DevOps principles with a comprehensive operational infrastructure:
+
+### Infrastructure & Tooling
+
+1. **GitOps** - All infrastructure and deployments are version-controlled
+   - Branch-based deployment strategy (`main` → Production, `develop` → Staging)
+   - Configuration as Code in GitHub repository
+
+2. **GitHub Actions** - Automated CI/CD pipeline
+   - Parallel testing (backend, frontend, database migrations)
+   - Docker image builds to GitHub Container Registry
+   - Environment-specific deployments with health checks
+   - See `.github/workflows/` for all pipelines
+
+3. **GitHub CLI (`gh`)** - Command-line GitHub operations
+   - Workflow triggering and secret management
+   - Integration with deployment scripts
+
+4. **Hostinger MCP** - VPS management via Model Context Protocol
+   - Direct VPS control through Claude integration
+   - DNS, SSL, and server configuration management
+   - API-driven infrastructure operations
+
+5. **Multi-Environment Setup** - Single VPS with port isolation
+   - **Production**: https://tracehub.vibotaj.com (ports 8000/3000/5432)
+   - **Staging**: https://staging.tracehub.vibotaj.com (ports 8100/3100/5532)
+   - Blue-green deployment for production
+   - Automatic rollback on failure
+
+### Key Documentation
+
+| Document | Purpose |
+|----------|---------|
+| [`CLAUDE.md`](CLAUDE.md) | AI agent quick reference and operational overview |
+| [`tracehub/DEVOPS.md`](tracehub/DEVOPS.md) | Complete DevOps documentation |
+| [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) | Deployment procedures |
+| [`docs/infrastructure/`](docs/infrastructure/) | SSL, DNS, and backup configuration |
+
+---
+
 ## Roadmap
 
 ### Current Phase: Single-Shipment POC
