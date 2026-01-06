@@ -14,7 +14,7 @@ import shutil
 from ..database import get_db
 from ..config import get_settings
 from ..models import Document, DocumentType, DocumentStatus, DocumentContent, ReferenceRegistry, Shipment
-from ..routers.auth import get_current_user, get_current_active_user, User
+from ..routers.auth import get_current_active_user
 from ..schemas.user import CurrentUser
 from ..services.validation import (
     validate_document as run_validation,
@@ -316,10 +316,13 @@ async def upload_document(
 async def get_document(
     document_id: UUID,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: CurrentUser = Depends(get_current_active_user)
 ):
     """Get document metadata."""
-    document = db.query(Document).filter(Document.id == document_id).first()
+    document = db.query(Document).filter(
+        Document.id == document_id,
+        Document.organization_id == current_user.organization_id
+    ).first()
     if not document:
         raise HTTPException(status_code=404, detail="Document not found")
 
@@ -330,10 +333,13 @@ async def get_document(
 async def download_document(
     document_id: UUID,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: CurrentUser = Depends(get_current_active_user)
 ):
     """Download document file."""
-    document = db.query(Document).filter(Document.id == document_id).first()
+    document = db.query(Document).filter(
+        Document.id == document_id,
+        Document.organization_id == current_user.organization_id
+    ).first()
     if not document:
         raise HTTPException(status_code=404, detail="Document not found")
 
@@ -361,7 +367,10 @@ async def validate_document(
     # Check permission
     check_permission(current_user, Permission.DOCUMENTS_VALIDATE)
 
-    document = db.query(Document).filter(Document.id == document_id).first()
+    document = db.query(Document).filter(
+        Document.id == document_id,
+        Document.organization_id == current_user.organization_id
+    ).first()
     if not document:
         raise HTTPException(status_code=404, detail="Document not found")
 
@@ -390,7 +399,10 @@ async def delete_document(
     # Check permission
     check_permission(current_user, Permission.DOCUMENTS_DELETE)
 
-    document = db.query(Document).filter(Document.id == document_id).first()
+    document = db.query(Document).filter(
+        Document.id == document_id,
+        Document.organization_id == current_user.organization_id
+    ).first()
     if not document:
         raise HTTPException(status_code=404, detail="Document not found")
 
@@ -446,10 +458,13 @@ async def delete_all_shipment_documents(
 async def get_document_validation(
     document_id: UUID,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: CurrentUser = Depends(get_current_active_user)
 ):
     """Get validation status and required fields for a document."""
-    document = db.query(Document).filter(Document.id == document_id).first()
+    document = db.query(Document).filter(
+        Document.id == document_id,
+        Document.organization_id == current_user.organization_id
+    ).first()
     if not document:
         raise HTTPException(status_code=404, detail="Document not found")
 
@@ -476,7 +491,10 @@ async def get_document_transitions(
     current_user: CurrentUser = Depends(get_current_active_user)
 ):
     """Get allowed state transitions for a document."""
-    document = db.query(Document).filter(Document.id == document_id).first()
+    document = db.query(Document).filter(
+        Document.id == document_id,
+        Document.organization_id == current_user.organization_id
+    ).first()
     if not document:
         raise HTTPException(status_code=404, detail="Document not found")
 
@@ -512,7 +530,10 @@ async def transition_document_status(
     # Check permission
     check_permission(current_user, Permission.DOCUMENTS_TRANSITION)
 
-    document = db.query(Document).filter(Document.id == document_id).first()
+    document = db.query(Document).filter(
+        Document.id == document_id,
+        Document.organization_id == current_user.organization_id
+    ).first()
     if not document:
         raise HTTPException(status_code=404, detail="Document not found")
 
@@ -557,7 +578,10 @@ async def approve_document(
     # Check permission
     check_permission(current_user, Permission.DOCUMENTS_APPROVE)
 
-    document = db.query(Document).filter(Document.id == document_id).first()
+    document = db.query(Document).filter(
+        Document.id == document_id,
+        Document.organization_id == current_user.organization_id
+    ).first()
     if not document:
         raise HTTPException(status_code=404, detail="Document not found")
 
@@ -617,7 +641,10 @@ async def reject_document(
     # Check permission
     check_permission(current_user, Permission.DOCUMENTS_REJECT)
 
-    document = db.query(Document).filter(Document.id == document_id).first()
+    document = db.query(Document).filter(
+        Document.id == document_id,
+        Document.organization_id == current_user.organization_id
+    ).first()
     if not document:
         raise HTTPException(status_code=404, detail="Document not found")
 
@@ -673,10 +700,13 @@ async def update_document_metadata(
     document_id: UUID,
     update: DocumentMetadataUpdate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: CurrentUser = Depends(get_current_active_user)
 ):
     """Update document metadata fields."""
-    document = db.query(Document).filter(Document.id == document_id).first()
+    document = db.query(Document).filter(
+        Document.id == document_id,
+        Document.organization_id == current_user.organization_id
+    ).first()
     if not document:
         raise HTTPException(status_code=404, detail="Document not found")
 
@@ -712,7 +742,7 @@ async def get_expiring_documents(
     days: int = Query(default=30, ge=1, le=365, description="Days to look ahead"),
     shipment_id: Optional[UUID] = Query(default=None, description="Filter by shipment"),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: CurrentUser = Depends(get_current_active_user)
 ):
     """Get documents expiring within the specified timeframe."""
     query = db.query(Document).filter(Document.expiry_date.isnot(None))
@@ -733,7 +763,7 @@ async def get_expiring_documents(
 @router.get("/types/{document_type}/requirements")
 async def get_document_type_requirements(
     document_type: DocumentType,
-    current_user: User = Depends(get_current_user)
+    current_user: CurrentUser = Depends(get_current_active_user)
 ):
     """Get validation requirements for a document type."""
     required_fields = get_required_fields(document_type)
@@ -748,7 +778,7 @@ async def get_document_type_requirements(
 async def get_shipment_workflow_summary(
     shipment_id: UUID = Query(..., description="Shipment ID"),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: CurrentUser = Depends(get_current_active_user)
 ):
     """Get workflow summary for all documents in a shipment."""
     # Verify shipment exists
@@ -776,14 +806,17 @@ async def get_shipment_workflow_summary(
 async def get_document_contents(
     document_id: UUID,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: CurrentUser = Depends(get_current_active_user)
 ):
     """Get all document contents (detected document types) within a PDF.
 
     For combined PDFs, returns each detected document type with its
     page range, validation status, and reference number.
     """
-    document = db.query(Document).filter(Document.id == document_id).first()
+    document = db.query(Document).filter(
+        Document.id == document_id,
+        Document.organization_id == current_user.organization_id
+    ).first()
     if not document:
         raise HTTPException(status_code=404, detail="Document not found")
 
@@ -846,7 +879,10 @@ async def validate_document_content(
         content.validation_notes = notes
 
     # Check if all contents are validated
-    document = db.query(Document).filter(Document.id == document_id).first()
+    document = db.query(Document).filter(
+        Document.id == document_id,
+        Document.organization_id == current_user.organization_id
+    ).first()
     all_contents = db.query(DocumentContent).filter(
         DocumentContent.document_id == document_id
     ).all()
@@ -897,7 +933,10 @@ async def reject_document_content(
     content.validation_notes = request.notes
 
     # If any content is rejected, the whole document is compliance_failed
-    document = db.query(Document).filter(Document.id == document_id).first()
+    document = db.query(Document).filter(
+        Document.id == document_id,
+        Document.organization_id == current_user.organization_id
+    ).first()
     if document:
         document.status = DocumentStatus.COMPLIANCE_FAILED
         document.validation_notes = f"Content rejected: {content.document_type.value} - {request.notes}"
@@ -925,7 +964,10 @@ async def confirm_detection(
     """
     check_permission(current_user, Permission.DOCUMENTS_UPLOAD)
 
-    document = db.query(Document).filter(Document.id == document_id).first()
+    document = db.query(Document).filter(
+        Document.id == document_id,
+        Document.organization_id == current_user.organization_id
+    ).first()
     if not document:
         raise HTTPException(status_code=404, detail="Document not found")
 
@@ -968,13 +1010,16 @@ async def confirm_detection(
 async def analyze_document(
     document_id: UUID,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: CurrentUser = Depends(get_current_active_user)
 ):
     """Re-analyze a document to detect document types.
 
     Useful for documents uploaded without auto-detection.
     """
-    document = db.query(Document).filter(Document.id == document_id).first()
+    document = db.query(Document).filter(
+        Document.id == document_id,
+        Document.organization_id == current_user.organization_id
+    ).first()
     if not document:
         raise HTTPException(status_code=404, detail="Document not found")
 
@@ -1024,7 +1069,7 @@ async def analyze_document(
 async def get_shipment_duplicates(
     shipment_id: UUID,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: CurrentUser = Depends(get_current_active_user)
 ):
     """Get all potential duplicate documents in a shipment.
 
@@ -1076,7 +1121,7 @@ async def check_duplicate_reference(
     reference_number: str = Query(..., description="Reference number to check"),
     document_type: DocumentType = Query(..., description="Document type"),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: CurrentUser = Depends(get_current_active_user)
 ):
     """Check if a reference number already exists for a shipment."""
     existing = db.query(ReferenceRegistry).filter(
@@ -1105,7 +1150,7 @@ async def check_duplicate_reference(
 
 @router.get("/ai/status")
 async def get_ai_status(
-    current_user: User = Depends(get_current_user)
+    current_user: CurrentUser = Depends(get_current_active_user)
 ):
     """Get AI document classification availability status.
 
@@ -1143,7 +1188,7 @@ async def get_ai_status(
 async def test_ai_classification(
     text: str = Body(..., embed=True, description="Sample text to classify"),
     prefer_ai: bool = Body(True, embed=True, description="Try AI first (if available)"),
-    current_user: User = Depends(get_current_user)
+    current_user: CurrentUser = Depends(get_current_active_user)
 ):
     """Test document classification with sample text.
 
@@ -1189,7 +1234,10 @@ async def extract_shipment_data(
     """
     check_permission(current_user, Permission.DOCUMENTS_UPLOAD)
 
-    document = db.query(Document).filter(Document.id == document_id).first()
+    document = db.query(Document).filter(
+        Document.id == document_id,
+        Document.organization_id == current_user.organization_id
+    ).first()
     if not document:
         raise HTTPException(status_code=404, detail="Document not found")
 
@@ -1241,14 +1289,17 @@ async def extract_shipment_data(
 async def preview_extraction(
     document_id: UUID,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: CurrentUser = Depends(get_current_active_user)
 ):
     """Preview what data would be extracted from a document.
 
     This endpoint shows what data can be extracted without actually
     updating the shipment. Useful for reviewing before applying changes.
     """
-    document = db.query(Document).filter(Document.id == document_id).first()
+    document = db.query(Document).filter(
+        Document.id == document_id,
+        Document.organization_id == current_user.organization_id
+    ).first()
     if not document:
         raise HTTPException(status_code=404, detail="Document not found")
 

@@ -8,7 +8,8 @@ from pydantic import BaseModel
 
 from ..database import get_db
 from ..models.notification import Notification, NotificationType
-from ..routers.auth import get_current_user, User
+from ..routers.auth import get_current_active_user
+from ..schemas.user import CurrentUser
 from ..services.notifications import NotificationService
 
 router = APIRouter()
@@ -63,7 +64,7 @@ async def get_notifications(
     limit: int = Query(default=50, ge=1, le=100, description="Maximum notifications to return"),
     offset: int = Query(default=0, ge=0, description="Number of notifications to skip"),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: CurrentUser = Depends(get_current_active_user)
 ):
     """
     Get current user's notifications.
@@ -114,7 +115,7 @@ async def get_notifications(
 @router.get("/unread-count", response_model=UnreadCountResponse)
 async def get_unread_count(
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: CurrentUser = Depends(get_current_active_user)
 ):
     """
     Get count of unread notifications for current user.
@@ -131,7 +132,7 @@ async def get_unread_count(
 async def mark_notification_read(
     notification_id: UUID,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: CurrentUser = Depends(get_current_active_user)
 ):
     """
     Mark a specific notification as read.
@@ -160,7 +161,7 @@ async def mark_notification_read(
 @router.post("/read-all", response_model=MarkReadResponse)
 async def mark_all_notifications_read(
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: CurrentUser = Depends(get_current_active_user)
 ):
     """
     Mark all notifications as read for current user.
@@ -179,7 +180,7 @@ async def mark_all_notifications_read(
 async def delete_notification(
     notification_id: UUID,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: CurrentUser = Depends(get_current_active_user)
 ):
     """
     Delete a notification.
@@ -204,7 +205,7 @@ async def delete_notification(
 
 @router.get("/types")
 async def get_notification_types(
-    current_user: User = Depends(get_current_user)
+    current_user: CurrentUser = Depends(get_current_active_user)
 ):
     """
     Get available notification types with descriptions.

@@ -12,7 +12,8 @@ import json
 
 from ..database import get_db
 from ..models import Shipment, Origin, Product
-from ..routers.auth import get_current_user, User
+from ..routers.auth import get_current_active_user
+from ..schemas.user import CurrentUser
 from ..services.eudr import (
     validate_origin_data,
     validate_production_date,
@@ -109,7 +110,7 @@ class RiskAssessmentResponse(BaseModel):
 async def get_eudr_status(
     shipment_id: UUID,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: CurrentUser = Depends(get_current_active_user)
 ):
     """
     Get EUDR compliance status for a shipment.
@@ -120,7 +121,10 @@ async def get_eudr_status(
     - Compliance checklist
     - Origin validation details
     """
-    shipment = db.query(Shipment).filter(Shipment.id == shipment_id).first()
+    shipment = db.query(Shipment).filter(
+        Shipment.id == shipment_id,
+        Shipment.organization_id == current_user.organization_id
+    ).first()
     if not shipment:
         raise HTTPException(status_code=404, detail="Shipment not found")
 
@@ -132,7 +136,7 @@ async def get_eudr_status(
 async def validate_shipment_eudr(
     shipment_id: UUID,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: CurrentUser = Depends(get_current_active_user)
 ):
     """
     Run full EUDR validation on a shipment.
@@ -146,7 +150,10 @@ async def validate_shipment_eudr(
 
     Returns detailed validation results with actionable feedback.
     """
-    shipment = db.query(Shipment).filter(Shipment.id == shipment_id).first()
+    shipment = db.query(Shipment).filter(
+        Shipment.id == shipment_id,
+        Shipment.organization_id == current_user.organization_id
+    ).first()
     if not shipment:
         raise HTTPException(status_code=404, detail="Shipment not found")
 
@@ -193,7 +200,7 @@ async def get_eudr_report(
     shipment_id: UUID,
     format: str = "json",
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: CurrentUser = Depends(get_current_active_user)
 ):
     """
     Generate EUDR compliance report for a shipment.
@@ -207,7 +214,10 @@ async def get_eudr_report(
     Query Parameters:
         format: Output format - 'json' or 'pdf' (default: json)
     """
-    shipment = db.query(Shipment).filter(Shipment.id == shipment_id).first()
+    shipment = db.query(Shipment).filter(
+        Shipment.id == shipment_id,
+        Shipment.organization_id == current_user.organization_id
+    ).first()
     if not shipment:
         raise HTTPException(status_code=404, detail="Shipment not found")
 
@@ -323,7 +333,7 @@ async def verify_origin(
     origin_id: UUID,
     verification: Optional[OriginVerificationRequest] = None,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: CurrentUser = Depends(get_current_active_user)
 ):
     """
     Verify origin data for EUDR compliance.
@@ -416,7 +426,7 @@ async def verify_origin(
 async def get_origin_risk(
     origin_id: UUID,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: CurrentUser = Depends(get_current_active_user)
 ):
     """Get deforestation risk assessment for an origin."""
     origin = db.query(Origin).filter(Origin.id == origin_id).first()
@@ -439,7 +449,7 @@ async def get_origin_risk(
 @router.post("/check/geolocation")
 async def check_geolocation(
     request: GeolocationCheckRequest,
-    current_user: User = Depends(get_current_user)
+    current_user: CurrentUser = Depends(get_current_active_user)
 ):
     """
     Check if geolocation coordinates are valid and within country boundaries.
@@ -472,7 +482,7 @@ async def check_geolocation(
 @router.post("/check/production-date")
 async def check_production_date(
     request: ProductionDateCheckRequest,
-    current_user: User = Depends(get_current_user)
+    current_user: CurrentUser = Depends(get_current_active_user)
 ):
     """
     Check if production date meets EUDR requirements.
@@ -492,7 +502,7 @@ async def check_production_date(
 
 @router.get("/countries/risk-levels")
 async def get_country_risk_levels(
-    current_user: User = Depends(get_current_user)
+    current_user: CurrentUser = Depends(get_current_active_user)
 ):
     """
     Get list of countries with their EUDR risk levels.
@@ -521,7 +531,7 @@ async def get_country_risk_levels(
 
 @router.get("/regulation/info")
 async def get_regulation_info(
-    current_user: User = Depends(get_current_user)
+    current_user: CurrentUser = Depends(get_current_active_user)
 ):
     """
     Get information about the EUDR regulation.

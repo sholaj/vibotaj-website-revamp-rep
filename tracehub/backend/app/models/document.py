@@ -82,6 +82,14 @@ class Document(Base):
     validated_at = Column(DateTime(timezone=True))
     uploaded_by = Column(UUID(as_uuid=True), ForeignKey("users.id"))
 
+    # Organization (multi-tenancy)
+    organization_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("organizations.id"),
+        nullable=True,  # Nullable for backward compatibility
+        index=True
+    )
+
     # Timestamps
     created_at = Column(DateTime(timezone=True), default=datetime.utcnow)
     updated_at = Column(DateTime(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow)

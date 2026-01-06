@@ -8,7 +8,8 @@ from pydantic import BaseModel
 from uuid import UUID
 
 from ..database import get_db
-from ..routers.auth import get_current_user, User
+from ..routers.auth import get_current_active_user
+from ..schemas.user import CurrentUser
 from ..services.audit_log import get_audit_logger, AuditAction
 
 router = APIRouter()
@@ -53,7 +54,7 @@ async def get_audit_logs(
     limit: int = Query(50, ge=1, le=500, description="Maximum results"),
     offset: int = Query(0, ge=0, description="Results to skip"),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: CurrentUser = Depends(get_current_active_user)
 ):
     """
     Query audit logs with filtering.
@@ -130,7 +131,7 @@ async def get_audit_logs(
 async def get_recent_activity(
     limit: int = Query(20, ge=1, le=100, description="Number of activities"),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: CurrentUser = Depends(get_current_active_user)
 ):
     """
     Get recent activity feed for dashboard.
@@ -148,7 +149,7 @@ async def get_recent_activity(
 async def get_audit_summary(
     days: int = Query(7, ge=1, le=30, description="Look back period"),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: CurrentUser = Depends(get_current_active_user)
 ):
     """
     Get summary statistics from audit logs.

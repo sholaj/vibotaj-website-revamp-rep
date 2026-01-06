@@ -8,7 +8,8 @@ from typing import Optional
 
 from ..database import get_db
 from ..models import Shipment, ContainerEvent, EventStatus
-from ..routers.auth import get_current_user, User
+from ..routers.auth import get_current_active_user
+from ..schemas.user import CurrentUser
 from ..services.jsoncargo import get_jsoncargo_client
 
 router = APIRouter()
@@ -18,15 +19,16 @@ router = APIRouter()
 async def get_container_status(
     container_number: str,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: CurrentUser = Depends(get_current_active_user)
 ):
     """Get current container tracking status.
 
     Returns both database status and live tracking data from JSONCargo.
     """
-    # Find shipment by container number
+    # Find shipment by container number (filtered by organization)
     shipment = db.query(Shipment).filter(
-        Shipment.container_number == container_number
+        Shipment.container_number == container_number,
+        Shipment.organization_id == current_user.organization_id
     ).first()
 
     if not shipment:
@@ -67,7 +69,7 @@ async def get_container_status(
 async def get_live_tracking(
     container_number: str,
     shipping_line: Optional[str] = None,
-    current_user: User = Depends(get_current_user)
+    current_user: CurrentUser = Depends(get_current_active_user)
 ):
     """Get live container tracking directly from JSONCargo.
 
@@ -93,7 +95,7 @@ async def get_live_tracking(
 async def get_tracking_by_bol(
     bl_number: str,
     shipping_line: str,
-    current_user: User = Depends(get_current_user)
+    current_user: CurrentUser = Depends(get_current_active_user)
 ):
     """Get container tracking by Bill of Lading number.
 
@@ -118,13 +120,16 @@ async def get_tracking_by_bol(
 async def refresh_tracking(
     shipment_id: UUID,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: CurrentUser = Depends(get_current_active_user)
 ):
     """Refresh tracking data for a shipment from JSONCargo.
 
     Fetches latest tracking data and syncs new events to the database.
     """
-    shipment = db.query(Shipment).filter(Shipment.id == shipment_id).first()
+    shipment = db.query(Shipment).filter(
+        Shipment.id == shipment_id,
+        Shipment.organization_id == current_user.organization_id
+    ).first()
     if not shipment:
         raise HTTPException(status_code=404, detail="Shipment not found")
 
@@ -198,7 +203,7 @@ async def refresh_tracking(
 
 @router.get("/usage")
 async def get_api_usage(
-    current_user: User = Depends(get_current_user)
+    current_user: CurrentUser = Depends(get_current_active_user)
 ):
     """Get JSONCargo API usage statistics.
 

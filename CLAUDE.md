@@ -1,11 +1,12 @@
+
 # TraceHub - Project Context
 
 > Single source of truth for AI-assisted development
 
 ## Project
 
-**TraceHub** - Container tracking & compliance platform for VIBOTAJ Global Nigeria Ltd  
-**EU TRACES:** RC1479592 | **Production:** https://tracehub.vibotaj.com  
+**TraceHub** - Container tracking & compliance platform for VIBOTAJ Global Nigeria Ltd
+**EU TRACES:** RC1479592 | **Production:** https://tracehub.vibotaj.com
 **Stack:** FastAPI (Python 3.11) + React 18 (TypeScript) + PostgreSQL
 
 ## Team
@@ -15,24 +16,24 @@
 
 ---
 
-## 🚨 CRITICAL BUSINESS RULES
+## CRITICAL BUSINESS RULES
 
 ### EUDR Compliance - READ FIRST
 
 **Horn & Hoof (HS 0506/0507) = NOT covered by EUDR**
 
 NEVER add to horn/hoof products:
-- ❌ Geolocation coordinates
-- ❌ Deforestation statements
-- ❌ EUDR risk scores
+- Geolocation coordinates
+- Deforestation statements
+- EUDR risk scores
 
 REQUIRED documents for horn/hoof:
-- ✅ EU TRACES (RC1479592)
-- ✅ Veterinary Health Cert
-- ✅ Certificate of Origin
-- ✅ Bill of Lading
-- ✅ Commercial Invoice
-- ✅ Packing List
+- EU TRACES (RC1479592)
+- Veterinary Health Cert
+- Certificate of Origin
+- Bill of Lading
+- Commercial Invoice
+- Packing List
 
 **Check `docs/COMPLIANCE_MATRIX.md` before any compliance work.**
 
@@ -67,7 +68,7 @@ refactor: description
 **Follow this deployment pipeline for ALL changes:**
 
 ```
-feature branch → test locally → develop → staging → main → production
+feature branch -> test locally -> develop -> staging -> main -> production
 ```
 
 ### Branch Strategy
@@ -111,9 +112,9 @@ feature branch → test locally → develop → staging → main → production
    ```
 
 ### NEVER Skip Steps
-- ❌ Don't push directly to `main` without staging verification
-- ❌ Don't deploy to production without testing on staging
-- ❌ Don't merge untested code to `develop`
+- Don't push directly to `main` without staging verification
+- Don't deploy to production without testing on staging
+- Don't merge untested code to `develop`
 
 ---
 
@@ -179,12 +180,65 @@ feature branch → test locally → develop → staging → main → production
 
 ---
 
-## Current Focus
+## Architecture References
 
-**Sprint 8: EUDR Correction & Multi-Tenancy** - COMPLETED
-- [x] Remove EUDR fields from horn/hoof products
-- [x] Implement organization model
-- [x] Onboard HAGES as pilot customer
+| Document | Purpose |
+|----------|---------|
+| `docs/COMPLIANCE_MATRIX.md` | HS codes & required documents |
+| `docs/decisions/` | Architecture Decision Records |
+| `tracehub/backend/alembic/versions/` | Database migration history |
+| `tracehub/backend/app/routers/` | API endpoint implementations |
+| `tracehub/backend/app/models/` | SQLAlchemy data models |
+| `CHANGELOG.md` | Release history and changes |
+
+---
+
+## Multi-Tenancy Implementation - IMPORTANT
+
+All API routers MUST implement organization-based data isolation.
+
+### Required Pattern for All Endpoints
+
+**1. Import the correct dependency:**
+```python
+from ..routers.auth import get_current_active_user
+from ..schemas.auth import CurrentUser
+```
+
+**2. Use CurrentUser in function signature:**
+```python
+async def endpoint_name(
+    current_user: CurrentUser = Depends(get_current_active_user)
+):
+```
+
+**3. Filter all queries by organization_id:**
+```python
+query = db.query(Model).filter(Model.organization_id == current_user.organization_id)
+```
+
+### NEVER Use Legacy Pattern
+```python
+# WRONG - Does not include organization_id
+from ..routers.auth import get_current_user, User
+current_user: User = Depends(get_current_user)
+```
+
+### Router Reference
+
+| Router | Endpoints | Data Filtering |
+|--------|-----------|----------------|
+| `shipments.py` | 12 | organization_id |
+| `documents.py` | 15 | organization_id |
+| `tracking.py` | 5 | organization_id |
+| `eudr.py` | 9 | organization_id |
+| `notifications.py` | 6 | user_id |
+| `audit.py` | 3 | admin access |
+
+### Multi-Tenancy Principles
+- **Data Isolation:** Users only see their organization's data
+- **Security:** Prevents cross-tenant data leakage
+- **Compliance:** Required for multi-buyer support
 
 ---
 
