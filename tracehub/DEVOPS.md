@@ -405,7 +405,7 @@ STAGING_HOST           - VPS hostname (e.g., tracehub.vibotaj.com)
 STAGING_USER           - SSH username
 STAGING_DB_PASSWORD    - Database password
 STAGING_JWT_SECRET     - JWT signing secret
-VIZION_API_KEY         - Vizion API key (shared)
+JSONCARGO_API_KEY      - JSONCargo API key (container tracking)
 DEMO_PASSWORD          - Demo user password
 ```
 
@@ -417,7 +417,7 @@ PRODUCTION_HOST        - VPS hostname
 PRODUCTION_USER        - SSH username
 PRODUCTION_DB_PASSWORD - Database password
 PRODUCTION_JWT_SECRET  - JWT signing secret
-VIZION_API_KEY         - Vizion API key (shared)
+JSONCARGO_API_KEY      - JSONCargo API key (container tracking)
 DEMO_PASSWORD          - Demo user password
 ```
 

@@ -44,9 +44,13 @@ class AnalyticsService:
     def _document_query(self):
         """Base query for documents with organization filtering."""
         query = self.db.query(Document)
-        # Only filter if Shipment has organization_id
-        if self.organization_id and hasattr(Shipment, 'organization_id'):
-            query = query.join(Shipment).filter(Shipment.organization_id == self.organization_id)
+        if self.organization_id:
+            # Prefer direct Document filtering if organization_id column exists
+            if hasattr(Document, 'organization_id'):
+                query = query.filter(Document.organization_id == self.organization_id)
+            # Fallback to joining with Shipment for older documents without org_id
+            elif hasattr(Shipment, 'organization_id'):
+                query = query.join(Shipment).filter(Shipment.organization_id == self.organization_id)
         return query
 
     def _container_event_query(self):

@@ -156,7 +156,7 @@ Location: `/opt/tracehub-app/tracehub/.env`
 | `DB_USER` | PostgreSQL username | Yes | tracehub |
 | `DB_PASSWORD` | PostgreSQL password | Yes | - |
 | `DB_NAME` | PostgreSQL database name | Yes | tracehub |
-| `JSONCARGO_API_KEY` | Container tracking API key | No | - |
+| `JSONCARGO_API_KEY` | Container tracking API key (see below) | **Yes** | - |
 | `JWT_SECRET` | JWT signing secret | Yes | - |
 | `DEMO_PASSWORD` | Demo user password for POC | Yes | - |
 | `ANTHROPIC_API_KEY` | Claude API key for AI document classification | No | - |
@@ -189,6 +189,28 @@ print('AI Available:', document_classifier.is_ai_available())
 ```
 
 If AI is not configured, the system falls back to keyword-based classification.
+
+### Container Tracking (JSONCargo)
+
+TraceHub uses JSONCargo API for real-time container tracking. **This is REQUIRED for tracking features to work.**
+
+Without `JSONCARGO_API_KEY`:
+- Live tracking endpoints return mock data
+- Container status updates won't sync
+- ETA/ETD updates won't be available
+
+**Setup:**
+1. Get an API key from https://jsoncargo.com/
+2. Add to `.env`: `JSONCARGO_API_KEY=your-api-key-here`
+3. Restart backend: `docker restart tracehub-backend-prod`
+
+**Verify tracking is enabled:**
+```bash
+docker exec tracehub-backend-prod python -c "
+from app.config import settings
+print('JSONCargo API Key configured:', bool(settings.jsoncargo_api_key))
+"
+```
 
 ## Deployment Process
 

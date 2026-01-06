@@ -69,13 +69,26 @@ async def get_container_status(
 async def get_live_tracking(
     container_number: str,
     shipping_line: Optional[str] = None,
+    db: Session = Depends(get_db),
     current_user: CurrentUser = Depends(get_current_active_user)
 ):
     """Get live container tracking directly from JSONCargo.
 
-    This endpoint fetches real-time tracking data without requiring
-    the container to be in the database.
+    This endpoint fetches real-time tracking data for containers
+    belonging to the user's organization.
     """
+    # Security: Verify container belongs to user's organization
+    shipment = db.query(Shipment).filter(
+        Shipment.container_number == container_number,
+        Shipment.organization_id == current_user.organization_id
+    ).first()
+
+    if not shipment:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Container {container_number} not found in your organization"
+        )
+
     client = get_jsoncargo_client()
     tracking_data = await client.get_container_status(
         container_number,
@@ -95,12 +108,26 @@ async def get_live_tracking(
 async def get_tracking_by_bol(
     bl_number: str,
     shipping_line: str,
+    db: Session = Depends(get_db),
     current_user: CurrentUser = Depends(get_current_active_user)
 ):
     """Get container tracking by Bill of Lading number.
 
     Requires shipping_line parameter (e.g., 'maersk', 'msc', 'hapag-lloyd').
+    Only returns tracking for B/L numbers linked to shipments in your organization.
     """
+    # Security: Verify B/L belongs to user's organization
+    shipment = db.query(Shipment).filter(
+        Shipment.bl_number == bl_number,
+        Shipment.organization_id == current_user.organization_id
+    ).first()
+
+    if not shipment:
+        raise HTTPException(
+            status_code=404,
+            detail=f"B/L {bl_number} not found in your organization"
+        )
+
     client = get_jsoncargo_client()
     tracking_data = await client.get_container_by_bol(
         bl_number,

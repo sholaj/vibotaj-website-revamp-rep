@@ -3,9 +3,54 @@
 All notable changes to the TraceHub platform are documented in this file.
 
 ## [Unreleased]
-- Sprint 8: Buyer Portal & Notifications
 - Sprint 9: AI-Powered Compliance
 - Sprint 10: Multi-Tenant & SaaS Foundation
+
+---
+
+## [1.3.0] - 2026-01-06
+
+### Sprint 8: Multi-Tenancy & Security Fixes
+
+**Multi-Tenancy Implementation:**
+- All API routers now filter data by `organization_id`
+- Users can only access data belonging to their organization
+- Fixed routers: shipments, documents, tracking, eudr, notifications, audit
+- Organization membership model for user-org relationships
+- HAGES organization and users created via migrations
+
+**Security Fixes:**
+- **CRITICAL:** Fixed `/api/tracking/live/{container}` - now requires container to belong to user's organization (prevents cross-tenant data leakage)
+- **CRITICAL:** Fixed `/api/tracking/bol/{bl}` - same organization filtering applied
+- Fixed analytics service `_document_query` - now properly filters by Document.organization_id
+
+**Analytics Service Improvements:**
+- Corrected document query filtering to use Document.organization_id directly
+- Added fallback to Shipment join for backward compatibility
+- All analytics metrics now properly scoped to organization
+
+**Environment & Configuration:**
+- Removed deprecated VIZION_API_KEY references
+- Updated docker-compose.staging.yml to use JSONCARGO_API_KEY only
+- Documented JSONCARGO_API_KEY as required in DEPLOYMENT.md
+- Added JSONCargo setup instructions with verification commands
+
+**Database Migrations:**
+- Migration 008: Create HAGES organization with users
+- Migration 009-011: Add missing shipment/product columns
+- Fixed userrole enum to include: admin, compliance, logistics_agent, buyer, supplier, viewer
+
+**Files Modified:**
+- `backend/app/routers/tracking.py` - Organization filtering for live/bol endpoints
+- `backend/app/routers/shipments.py` - Multi-tenancy filtering
+- `backend/app/routers/documents.py` - Multi-tenancy filtering
+- `backend/app/routers/eudr.py` - Multi-tenancy filtering
+- `backend/app/routers/notifications.py` - CurrentUser auth
+- `backend/app/routers/audit.py` - CurrentUser auth
+- `backend/app/services/analytics.py` - Fixed document query filtering
+- `docker-compose.staging.yml` - Removed VIZION_API_KEY
+- `DEPLOYMENT.md` - JSONCargo documentation
+- `DEVOPS.md` - Updated secret references
 
 ---
 
