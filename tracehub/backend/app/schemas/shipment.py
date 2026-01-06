@@ -3,7 +3,7 @@
 Updated to match production database schema (Sprint 8).
 """
 
-from pydantic import BaseModel
+from pydantic import BaseModel, validator
 from typing import Optional, List
 from uuid import UUID
 from datetime import datetime, date
@@ -93,6 +93,13 @@ class EventInfo(BaseModel):
     class Config:
         from_attributes = True
 
+    @validator('event_status', pre=True)
+    def convert_event_status(cls, v):
+        """Convert enum value to string."""
+        if hasattr(v, 'value'):
+            return v.value
+        return str(v) if v is not None else v
+
 
 class DocumentInfo(BaseModel):
     """Document information in responses."""
@@ -106,6 +113,13 @@ class DocumentInfo(BaseModel):
 
     class Config:
         from_attributes = True
+
+    @validator('document_type', 'status', pre=True)
+    def convert_enum_to_str(cls, v):
+        """Convert enum values to strings."""
+        if hasattr(v, 'value'):
+            return v.value
+        return str(v) if v is not None else v
 
 
 class DocumentSummary(BaseModel):

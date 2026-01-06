@@ -29,6 +29,9 @@ class Settings(BaseSettings):
     jsoncargo_api_key: str = ""
     jsoncargo_api_url: str = "https://api.jsoncargo.com/api/v1"
 
+    # AI Document Classification (Anthropic Claude)
+    anthropic_api_key: str = ""
+
     # Webhook Security
     webhook_secret: str = ""  # HMAC secret for webhook signature verification
 
