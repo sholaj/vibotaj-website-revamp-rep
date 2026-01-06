@@ -364,6 +364,52 @@ The following Hostinger API endpoints are available via MCP tools:
 4. **SSL**: Enforced via nginx redirect (HTTP -> HTTPS)
 5. **Secrets**: All sensitive data in `.env` file (not committed to git)
 
+## Quick Reference
+
+### Common Commands Cheatsheet
+
+```bash
+# Local Development
+make dev              # Start local environment
+make dev-logs         # View logs
+make dev-down         # Stop local environment
+make test             # Run backend tests
+
+# Database Migrations
+alembic revision --autogenerate -m "description"  # Create migration
+alembic upgrade head                               # Apply migrations
+alembic downgrade -1                               # Rollback one step
+
+# Deployment to Production
+ssh root@82.198.225.150
+cd /opt/tracehub-app/tracehub
+git pull origin main
+docker compose -f docker-compose.prod.yml up -d --build
+
+# Rollback
+./scripts/rollback.sh -e production -t deployment
+./scripts/rollback.sh -e production -t database -b backups/backup_YYYYMMDD.sql
+```
+
+### Environment URLs
+
+| Environment | URL | Backend Port | Frontend Port |
+|-------------|-----|--------------|---------------|
+| Production  | https://tracehub.vibotaj.com | 8000 | 443 |
+| Staging     | https://staging.tracehub.vibotaj.com | 8100 | 3100 |
+| Local       | http://localhost | 8000 | 80 |
+
+### GitHub Actions Workflows
+
+| Workflow | Trigger | Purpose |
+|----------|---------|---------|
+| `backend-ci.yml` | PR/Push | Lint, test backend |
+| `frontend-ci.yml` | PR/Push | Lint, test frontend |
+| `deploy-staging.yml` | Push to develop | Deploy to staging |
+| `deploy-production.yml` | Push to main | Deploy to production |
+
+---
+
 ## Contact
 
 - **Server Provider**: Hostinger

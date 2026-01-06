@@ -423,12 +423,12 @@ ls -t tracehub_*.dump | tail -n +11 | xargs -r rm
 
 ## See Also
 
-- **Full Migration Plan:** `/tracehub/MIGRATION_PLAN_SPRINT8.md`
-- **Quick Start Guide:** `/tracehub/MIGRATION_QUICKSTART.md`
-- **Executive Summary:** `/tracehub/SPRINT8_MIGRATION_SUMMARY.md`
+- **Full Migration Plan:** `/tracehub/docs/sprints/sprint-8/MIGRATION_PLAN_SPRINT8.md`
+- **Quick Start Guide:** `/tracehub/docs/sprints/sprint-8/MIGRATION_QUICKSTART.md`
+- **Executive Summary:** `/tracehub/docs/sprints/sprint-8/SPRINT8_MIGRATION_SUMMARY.md`
 - **Alembic Migrations:** `/tracehub/backend/alembic/versions/`
 
 ---
 
-**Last Updated:** 2026-01-05
+**Last Updated:** 2026-01-06
 **Maintained By:** DevOps Team

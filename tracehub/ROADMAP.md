@@ -166,7 +166,6 @@ To continue development from where we left off:
 ## Related Documentation
 
 - [CHANGELOG.md](./CHANGELOG.md) - Completed features by version
-- [ARCHITECTURE.md](./ARCHITECTURE.md) - System architecture
+- [docs/architecture/ARCHITECTURE.md](./docs/architecture/ARCHITECTURE.md) - System architecture
 - [README.md](./README.md) - Quick start and API reference
-- [SPRINT_BACKLOG.md](./SPRINT_BACKLOG.md) - Detailed task breakdown
-- [PRODUCT_ROADMAP.md](./PRODUCT_ROADMAP.md) - Full product strategy (detailed)
+- [docs/sprints/SPRINT_BACKLOG.md](./docs/sprints/SPRINT_BACKLOG.md) - Detailed task breakdown

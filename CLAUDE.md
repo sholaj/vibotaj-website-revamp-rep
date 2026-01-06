@@ -137,12 +137,45 @@ feature branch → test locally → develop → staging → main → production
 
 ## Key Paths
 
+### TraceHub Application
 | Path | Purpose |
 |------|---------|
-| `docs/COMPLIANCE_MATRIX.md` | HS codes & required documents |
-| `docs/decisions/` | Architecture decisions |
-| `tracehub/` | Main application code |
-| `PRPs/active/` | Current implementation blueprints |
+| `tracehub/README.md` | Quick start guide |
+| `tracehub/backend/` | FastAPI backend (Python) |
+| `tracehub/frontend/` | React frontend (TypeScript) |
+| `tracehub/scripts/` | Deployment & backup scripts |
+
+### Core Documentation (tracehub/)
+| Document | Purpose |
+|----------|---------|
+| `DEPLOYMENT.md` | VPS infrastructure, Docker, SSL, deployment |
+| `DEVOPS.md` | CI/CD pipelines, GitHub Actions, GitOps |
+| `FRONTEND.md` | UI/UX specs, feature requirements |
+| `FRONTEND_QUICK_REFERENCE.md` | Design tokens, component patterns |
+| `ROADMAP.md` | Sprint planning, feature backlog |
+| `CHANGELOG.md` | Version history |
+
+### Architecture (tracehub/docs/architecture/)
+| Document | Purpose |
+|----------|---------|
+| `ARCHITECTURE.md` | System diagrams, container flow |
+| `COMPONENT_HIERARCHY.md` | React component tree |
+| `ADR-008-multi-tenancy-architecture.md` | Multi-tenancy design |
+
+### Sprint Documentation (tracehub/docs/sprints/)
+| Path | Purpose |
+|------|---------|
+| `sprint-7/` | OCR & AI document detection |
+| `sprint-8/` | Multi-tenancy migration (complete) |
+| `sprint-9/` | Compliance matrix updates |
+| `SPRINT_BACKLOG.md` | Current sprint tasks |
+
+### Project-Wide Docs (docs/)
+| Document | Purpose |
+|----------|---------|
+| `COMPLIANCE_MATRIX.md` | HS codes & required documents |
+| `decisions/` | Architecture decision records |
+| `architecture/` | High-level system design |
 
 ---
 

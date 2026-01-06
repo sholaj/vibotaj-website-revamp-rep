@@ -32,6 +32,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Sprint 9 documentation (`docs/sprints/SPRINT-9-COMPLIANCE-MATRIX.md`)
 
 ### Changed
+- **TraceHub Documentation Consolidation** (2026-01-06)
+  - Reduced root-level markdown files from 25+ to 7 essential docs
+  - Consolidated 5 deployment docs → 1 `DEPLOYMENT.md` with quick reference section
+  - Consolidated 3 DevOps docs → 1 `DEVOPS.md` (summaries archived)
+  - Renamed `FRONTEND_UI_UX_SPEC.md` → `FRONTEND.md`
+  - Organized sprint docs into `docs/sprints/sprint-{7,8,9}/`
+  - Moved architecture docs to `docs/architecture/`
+  - Archived 10 historical files to `docs/_archive/`
+  - Updated `CLAUDE.md` with comprehensive key paths section
+  - Fixed cross-references in `ROADMAP.md` and `scripts/README.md`
 - Repository structure consolidated and reorganized
 - Documentation moved to `/docs/` directory
 - Root-level documentation archived to `docs/_archive/root-cleanup/`
