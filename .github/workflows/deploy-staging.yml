@@ -73,24 +73,20 @@ jobs:
             cd ${{ env.DEPLOY_PATH }}
             cat > .env << 'EOF'
           ENVIRONMENT=staging
-          DATABASE_URL=postgresql://tracehub:${{ secrets.PRODUCTION_DB_PASSWORD }}@db:5432/tracehub_staging
+          DB_USER=tracehub_staging
+          DB_PASSWORD=${{ secrets.PRODUCTION_DB_PASSWORD }}
+          DB_NAME=tracehub_staging
+          DB_PORT=5532
           JWT_SECRET=${{ secrets.PRODUCTION_JWT_SECRET }}
           VIZION_API_KEY=${{ secrets.VIZION_API_KEY }}
           ANTHROPIC_API_KEY=${{ secrets.ANTHROPIC_API_KEY }}
           DEMO_PASSWORD=${{ secrets.DEMO_PASSWORD }}
           DEBUG=true
           CORS_ORIGINS=https://staging.tracehub.vibotaj.com,http://localhost:3100
+          BACKEND_PORT=8100
+          FRONTEND_PORT=3100
           EOF
             sed -i 's/^[[:space:]]*//' .env
-          ENDSSH
-
-      - name: Setup staging database
-        run: |
-          ssh ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }} << 'ENDSSH'
-            cd ${{ env.DEPLOY_PATH }}
-
-            # Create staging database if it doesn't exist
-            docker exec tracehub-db psql -U tracehub -c "CREATE DATABASE tracehub_staging;" 2>/dev/null || echo "Database already exists"
           ENDSSH
 
       - name: Rebuild and restart containers
@@ -98,11 +94,14 @@ jobs:
           ssh ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }} << 'ENDSSH'
             cd ${{ env.DEPLOY_PATH }}
 
+            # Use staging-specific docker-compose file
+            export COMPOSE_FILE=docker-compose.staging.yml
+
             # Build new images
             docker compose build --no-cache backend frontend
 
             # Restart services
-            docker compose up -d --force-recreate backend frontend
+            docker compose up -d --force-recreate
 
             # Wait for services to start
             sleep 10
@@ -115,6 +114,7 @@ jobs:
         run: |
           ssh ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }} << 'ENDSSH'
             cd ${{ env.DEPLOY_PATH }}
+            export COMPOSE_FILE=docker-compose.staging.yml
 
             if [ -f backend/alembic.ini ]; then
               docker compose exec -T backend alembic upgrade head || echo "Migration skipped or failed"
@@ -127,9 +127,13 @@ jobs:
         run: |
           sleep 5
 
-          # Test backend health
+          # Test staging backend health (port 8100)
           ssh ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }} \
-            "curl -sf http://localhost:8000/health || echo 'Backend health check failed'"
+            "curl -sf http://localhost:8100/health || echo 'Backend health check failed'"
+
+          # Test staging frontend (port 3100)
+          ssh ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }} \
+            "curl -sf http://localhost:3100/ || echo 'Frontend health check failed'"
 
           echo "Staging deployment verification complete"
 
