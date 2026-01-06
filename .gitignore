@@ -12,11 +12,17 @@
 # Hidden secrets directory
 .secrets/
 
-# Claude AI agents (local only)
-.claude/
+# Claude AI agents (local only) - but allow commands directory
+.claude/agents/
+.claude/skills/
+# Note: .claude/commands/ is committed for development workflow
 
 # MCP configuration (contains API tokens)
 .mcp.json
+
+# Pre-commit and security scanning
+.secrets.baseline
+.pre-commit-config.yaml.backup
 
 # ===========================================
 # API KEYS & CREDENTIALS
@@ -109,6 +115,7 @@ pip-log.txt
 pip-delete-this-directory.txt
 .pytest_cache/
 .mypy_cache/
+.ruff_cache/
 *.egg-info/
 dist/
 eggs/
