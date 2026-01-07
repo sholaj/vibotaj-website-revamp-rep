@@ -25,10 +25,12 @@ from app.models import (
     Organization, OrganizationType, OrganizationStatus,
     OrganizationMembership, OrgRole
 )
-from passlib.context import CryptContext
+import bcrypt
 
-# Password hashing
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+def get_password_hash(password: str) -> str:
+    """Hash a password using bcrypt directly (same as auth.py)."""
+    return bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
 
 
 def create_tables():
@@ -421,7 +423,7 @@ def seed_users(db: Session):
         user = User(
             email=ud["email"],
             full_name=ud["full_name"],
-            hashed_password=pwd_context.hash(ud["password"]),
+            hashed_password=get_password_hash(ud["password"]),
             role=ud["role"],
             organization_id=ud["org"].id,
             is_active=True
