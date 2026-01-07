@@ -66,14 +66,30 @@ db-restore: ## Restore database from backup (Usage: make db-restore FILE=backup.
 	@echo "Database restored from $(FILE)"
 
 # Testing Commands
-test: ## Run tests
-	docker-compose exec backend pytest
+test: ## Run backend tests in Docker (isolated)
+	docker compose -f docker-compose.test.yml up --build --exit-code-from backend-test
+	docker compose -f docker-compose.test.yml down -v
+
+test-quick: ## Run tests in existing backend container
+	docker-compose exec backend pytest tests/ -v --tb=short
 
 test-frontend: ## Run frontend tests
 	cd frontend && npm test
 
-test-coverage: ## Run tests with coverage
-	docker-compose exec backend pytest --cov=app --cov-report=html
+test-coverage: ## Run tests with coverage report
+	docker compose -f docker-compose.test.yml run --rm backend-test pytest tests/ --cov=app --cov-report=html --cov-report=term
+	docker compose -f docker-compose.test.yml down -v
+
+test-ci: ## Run tests as CI would (for pre-push verification)
+	@echo "Running tests as CI would..."
+	docker compose -f docker-compose.test.yml up --build --exit-code-from backend-test
+	@if [ $$? -eq 0 ]; then \
+		echo "All tests passed! Safe to push."; \
+	else \
+		echo "Tests FAILED! Fix before pushing."; \
+		exit 1; \
+	fi
+	docker compose -f docker-compose.test.yml down -v
 
 # Utility Commands
 logs: ## Show all logs

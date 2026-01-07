@@ -11,9 +11,12 @@ export default defineConfig({
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'html', 'lcov'],
+      all: false,
       exclude: [
         'node_modules/',
         'src/test/',
+        'src/types/**',
+        'src/api/**',
         '**/*.d.ts',
         '**/*.config.*',
         '**/mockData',

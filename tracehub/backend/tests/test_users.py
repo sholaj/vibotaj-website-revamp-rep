@@ -1,9 +1,8 @@
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine, text
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy import text
 from app.main import app
-from app.database import Base, get_db
+from app.database import get_db
 from app.models.user import User, UserRole
 from app.models.organization import Organization, OrganizationType, OrganizationStatus
 from app.models import OrganizationMembership, OrgRole
@@ -12,10 +11,8 @@ from app.schemas.user import CurrentUser
 from app.services.permissions import get_role_permissions
 import uuid
 
-# Use Postgres for testing
-SQLALCHEMY_DATABASE_URL = "postgresql://tracehub:tracehub@localhost:5433/tracehub_test"
-engine = create_engine(SQLALCHEMY_DATABASE_URL)
-TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+# Import shared test database configuration from conftest
+from .conftest import engine, TestingSessionLocal, Base
 
 @pytest.fixture(scope="module")
 def db_session():
