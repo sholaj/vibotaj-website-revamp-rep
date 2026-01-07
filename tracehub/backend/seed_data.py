@@ -449,20 +449,29 @@ def main():
     """Main entry point."""
     create_tables()
 
-    db = SessionLocal()
+    # Use separate session for users to ensure they're committed independently
+    db_users = SessionLocal()
     try:
         # Seed users first and get organization IDs
-        vibotaj_id, witatrade_id = seed_users(db)
+        vibotaj_id, witatrade_id = seed_users(db_users)
+    finally:
+        db_users.close()
 
+    # Use separate session for sample data - if this fails, users are still committed
+    db_sample = SessionLocal()
+    try:
         # Check if shipment data already exists
-        existing = db.query(Shipment).first()
+        existing = db_sample.query(Shipment).first()
         if existing:
             print(f"\nShipment data already exists (shipment {existing.reference}). Skipping shipment seed.")
             return
 
-        seed_sample_data(db, vibotaj_id, witatrade_id)
+        seed_sample_data(db_sample, vibotaj_id, witatrade_id)
+    except Exception as e:
+        print(f"\nWarning: Sample data seeding failed (schema might differ): {e}")
+        print("User seeding completed successfully - login should work.")
     finally:
-        db.close()
+        db_sample.close()
 
 if __name__ == "__main__":
     main()
