@@ -186,6 +186,17 @@ jobs:
             fi
           ENDSSH
 
+      - name: Seed staging database
+        run: |
+          ssh ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }} << 'ENDSSH'
+            cd ${{ env.DEPLOY_PATH }}
+            export COMPOSE_FILE=docker-compose.staging.yml
+
+            # Seed test users and sample data for staging environment
+            echo "Seeding staging database..."
+            docker compose exec -T backend python -m seed_data || echo "Seed completed or skipped"
+          ENDSSH
+
       - name: Verify deployment
         run: |
           sleep 5

@@ -305,19 +305,51 @@ def seed_users(db: Session):
             registration_number="HRB123456"
         )
         db.add(witatrade_org)
+
+        # Create HAGES Organization (Pilot Customer)
+        hages_org = Organization(
+            name="HAGES GmbH",
+            slug="hages",
+            type=OrganizationType.BUYER,
+            status=OrganizationStatus.ACTIVE,
+            contact_email="info@hages.de",
+            contact_phone="+49 4501 123456",
+            address={"city": "Bad Schwartau", "country": "Germany"},
+            tax_id="DE987654321",
+            registration_number="HRB987654"
+        )
+        db.add(hages_org)
         db.flush()
     else:
         vibotaj_org = db.query(Organization).filter_by(slug="vibotaj").first()
         witatrade_org = db.query(Organization).filter_by(slug="witatrade").first()
+        hages_org = db.query(Organization).filter_by(slug="hages").first()
+
+        # Create HAGES if it doesn't exist
+        if not hages_org:
+            hages_org = Organization(
+                name="HAGES GmbH",
+                slug="hages",
+                type=OrganizationType.BUYER,
+                status=OrganizationStatus.ACTIVE,
+                contact_email="info@hages.de",
+                contact_phone="+49 4501 123456",
+                address={"city": "Bad Schwartau", "country": "Germany"},
+                tax_id="DE987654321",
+                registration_number="HRB987654"
+            )
+            db.add(hages_org)
+            db.flush()
 
     # Check if users already exist
     existing_user = db.query(User).first()
     if existing_user:
         print("Users already exist. Skipping user seed.")
-        return vibotaj_org.id, witatrade_org.id
+        return vibotaj_org.id, witatrade_org.id if witatrade_org else None
 
     # Create test users
     users_data = [
+        # VIBOTAJ users
         {
             "email": "admin@vibotaj.com",
             "full_name": "System Administrator",
@@ -342,12 +374,38 @@ def seed_users(db: Session):
             "org": vibotaj_org,
             "org_role": OrgRole.MEMBER
         },
+        # WITATRADE users
         {
             "email": "buyer@witatrade.de",
             "full_name": "Hans Mueller",
             "password": "tracehub2026",
             "role": UserRole.BUYER,
             "org": witatrade_org,
+            "org_role": OrgRole.ADMIN
+        },
+        # HAGES users (Pilot Customer)
+        {
+            "email": "helge.bischoff@hages.de",
+            "full_name": "Helge Bischoff",
+            "password": "Hages2026Helge!",
+            "role": UserRole.BUYER,
+            "org": hages_org,
+            "org_role": OrgRole.ADMIN  # Organization owner
+        },
+        {
+            "email": "mats.jarsetz@hages.de",
+            "full_name": "Mats Morten Jarsetz",
+            "password": "Hages2026Mats!",
+            "role": UserRole.BUYER,
+            "org": hages_org,
+            "org_role": OrgRole.ADMIN
+        },
+        {
+            "email": "eike.pannen@hages.de",
+            "full_name": "Eike Pannen",
+            "password": "Hages2026Eike!",
+            "role": UserRole.BUYER,
+            "org": hages_org,
             "org_role": OrgRole.ADMIN
         },
     ]
