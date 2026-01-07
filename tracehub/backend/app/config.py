@@ -10,6 +10,7 @@ class Settings(BaseSettings):
     # Application
     app_name: str = "TraceHub"
     debug: bool = False
+    environment: str = "development"  # development, staging, production
 
     # Database
     database_url: str = "postgresql://tracehub:tracehub@localhost:5432/tracehub"
