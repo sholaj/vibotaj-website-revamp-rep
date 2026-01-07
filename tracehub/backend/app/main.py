@@ -128,6 +128,38 @@ def ensure_horn_hoof_products():
         db.close()
 
 
+def auto_seed_if_empty():
+    """Auto-seed database with test users if empty (for staging/dev environments)."""
+    from .models.user import User
+    db = SessionLocal()
+    try:
+        user_count = db.query(User).count()
+        if user_count == 0:
+            logger.info("No users found - auto-seeding database...")
+            try:
+                # Import and run seed_data module
+                import subprocess
+                result = subprocess.run(
+                    ["python", "-m", "seed_data"],
+                    cwd="/app",
+                    capture_output=True,
+                    text=True,
+                    timeout=60
+                )
+                if result.returncode == 0:
+                    logger.info(f"Database seeded successfully: {result.stdout}")
+                else:
+                    logger.warning(f"Seed script returned non-zero: {result.stderr}")
+            except Exception as e:
+                logger.error(f"Auto-seed failed: {e}")
+        else:
+            logger.info(f"Database already has {user_count} users - skipping auto-seed")
+    except Exception as e:
+        logger.error(f"Error checking user count: {e}")
+    finally:
+        db.close()
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan events."""
@@ -150,6 +182,9 @@ async def lifespan(app: FastAPI):
 
     # Ensure Horn & Hoof shipments have products (for EUDR exemption)
     ensure_horn_hoof_products()
+
+    # Auto-seed database if no users exist (for fresh deployments)
+    auto_seed_if_empty()
 
     # Initialize AI document classifier and log status
     try:
