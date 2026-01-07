@@ -289,3 +289,25 @@ async def get_my_permissions(current_user: CurrentUser = Depends(get_current_act
         "role": current_user.role.value,
         "permissions": current_user.permissions
     }
+
+
+@router.get("/debug/user-check/{email}")
+async def debug_user_check(email: str, db: Session = Depends(get_db)):
+    """Debug endpoint to check if a user exists (staging only)."""
+    from ..config import get_settings
+    settings = get_settings()
+    if settings.environment != "staging":
+        raise HTTPException(status_code=404, detail="Not found")
+
+    user = get_user_by_email(db, email)
+    if user:
+        return {
+            "found": True,
+            "email": user.email,
+            "hash_prefix": user.hashed_password[:20] if user.hashed_password else None,
+            "hash_length": len(user.hashed_password) if user.hashed_password else 0,
+            "is_active": user.is_active,
+            "role": user.role.value if user.role else None,
+            "org_id": str(user.organization_id) if user.organization_id else None
+        }
+    return {"found": False, "email": email}
