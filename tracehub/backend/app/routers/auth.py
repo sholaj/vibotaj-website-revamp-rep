@@ -291,6 +291,28 @@ async def get_my_permissions(current_user: CurrentUser = Depends(get_current_act
     }
 
 
+@router.get("/debug/ping")
+async def debug_ping():
+    """Simple debug endpoint to test if new routes are being loaded."""
+    return {"pong": True, "message": "Auth router is loaded"}
+
+
+@router.get("/debug/user-count")
+async def debug_user_count(db: Session = Depends(get_db)):
+    """Debug endpoint to count users in database."""
+    from ..config import get_settings
+    settings = get_settings()
+    if settings.environment == "production":
+        raise HTTPException(status_code=404, detail="Not found")
+
+    from ..models.user import User as UserModel
+    try:
+        count = db.query(UserModel).count()
+        return {"user_count": count, "environment": settings.environment}
+    except Exception as e:
+        return {"error": str(e), "environment": settings.environment}
+
+
 @router.get("/debug/user-check/{email}")
 async def debug_user_check(email: str, db: Session = Depends(get_db)):
     """Debug endpoint to check if a user exists (non-production only)."""
