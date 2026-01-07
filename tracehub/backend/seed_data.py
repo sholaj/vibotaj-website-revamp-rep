@@ -343,9 +343,16 @@ def seed_users(db: Session):
 
     # Check if users already exist
     existing_user = db.query(User).first()
-    if existing_user:
-        print("Users already exist. Skipping user seed.")
+    force_reseed = os.environ.get("FORCE_RESEED", "").lower() in ("true", "1", "yes")
+    if existing_user and not force_reseed:
+        print("Users already exist. Skipping user seed. Set FORCE_RESEED=true to override.")
         return vibotaj_org.id, witatrade_org.id if witatrade_org else None
+    elif existing_user and force_reseed:
+        print("FORCE_RESEED enabled - clearing existing users and memberships...")
+        db.query(OrganizationMembership).delete()
+        db.query(User).delete()
+        db.commit()
+        print("Existing users cleared.")
 
     # Create test users
     users_data = [

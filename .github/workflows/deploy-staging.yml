@@ -179,8 +179,10 @@ jobs:
             cd ${{ env.DEPLOY_PATH }}
             export COMPOSE_FILE=docker-compose.staging.yml
 
+            echo "Running database migrations..."
             if [ -f backend/alembic.ini ]; then
-              docker compose exec -T backend alembic upgrade head || echo "Migration skipped or failed"
+              docker compose exec -T backend alembic upgrade head
+              echo "✓ Migrations completed"
             else
               echo "Alembic not configured, skipping migrations"
             fi
@@ -192,9 +194,9 @@ jobs:
             cd ${{ env.DEPLOY_PATH }}
             export COMPOSE_FILE=docker-compose.staging.yml
 
-            # Seed test users and sample data for staging environment
-            echo "Seeding staging database..."
-            docker compose exec -T backend python -m seed_data || echo "Seed completed or skipped"
+            # Force reseed to ensure test users have correct passwords
+            echo "Seeding staging database with FORCE_RESEED..."
+            docker compose exec -T -e FORCE_RESEED=true backend python -m seed_data || echo "Seed completed or skipped (sample data may fail if schema differs)"
           ENDSSH
 
       - name: Verify deployment
