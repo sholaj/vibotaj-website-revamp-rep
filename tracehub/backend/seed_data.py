@@ -420,10 +420,12 @@ def seed_users(db: Session):
     ]
 
     for ud in users_data:
+        password_hash = get_password_hash(ud["password"])
+        print(f"Creating user {ud['email']} with hash prefix: {password_hash[:20]}...")
         user = User(
             email=ud["email"],
             full_name=ud["full_name"],
-            hashed_password=get_password_hash(ud["password"]),
+            hashed_password=password_hash,
             role=ud["role"],
             organization_id=ud["org"].id,
             is_active=True
@@ -442,6 +444,10 @@ def seed_users(db: Session):
 
     db.commit()
     print("Test users and organizations created.")
+
+    # Verify users were created
+    user_count = db.query(User).count()
+    print(f"Verified: {user_count} users in database after seeding.")
     return vibotaj_org.id, witatrade_org.id
 
 
