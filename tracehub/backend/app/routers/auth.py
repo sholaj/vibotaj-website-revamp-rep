@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 from datetime import datetime, timedelta
 from jose import JWTError, jwt
 import bcrypt
@@ -67,8 +68,8 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -
 
 
 def get_user_by_email(db: Session, email: str) -> Optional[UserModel]:
-    """Get user by email address."""
-    return db.query(UserModel).filter(UserModel.email == email).first()
+    """Get user by email address (case-insensitive)."""
+    return db.query(UserModel).filter(func.lower(UserModel.email) == email.lower()).first()
 
 
 def get_user_by_id(db: Session, user_id: str) -> Optional[UserModel]:
@@ -235,6 +236,9 @@ async def login(
     import logging
     logger = logging.getLogger(__name__)
 
+    # Initialize password_match to prevent NameError in debug code path
+    password_match = None
+    
     # Debug: Check user lookup
     db_user = get_user_by_email(db, form_data.username)
     if db_user:
@@ -275,6 +279,23 @@ async def login(
             )
             return Token(access_token=access_token, token_type="bearer")
 
+    # Return debug info for non-production environments
+    from ..config import get_settings
+    debug_settings = get_settings()
+    if debug_settings.environment != "production":
+        debug_info = {
+            "user_found": db_user is not None,
+            "email_searched": form_data.username,
+            "hash_exists": db_user.hashed_password is not None if db_user else False,
+            "hash_prefix": db_user.hashed_password[:20] if db_user and db_user.hashed_password else None,
+            "password_match": password_match if db_user else None,
+            "environment": debug_settings.environment
+        }
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=f"Incorrect username or password. Debug: {debug_info}",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
     raise HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Incorrect username or password",

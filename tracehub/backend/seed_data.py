@@ -383,6 +383,22 @@ def seed_users(db: Session):
             "org": vibotaj_org,
             "org_role": OrgRole.MEMBER
         },
+        {
+            "email": "supplier@vibotaj.com",
+            "full_name": "Origin Supplier",
+            "password": "tracehub2026",
+            "role": UserRole.SUPPLIER,
+            "org": vibotaj_org,
+            "org_role": OrgRole.MEMBER
+        },
+        {
+            "email": "viewer@vibotaj.com",
+            "full_name": "Audit Viewer",
+            "password": "tracehub2026",
+            "role": UserRole.VIEWER,
+            "org": vibotaj_org,
+            "org_role": OrgRole.MEMBER
+        },
         # WITATRADE users
         {
             "email": "buyer@witatrade.de",

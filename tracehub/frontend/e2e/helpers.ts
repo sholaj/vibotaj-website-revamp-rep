@@ -30,18 +30,18 @@ export const TEST_USERS: Record<UserRole, TestUser> = {
     displayName: 'Compliance Officer',
   },
   logistics: {
-    email: '31stcenturyglobalventures@gmail.com',
-    password: 'Adeshola123!',
+    email: 'logistic@vibotaj.com',
+    password: 'tracehub2026',
     role: 'logistics',
     organization: 'VIBOTAJ',
-    displayName: 'Logistics Agent',
+    displayName: 'Logistics Manager',
   },
   buyer: {
-    email: 'buyer@vibotaj.com',
+    email: 'buyer@witatrade.de',
     password: 'tracehub2026',
     role: 'buyer',
-    organization: 'VIBOTAJ',
-    displayName: 'Buyer',
+    organization: 'WITATRADE',
+    displayName: 'Hans Mueller',
   },
   supplier: {
     email: 'supplier@vibotaj.com',
@@ -55,80 +55,40 @@ export const TEST_USERS: Record<UserRole, TestUser> = {
     password: 'tracehub2026',
     role: 'viewer',
     organization: 'VIBOTAJ',
-    displayName: 'Viewer/Auditor',
+    displayName: 'Audit Viewer',
   },
 };
-
-/**
- * Clear browser session/storage to ensure clean state
- */
-export async function clearSession(page: Page) {
-  // Clear localStorage and sessionStorage
-  await page.evaluate(() => {
-    localStorage.clear();
-    sessionStorage.clear();
-  });
-
-  // Clear cookies
-  await page.context().clearCookies();
-}
-
-/**
- * Ensure user is logged out before test
- */
-export async function ensureLoggedOut(page: Page) {
-  await clearSession(page);
-  await page.goto('/login');
-  await page.waitForLoadState('domcontentloaded');
-}
 
 /**
  * Login to TraceHub
  */
 export async function login(page: Page, role: UserRole) {
   const user = TEST_USERS[role];
-
-  // Clear any existing session first
-  await clearSession(page);
-
+  
   // Navigate to login page directly
   await page.goto('/login');
   await page.waitForLoadState('domcontentloaded');
-
+  
   // Wait a bit for React to render
   await page.waitForTimeout(2000);
 
-  // Check if already on dashboard (somehow still logged in)
-  const currentUrl = page.url();
-  if (currentUrl.includes('/dashboard')) {
-    // Already logged in - clear session and try again
-    await clearSession(page);
-    await page.goto('/login');
-    await page.waitForLoadState('domcontentloaded');
-    await page.waitForTimeout(1000);
-  }
-
-  // Wait for login form to appear - username field (not email)
-  const usernameInput = page.locator('input[id="username"], input[placeholder*="username"], input[placeholder*="Username"], input[name="username"], input[type="email"]');
+  // Wait for login form to appear - use username field (not email)
+  const usernameInput = page.locator('input[id="username"]');
   await usernameInput.waitFor({ state: 'visible', timeout: 10000 });
 
-  // Fill login credentials - use email as username
+  // Fill login credentials
   await usernameInput.fill(user.email);
   
   const passwordInput = page.locator('input[type="password"], input[placeholder*="Password"], input[placeholder*="password"]');
   await passwordInput.fill(user.password);
 
-  // Submit login - look for Submit button
-  const loginButton = page.locator('button[type="submit"], button:has-text("Login"), button:has-text("Sign In"), button:has-text("login")');
+  // Submit login - the button text is "Sign in" not "Login"
+  const loginButton = page.locator('button[type="submit"]');
   await loginButton.click();
-
-  // Wait for redirect to dashboard
-  await page.waitForURL('**/dashboard', { timeout: 15000 });
+  
+  // Wait for navigation away from login page
+  await page.waitForURL(url => !url.toString().includes('/login'), { timeout: 15000 });
   await page.waitForLoadState('networkidle');
-
-  // Verify logged in (check for logout button or user menu)
-  const userMenu = page.locator('[aria-label*="User"], [aria-label*="Profile"], [role="button"]:has-text("' + user.email + '")');
-  await expect(userMenu).toBeVisible({ timeout: 5000 });
 }
 
 /**

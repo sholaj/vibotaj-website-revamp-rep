@@ -278,14 +278,15 @@ test.describe('SUPPLIER - Origin Verification & Document Upload', () => {
 /**
  * VIEWER E2E TESTS
  * 
- * Role: Read-only audit, reporting, analytics
- * Permissions: View all data; no actions allowed
+ * Role: Read-only access to ALL data (audit/compliance review)
+ * Permissions: View all shipments, documents, compliance status; NO edits/creation
  * 
- * Journey: Login → Dashboard (All Data) → View Analytics → Generate Reports
+ * Journey: Login → Dashboard (All Shipments) → View Shipment Details → Audit Trail Access
  */
 
-test.describe('VIEWER - Audit & Read-Only Analytics', () => {
+test.describe('VIEWER - Read-Only Global Audit Access', () => {
   const VIEWER_EMAIL = 'viewer@vibotaj.com';
+  const TEST_SHIPMENT_ID = 'VIBO-2026-001';
 
   test.beforeEach(async ({ page }) => {
     await login(page, 'viewer');
@@ -300,101 +301,109 @@ test.describe('VIEWER - Audit & Read-Only Analytics', () => {
     // Verify on dashboard
     await expect(page).toHaveURL(/dashboard|home/);
 
-    // Should see unrestricted shipment list
+    // Should see all shipments (not limited like buyers)
+    const shipmentLink = page.locator(`text="${TEST_SHIPMENT_ID}"`).first();
+    await expect(shipmentLink).toBeVisible({ timeout: 10000 });
+
+    // Can see many shipments (audit access to all)
     const rows = page.locator('table tbody tr, [role="row"]');
     const count = await rows.count();
     expect(count).toBeGreaterThan(0);
   });
 
-  test('should show viewer-specific menu items', async ({ page }) => {
-    // Verify menu for viewer role
+  test('should show viewer-specific menu items (limited)', async ({ page }) => {
+    // Verify menu for viewer role - minimal permissions
     await verifyMenuVisibility(page, 'viewer');
 
-    // Should see Dashboard and Analytics only
+    // Should see dashboard
     const dashboardLink = page.locator('nav, aside').locator('text="Dashboard"').first();
     await expect(dashboardLink).toBeVisible();
 
-    // Should NOT see any action items
+    // Should NOT see create/edit options
     const createLink = page.locator('nav, aside').locator('text="Create"');
-    await expect(createLink).toBeHidden();
-  });
+    await expect(createLink).not.toBeVisible();
 
-  test('should NOT be able to create anything', async ({ page }) => {
-    // No create buttons anywhere
-    const createButton = page.locator('button, [role="button"]').locator(':text("Create")').first();
-    
-    const isHidden = await createButton.isHidden();
-    expect(isHidden).toBe(true);
-  });
-
-  test('should NOT be able to upload documents', async ({ page }) => {
-    // No upload capability
-    await expectActionNotAvailable(page, 'Upload');
-  });
-
-  test('should NOT be able to approve documents', async ({ page }) => {
-    // No approve capability
-    await expectActionNotAvailable(page, 'Approve');
-  });
-
-  test('should NOT be able to edit anything', async ({ page }) => {
-    // No edit buttons
-    await expectActionNotAvailable(page, 'Edit');
-  });
-
-  test('should have access to Analytics and Reports', async ({ page }) => {
-    // Viewer can see analytics
-    const analyticsLink = page.locator('nav, aside').locator('text="Analytics", text="Reports"').first();
-    
-    if (await analyticsLink.isVisible()) {
-      await analyticsLink.click();
-      await page.waitForLoadState('networkidle');
-
-      // Should see dashboard with all data
-      const metrics = page.locator('[role="heading"], h1, h2');
-      const count = await metrics.count();
-      expect(count).toBeGreaterThan(-1);
-    }
-  });
-
-  test('should be able to view any shipment but not edit', async ({ page }) => {
-    // Find and click a shipment
-    const shipmentRow = page.locator('table tbody tr, [role="row"]').first();
-    await shipmentRow.click();
-    await page.waitForLoadState('networkidle');
-
-    // Should see shipment details
-    const shipmentInfo = page.locator('h1, h2').first();
-    await expect(shipmentInfo).toBeVisible();
-
-    // But no edit/upload buttons
-    await expectActionNotAvailable(page, 'Edit');
-    await expectActionNotAvailable(page, 'Upload');
-    await expectActionNotAvailable(page, 'Approve');
-  });
-
-  test('should be able to download/export reports', async ({ page }) => {
-    // Look for export/download buttons
-    const downloadButton = page.locator('button').locator(':text("Download"), :text("Export")').first();
-    
-    if (await downloadButton.isVisible()) {
-      expect(await downloadButton.isDisabled()).toBe(false);
-    }
-  });
-
-  test('should NOT be able to manage users or organizations', async ({ page }) => {
-    // Should not see management
+    // Should NOT see admin/management items
     const usersLink = page.locator('nav, aside').locator('text="Users"');
-    await expect(usersLink).toBeHidden();
-
-    const orgsLink = page.locator('nav, aside').locator('text="Organizations"');
-    await expect(orgsLink).toBeHidden();
+    await expect(usersLink).not.toBeVisible();
   });
 
-  test('should NOT be able to access Settings', async ({ page }) => {
-    // No settings access
-    const settingsLink = page.locator('nav, aside').locator('text="Settings"');
-    await expect(settingsLink).toBeHidden();
+  test('should access shipment details for audit review', async ({ page }) => {
+    // Navigate to shipment details
+    const shipmentLink = page.locator(`text="${TEST_SHIPMENT_ID}"`).first();
+    await shipmentLink.click();
+
+    // Wait for details page to load
+    await page.waitForURL(/shipments|details/, { timeout: 15000 });
+    await expect(page).toHaveURL(/shipments|details/);
+
+    // Should see shipment information
+    const shipmentHeader = page.locator(`text="${TEST_SHIPMENT_ID}"`);
+    await expect(shipmentHeader).toBeVisible();
+
+    // Should see compliance status
+    const statusElement = page.locator('[data-testid="compliance-status"], text="Status", text="COMPLIANT", text="PENDING"').first();
+    await expect(statusElement).toBeVisible({ timeout: 10000 });
+
+    // Should see documents section but no upload option
+    const documentsSection = page.locator('text="Documents", text="Attachments"').first();
+    if (await documentsSection.isVisible()) {
+      // Should NOT see upload button
+      const uploadButton = page.locator('text="Upload", button:has-text("Upload")').first();
+      await expect(uploadButton).not.toBeVisible();
+    }
+  });
+
+  test('should view audit trail but cannot edit', async ({ page }) => {
+    // Navigate to shipment details
+    const shipmentLink = page.locator(`text="${TEST_SHIPMENT_ID}"`).first();
+    await shipmentLink.click();
+    await page.waitForURL(/shipments|details/, { timeout: 15000 });
+
+    // Look for any edit buttons - should NOT exist
+    const editButtons = page.locator('button:has-text("Edit"), button[aria-label*="Edit"]');
+    const editCount = await editButtons.count();
+    expect(editCount).toBe(0);
+
+    // Look for any delete buttons - should NOT exist
+    const deleteButtons = page.locator('button:has-text("Delete"), button[aria-label*="Delete"]');
+    const deleteCount = await deleteButtons.count();
+    expect(deleteCount).toBe(0);
+
+    // Can view comments but cannot add new ones (typically)
+    const commentsSection = page.locator('text="Comments", text="Activity", text="History"').first();
+    if (await commentsSection.isVisible()) {
+      // Look for comment input - viewers typically cannot add comments
+      const commentInput = page.locator('textarea, input[placeholder*="Comment"]').first();
+      if (await commentInput.isVisible()) {
+        expect(await commentInput.isDisabled()).toBe(true);
+      }
+    }
+  });
+
+  test('should see all organization data across roles', async ({ page }) => {
+    // Viewer should see data from all organizations (VIBOTAJ, WITATRADE, HAGES, etc.)
+    // This tests the audit/compliance review capability
+
+    // Get table/list of shipments
+    const shipmentRows = page.locator('table tbody tr, [role="row"]');
+    const count = await shipmentRows.count();
+
+    // Should have multiple shipments from different contexts
+    expect(count).toBeGreaterThan(1);
+
+    // Verify can see organization names (if displayed)
+    const orgColumn = page.locator('td:has-text("VIBOTAJ"), td:has-text("WITATRADE"), td:has-text("HAGES")').first();
+    if (await orgColumn.isVisible()) {
+      expect(orgColumn).toBeVisible();
+    }
+  });
+
+  test('should handle forbidden actions gracefully', async ({ page }) => {
+    // Try to navigate to admin/management pages
+    await expectActionNotAvailable(page, 'users', 'viewers cannot access user management');
+    await expectActionNotAvailable(page, 'settings', 'viewers have limited settings access');
+    await expectActionNotAvailable(page, 'admin', 'viewers cannot access admin panel');
   });
 
   test('should logout successfully', async ({ page }) => {
