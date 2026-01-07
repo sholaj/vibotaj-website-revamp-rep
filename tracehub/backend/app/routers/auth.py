@@ -232,6 +232,19 @@ async def login(
 
     Accepts either email or username for backward compatibility.
     """
+    import logging
+    logger = logging.getLogger(__name__)
+
+    # Debug: Check user lookup
+    db_user = get_user_by_email(db, form_data.username)
+    if db_user:
+        logger.info(f"LOGIN DEBUG: Found user {db_user.email}, hash_prefix={db_user.hashed_password[:20] if db_user.hashed_password else 'NONE'}")
+        # Debug: Check password verification
+        password_match = verify_password(form_data.password, db_user.hashed_password)
+        logger.info(f"LOGIN DEBUG: Password verification result: {password_match}")
+    else:
+        logger.info(f"LOGIN DEBUG: No user found for email: {form_data.username}")
+
     # First try to authenticate against database
     user = authenticate_user(db, form_data.username, form_data.password)
 
