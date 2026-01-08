@@ -482,6 +482,38 @@ def main():
     # Use separate session for sample data - if this fails, users are still committed
     db_sample = SessionLocal()
     try:
+        # If FORCE_RESEED is enabled, wipe shipment-related data to match local
+        force_reseed = os.environ.get("FORCE_RESEED", "").lower() in ("true", "1", "yes")
+        if force_reseed:
+            print("\nFORCE_RESEED enabled - clearing shipment-related data (shipments, products, origins, parties, documents, events)...")
+            # Delete in dependency-safe order
+            try:
+                db_sample.query(ContainerEvent).delete()
+            except Exception as e:
+                print(f"Warning: Failed to clear ContainerEvent: {e}")
+            try:
+                db_sample.query(Document).delete()
+            except Exception as e:
+                print(f"Warning: Failed to clear Document: {e}")
+            try:
+                db_sample.query(Origin).delete()
+            except Exception as e:
+                print(f"Warning: Failed to clear Origin: {e}")
+            try:
+                db_sample.query(Product).delete()
+            except Exception as e:
+                print(f"Warning: Failed to clear Product: {e}")
+            try:
+                db_sample.query(Party).delete()
+            except Exception as e:
+                print(f"Warning: Failed to clear Party: {e}")
+            try:
+                db_sample.query(Shipment).delete()
+            except Exception as e:
+                print(f"Warning: Failed to clear Shipment: {e}")
+            db_sample.commit()
+            print("Shipment-related data cleared.")
+
         # Check if shipment data already exists
         existing = db_sample.query(Shipment).first()
         if existing:
