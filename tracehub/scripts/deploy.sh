@@ -173,6 +173,14 @@ if [[ "$SKIP_MIGRATIONS" != true ]]; then
     exit 1
   }
   echo ""
+  echo -e "${GREEN}Verifying database schema...${NC}"
+  docker-compose -f docker-compose.prod.yml exec -T backend python scripts/check_schema.py || {
+    echo -e "${RED}Error: Schema verification failed (missing required columns)${NC}"
+    echo "Rolling back deployment..."
+    docker-compose -f docker-compose.prod.yml down
+    exit 1
+  }
+  echo ""
 fi
 
 # Health check

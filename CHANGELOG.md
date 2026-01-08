@@ -8,6 +8,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Schema Verification & Staging Fixes**
+  - Database schema verification script (`tracehub/backend/scripts/check_schema.py`) to validate critical columns post-migration
+  - Schema check integrated into `deploy.sh` post-migration step (exits non-zero if columns missing)
+  - Migration 003: Extend `documentstatus` enum with compliance/linking states (`COMPLIANCE_OK`, `COMPLIANCE_FAILED`, `LINKED`, `DRAFT`, `ARCHIVED`)
+  - Migration 004: Corrective migration to ensure `documents.file_size` column exists on drifted DBs
 - CLAUDE.md context engineering file for AI-assisted development
 - Compliance matrix documentation (`docs/COMPLIANCE_MATRIX.md`)
 - Architecture Decision Record for EUDR removal (`docs/decisions/001-eudr-removal.md`)
@@ -49,6 +54,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Shipment.tsx** now uses centralized compliance utility instead of hardcoded HS codes
 
 ### Fixed
+- UndefinedColumn error on shipments detail page (`documents.file_size` missing on staging)
+- Analytics dashboard 500 error (missing `documentstatus` enum values used by compliance queries)
+- Schema drift detection and prevention in future deployments
 - Corrected EUDR applicability for horn/hoof products (HS 0506/0507) - NOT covered by EUDR
 
 ### Security
