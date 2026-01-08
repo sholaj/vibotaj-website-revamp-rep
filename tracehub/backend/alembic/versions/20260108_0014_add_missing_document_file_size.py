@@ -3,8 +3,8 @@
 Revision ID: 004
 Revises: 003
 Create Date: 2026-01-08
-
-Adds documents.file_size if missing to reconcile schema drift observed on staging.
+Revision ID: 014
+Revises: 013
 """
 from typing import Sequence, Union
 
@@ -13,8 +13,8 @@ from alembic import op
 # revision identifiers, used by Alembic.
 revision: str = '004'
 down_revision: Union[str, None] = '003'
-branch_labels: Union[str, Sequence[str], None] = None
-depends_on: Union[str, Sequence[str], None] = None
+revision: str = '014'
+down_revision: Union[str, None] = '013'
 
 
 def upgrade() -> None:

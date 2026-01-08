@@ -3,8 +3,8 @@
 Revision ID: 003
 Revises: 002
 Create Date: 2026-01-08
-
-Adds additional statuses used by application code to the documentstatus enum:
+Revision ID: 013
+Revises: 012
 - DRAFT
 - COMPLIANCE_OK
 - COMPLIANCE_FAILED
@@ -18,8 +18,8 @@ from alembic import op
 # revision identifiers, used by Alembic.
 revision: str = '003'
 down_revision: Union[str, None] = '002'
-branch_labels: Union[str, Sequence[str], None] = None
-depends_on: Union[str, Sequence[str], None] = None
+revision: str = '013'
+down_revision: Union[str, None] = '012'
 
 
 def upgrade() -> None:
