@@ -14,6 +14,7 @@ import Shipment from './pages/Shipment'
 import Dashboard from './pages/Dashboard'
 import Analytics from './pages/Analytics'
 import Users from './pages/Users'
+import Organizations from './pages/Organizations'
 import Layout from './components/Layout'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
 
@@ -132,6 +133,9 @@ function AppRoutes() {
 
         {/* User management (admin only) */}
         <Route path="users" element={<Users />} />
+
+        {/* Organization management (admin only) */}
+        <Route path="organizations" element={<Organizations />} />
 
         {/* Shipment detail page */}
         <Route path="shipment/:id" element={<Shipment />} />

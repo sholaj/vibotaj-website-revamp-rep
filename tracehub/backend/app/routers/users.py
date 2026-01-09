@@ -9,12 +9,14 @@ import math
 
 from ..database import get_db
 from ..models.user import User as UserModel, UserRole
+from ..models.organization import Organization, OrganizationMembership, MembershipStatus
 from ..schemas.user import (
     UserCreate,
     UserUpdate,
     UserPasswordUpdate,
     UserResponse,
     UserListResponse,
+    UserOrganizationInfo,
     CurrentUser
 )
 from ..routers.auth import get_current_active_user, get_password_hash, verify_password
@@ -35,6 +37,34 @@ def check_permission(user: CurrentUser, permission: Permission) -> None:
             status_code=status.HTTP_403_FORBIDDEN,
             detail=f"Permission denied. Required: {permission.value}"
         )
+
+
+def get_user_primary_organization(db: Session, user_id: UUID) -> Optional[UserOrganizationInfo]:
+    """Get a user's primary organization membership info."""
+    membership = (
+        db.query(OrganizationMembership)
+        .filter(
+            OrganizationMembership.user_id == user_id,
+            OrganizationMembership.status == MembershipStatus.ACTIVE
+        )
+        .join(Organization)
+        .order_by(OrganizationMembership.is_primary.desc(), OrganizationMembership.joined_at.asc())
+        .first()
+    )
+
+    if not membership:
+        return None
+
+    org = db.query(Organization).filter(Organization.id == membership.organization_id).first()
+    if not org:
+        return None
+
+    return UserOrganizationInfo(
+        organization_id=org.id,
+        organization_name=org.name,
+        organization_type=org.type,
+        org_role=membership.org_role
+    )
 
 
 @router.post("", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
@@ -127,8 +157,24 @@ async def list_users(
         .all()
     )
 
+    # Add organization info to each user response
+    user_responses = []
+    for user in users:
+        primary_org = get_user_primary_organization(db, user.id)
+        user_responses.append(UserResponse(
+            id=user.id,
+            email=user.email,
+            full_name=user.full_name,
+            role=user.role,
+            is_active=user.is_active,
+            created_at=user.created_at,
+            updated_at=user.updated_at,
+            last_login=user.last_login,
+            primary_organization=primary_org
+        ))
+
     return UserListResponse(
-        items=users,
+        items=user_responses,
         total=total,
         page=page,
         limit=limit,

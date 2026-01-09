@@ -64,6 +64,17 @@ class UserPasswordUpdate(BaseModel):
         return v
 
 
+class UserOrganizationInfo(BaseModel):
+    """Summary of user's primary organization membership."""
+    organization_id: UUID
+    organization_name: str
+    organization_type: OrganizationType
+    org_role: OrgRole
+
+    class Config:
+        from_attributes = True
+
+
 class UserResponse(BaseModel):
     """Schema for user response (excludes password)."""
     id: UUID
@@ -74,6 +85,7 @@ class UserResponse(BaseModel):
     created_at: datetime
     updated_at: Optional[datetime] = None
     last_login: Optional[datetime] = None
+    primary_organization: Optional[UserOrganizationInfo] = None
 
     class Config:
         from_attributes = True

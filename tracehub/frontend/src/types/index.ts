@@ -61,6 +61,13 @@ export interface UserUpdate {
   is_active?: boolean
 }
 
+export interface UserOrganizationInfo {
+  organization_id: string
+  organization_name: string
+  organization_type: OrganizationType
+  org_role: OrgRole
+}
+
 export interface UserResponse {
   id: string
   email: string
@@ -70,6 +77,7 @@ export interface UserResponse {
   created_at: string
   updated_at?: string
   last_login?: string
+  primary_organization?: UserOrganizationInfo
 }
 
 export interface UserListResponse {
@@ -981,4 +989,109 @@ export interface EUDRRegulationInfo {
     traceability: string
   }
   compliance_checklist: string[]
+}
+
+// ============================================
+// Organization Management Types
+// ============================================
+
+export type OrganizationStatus = 'active' | 'suspended' | 'pending_setup'
+
+export interface OrganizationAddress {
+  street?: string
+  city?: string
+  postal_code?: string
+  country: string
+}
+
+export interface Organization {
+  id: string
+  name: string
+  slug: string
+  type: OrganizationType
+  status: OrganizationStatus
+  contact_email: string
+  contact_phone?: string
+  address?: OrganizationAddress
+  tax_id?: string
+  registration_number?: string
+  logo_url?: string
+  member_count?: number
+  shipment_count?: number
+  created_at: string
+  updated_at?: string
+  created_by?: string
+}
+
+export interface OrganizationListItem {
+  id: string
+  name: string
+  slug: string
+  type: OrganizationType
+  status: OrganizationStatus
+  member_count: number
+  created_at: string
+}
+
+export interface OrganizationListResponse {
+  items: OrganizationListItem[]
+  total: number
+  page: number
+  limit: number
+  pages: number
+}
+
+export interface OrganizationCreate {
+  name: string
+  slug: string
+  type: OrganizationType
+  contact_email: string
+  contact_phone?: string
+  address?: OrganizationAddress
+  tax_id?: string
+  registration_number?: string
+}
+
+export interface OrganizationUpdate {
+  name?: string
+  contact_email?: string
+  contact_phone?: string
+  address?: OrganizationAddress
+  tax_id?: string
+  registration_number?: string
+  logo_url?: string
+}
+
+export type MembershipStatus = 'active' | 'suspended' | 'pending'
+
+export interface OrganizationMember {
+  id: string
+  user_id: string
+  organization_id: string
+  email: string
+  full_name: string
+  org_role: OrgRole
+  status: MembershipStatus
+  is_primary: boolean
+  joined_at: string
+  last_active_at?: string
+  invited_by?: string
+}
+
+export interface MembershipCreate {
+  user_id: string
+  org_role: OrgRole
+}
+
+export interface MembershipUpdate {
+  org_role?: OrgRole
+  status?: MembershipStatus
+}
+
+export interface MemberListResponse {
+  items: OrganizationMember[]
+  total: number
+  page: number
+  limit: number
+  pages: number
 }

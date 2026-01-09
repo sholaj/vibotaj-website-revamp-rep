@@ -1,5 +1,5 @@
 import { Outlet, Link, useLocation } from 'react-router-dom'
-import { Package, LogOut, Home, BarChart3, Users, Shield } from 'lucide-react'
+import { Package, LogOut, Home, BarChart3, Users, Shield, Building2 } from 'lucide-react'
 import NotificationBell from './NotificationBell'
 import { useAuth } from '../contexts/AuthContext'
 import type { UserRole } from '../types'
@@ -37,6 +37,7 @@ export default function Layout({ onLogout }: LayoutProps) {
     { name: 'Analytics', href: '/analytics', icon: BarChart3, show: true },
     // Admin-only items
     { name: 'Users', href: '/users', icon: Users, show: canManageUsers },
+    { name: 'Organizations', href: '/organizations', icon: Building2, show: isAdmin },
   ].filter(item => item.show)
 
   return (
