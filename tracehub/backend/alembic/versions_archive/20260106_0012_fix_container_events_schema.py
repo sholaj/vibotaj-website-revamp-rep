@@ -46,6 +46,15 @@ def enum_exists(enum_name: str) -> bool:
     return result.fetchone() is not None
 
 
+def index_exists(index_name: str) -> bool:
+    """Check if an index exists."""
+    conn = op.get_bind()
+    result = conn.execute(sa.text("""
+        SELECT indexname FROM pg_indexes WHERE indexname = :name
+    """), {"name": index_name})
+    return result.fetchone() is not None
+
+
 def upgrade() -> None:
     """Fix container_events schema to match model."""
 
@@ -88,10 +97,11 @@ def upgrade() -> None:
         print("✓ Added description column")
 
     # Add index on event_time if not exists (for query performance)
-    try:
+    if not index_exists('ix_container_events_event_time'):
         op.create_index('ix_container_events_event_time', 'container_events', ['event_time'])
-    except Exception:
-        pass  # Index may already exist
+        print("✓ Added index on event_time")
+    else:
+        print("✓ Index ix_container_events_event_time already exists")
 
     print("✓ container_events schema fix complete")
 

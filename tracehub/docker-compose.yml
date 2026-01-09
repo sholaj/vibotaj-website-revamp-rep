@@ -30,6 +30,8 @@ services:
     environment:
       DATABASE_URL: postgresql://tracehub:tracehub@db:5432/tracehub
       DEBUG: "true"
+      TESTING: "false"
+      RATE_LIMIT_DISABLED: "true"
       JSONCARGO_API_KEY: ${JSONCARGO_API_KEY:-}
       JWT_SECRET: ${JWT_SECRET:-your-secret-key-change-in-production}
       DEMO_PASSWORD: ${DEMO_PASSWORD:-}
@@ -39,6 +41,7 @@ services:
     volumes:
       - ./backend:/app
       - ./uploads:/app/uploads
+      - ../docs:/docs:ro
     depends_on:
       db:
         condition: service_healthy

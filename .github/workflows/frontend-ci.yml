@@ -2,7 +2,7 @@ name: Frontend CI
 
 on:
   push:
-    branches: [main, develop]
+    branches: [main, develop, 'feature/**']
     paths:
       - 'tracehub/frontend/**'
       - '.github/workflows/frontend-ci.yml'
@@ -39,14 +39,26 @@ jobs:
       - name: Lint code
         working-directory: ${{ env.WORKING_DIRECTORY }}
         run: npm run lint || echo "Linting issues found"
+        continue-on-error: true
 
       - name: Type check
         working-directory: ${{ env.WORKING_DIRECTORY }}
         run: npx tsc --noEmit || echo "Type errors found"
+        continue-on-error: true
 
       - name: Run tests
         working-directory: ${{ env.WORKING_DIRECTORY }}
-        run: npm run test -- --run --coverage || echo "No tests configured yet"
+        run: |
+          npm run test:coverage
+          echo "Frontend tests completed"
+
+      - name: Upload coverage reports
+        uses: codecov/codecov-action@v4
+        with:
+          file: ${{ env.WORKING_DIRECTORY }}/coverage/coverage-final.json
+          flags: frontend
+          name: frontend-coverage
+        continue-on-error: true
 
       - name: Build application
         working-directory: ${{ env.WORKING_DIRECTORY }}

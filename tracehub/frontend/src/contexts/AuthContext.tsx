@@ -10,7 +10,7 @@
 
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react'
 import api from '../api/client'
-import type { CurrentUser, UserRole } from '../types'
+import type { CurrentUser, UserRole, OrgRole, OrganizationType, OrgPermission } from '../types'
 
 // Permission definitions aligned with backend
 export const Permission = {
@@ -65,6 +65,12 @@ interface AuthContextType {
   hasAllPermissions: (permissions: PermissionKey[]) => boolean
   hasRole: (role: UserRole) => boolean
   hasAnyRole: (roles: UserRole[]) => boolean
+  // Organization-scoped permission checking
+  orgRole: OrgRole | null
+  orgType: OrganizationType | null
+  hasOrgPermission: (permission: OrgPermission) => boolean
+  hasAnyOrgPermission: (permissions: OrgPermission[]) => boolean
+  hasAllOrgPermissions: (permissions: OrgPermission[]) => boolean
   isAdmin: boolean
   isCompliance: boolean
   isBuyer: boolean
@@ -159,6 +165,22 @@ export function AuthProvider({ children }: AuthProviderProps) {
     return permissions.every(p => user.permissions.includes(p))
   }, [user])
 
+  // Organization permission checking functions
+  const hasOrgPermission = useCallback((permission: OrgPermission): boolean => {
+    if (!user || !user.org_permissions) return false
+    return user.org_permissions.includes(permission)
+  }, [user])
+
+  const hasAnyOrgPermission = useCallback((permissions: OrgPermission[]): boolean => {
+    if (!user || !user.org_permissions) return false
+    return permissions.some(p => user.org_permissions!.includes(p))
+  }, [user])
+
+  const hasAllOrgPermissions = useCallback((permissions: OrgPermission[]): boolean => {
+    if (!user || !user.org_permissions) return false
+    return permissions.every(p => user.org_permissions!.includes(p))
+  }, [user])
+
   const hasRole = useCallback((role: UserRole): boolean => {
     if (!user) return false
     return user.role === role
@@ -175,6 +197,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const isBuyer = user?.role === 'buyer'
   const isSupplier = user?.role === 'supplier'
   const isViewer = user?.role === 'viewer'
+
+  // Organization context
+  const orgRole = user?.org_role ?? null
+  const orgType = user?.org_type ?? null
 
   // Common permission checks
   const canManageUsers = hasPermission(Permission.USERS_CREATE)
@@ -194,6 +220,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
     hasAllPermissions,
     hasRole,
     hasAnyRole,
+    // Organization permission helpers
+    orgRole,
+    orgType,
+    hasOrgPermission,
+    hasAnyOrgPermission,
+    hasAllOrgPermissions,
     isAdmin,
     isCompliance,
     isBuyer,

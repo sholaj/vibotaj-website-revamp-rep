@@ -1,0 +1,50 @@
+# Docker Compose configuration for running tests
+# Usage: docker compose -f docker-compose.test.yml up --build --exit-code-from backend-test
+
+services:
+  db-test:
+    image: postgres:15
+    container_name: tracehub-db-test
+    environment:
+      POSTGRES_USER: tracehub_test
+      POSTGRES_PASSWORD: tracehub_test
+      POSTGRES_DB: tracehub_test
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U tracehub_test"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    tmpfs:
+      - /var/lib/postgresql/data  # Use tmpfs for faster tests
+    networks:
+      - tracehub-test-network
+
+  backend-test:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: tracehub-backend-test
+    environment:
+      # Test database connection (uses service name 'db-test')
+      DATABASE_URL: postgresql://tracehub_test:tracehub_test@db-test:5432/tracehub_test
+      TEST_DATABASE_URL: postgresql://tracehub_test:tracehub_test@db-test:5432/tracehub_test
+      JWT_SECRET: test-jwt-secret-for-ci-testing
+      DEBUG: "true"
+      TESTING: "true"
+      DEMO_PASSWORD: TestDemo123!
+    depends_on:
+      db-test:
+        condition: service_healthy
+    command: >
+      sh -c "
+        echo 'Waiting for database...' &&
+        sleep 2 &&
+        echo 'Running pytest...' &&
+        pytest tests/ -v --tb=short --strict-markers
+      "
+    networks:
+      - tracehub-test-network
+
+networks:
+  tracehub-test-network:
+    driver: bridge

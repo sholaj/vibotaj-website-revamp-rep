@@ -4,6 +4,35 @@
 
 ---
 
+## Installation Requirements
+
+Ensure consistent local and CI installs by aligning tooling and commands.
+
+- Node: 18.x (required by Vite 5 and jsdom 23)
+- npm: 9+ (bundled with Node 18)
+- Lockfile: package-lock.json committed
+- Version file: .nvmrc with `18` in tracehub/frontend
+- Engines: package.json declares `node>=18`, `npm>=9`
+- Testing stack versions aligned:
+  - vitest ^1.6.1
+  - @vitest/ui ^1.6.1
+  - @vitest/coverage-v8 ^1.6.1
+  - jsdom ^23.0.1
+  - @testing-library/* per package.json
+
+Recommended commands:
+
+```bash
+cd tracehub/frontend
+nvm use 18            # if nvm is installed
+npm ci                # reproducible install from lockfile
+npm test -- --run     # run tests
+npm run test:coverage # run tests with coverage
+npm run build         # production build
+```
+
+---
+
 ## Design Tokens
 
 ### Colors

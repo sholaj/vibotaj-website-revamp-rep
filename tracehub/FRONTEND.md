@@ -31,6 +31,29 @@
 - **Icons:** Lucide React 0.303
 - **Date Handling:** date-fns 3.0.6
 - **HTTP:** Axios 1.6.2
+ - **Testing:** Vitest 1.6.x, @vitest/ui 1.6.x, @vitest/coverage-v8 1.6.x, jsdom 23, Testing Library
+ - **Build Tool:** Vite 5 (requires Node 18)
+
+### Installation Requirements
+
+For consistent installation across macOS and CI:
+
+- Use Node 18.x and npm 9+
+- Ensure `tracehub/frontend/.nvmrc` contains `18`
+- `package.json` defines engines: `node>=18`, `npm>=9`
+- Always install with `npm ci` (uses `package-lock.json`)
+- Keep Vitest-related packages on the same minor version (1.6.x)
+
+Quick start:
+
+```bash
+cd tracehub/frontend
+nvm use 18            # if using nvm
+npm ci
+npm test -- --run
+npm run test:coverage
+npm run build
+```
 
 ### Existing Pages
 1. **Login** - OAuth2 authentication

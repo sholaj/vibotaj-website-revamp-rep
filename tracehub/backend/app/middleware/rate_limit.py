@@ -1,7 +1,12 @@
-"""Rate limiting middleware - prevents abuse."""
+"""Rate limiting middleware - prevents abuse.
+
+Skips rate limiting automatically when running in CI or testing environments
+to avoid interfering with automated test suites.
+"""
 
 import time
 import logging
+import os
 from typing import Dict, Tuple
 from collections import defaultdict
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -102,6 +107,14 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
 
     def _should_skip(self, request: Request) -> bool:
         """Skip rate limiting for certain paths."""
+        # Skip in CI/testing environments or when explicitly disabled
+        if (
+            os.getenv("TESTING", "").lower() == "true"
+            or os.getenv("CI", "").lower() == "true"
+            or os.getenv("RATE_LIMIT_DISABLED", "").lower() == "true"
+        ):
+            return True
+
         skip_paths = [
             "/health",
             "/docs",

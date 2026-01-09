@@ -3,6 +3,9 @@
 // Aligned with backend Pydantic schemas
 // ============================================
 
+export * from './organization'
+export type { OrgPermission, OrgRole, OrganizationType } from './organization'
+
 // ============================================
 // Authentication Types
 // ============================================
@@ -36,6 +39,10 @@ export interface CurrentUser {
   is_active: boolean
   organization_id: string
   permissions: string[]
+  // Organization-scoped permissions
+  org_role?: OrgRole | null
+  org_type?: OrganizationType | null
+  org_permissions?: string[]
 }
 
 // User management types

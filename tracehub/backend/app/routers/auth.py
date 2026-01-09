@@ -4,16 +4,21 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 from datetime import datetime, timedelta
 from jose import JWTError, jwt
 import bcrypt
 from typing import Optional
+from uuid import UUID
+from sqlalchemy.orm import joinedload
 
 from ..config import get_settings
 from ..database import get_db
 from ..models.user import User as UserModel, UserRole
+from ..models.organization import OrganizationMembership, OrganizationType, OrgRole
 from ..schemas.user import UserResponse, CurrentUser
 from ..services.permissions import get_role_permissions
+from ..services.org_permissions import compute_effective_permissions
 
 router = APIRouter()
 settings = get_settings()
@@ -67,8 +72,8 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -
 
 
 def get_user_by_email(db: Session, email: str) -> Optional[UserModel]:
-    """Get user by email address."""
-    return db.query(UserModel).filter(UserModel.email == email).first()
+    """Get user by email address (case-insensitive)."""
+    return db.query(UserModel).filter(func.lower(UserModel.email) == email.lower()).first()
 
 
 def get_user_by_id(db: Session, user_id: str) -> Optional[UserModel]:
@@ -155,6 +160,7 @@ async def get_current_active_user(
     """Get current authenticated user with full details and permissions.
 
     This is the preferred method for new endpoints.
+    Includes organization-scoped permissions computed from role + org type.
     """
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
@@ -186,11 +192,13 @@ async def get_current_active_user(
     if user is None:
         # Fall back to demo user for backward compatibility
         if email == settings.demo_email or user_id == settings.demo_username or user_id == "demo":
-            from uuid import UUID
             role = UserRole.ADMIN  # Demo user gets admin role
             permissions = [p.value for p in get_role_permissions(role)]
-            # Demo user belongs to VIBOTAJ organization
+            # Demo user belongs to VIBOTAJ organization with admin org role
             vibotaj_org_id = UUID("00000000-0000-0000-0000-000000000001")
+            org_role = OrgRole.ADMIN
+            org_type = OrganizationType.VIBOTAJ
+            org_permissions = compute_effective_permissions(org_role, org_type, is_system_admin=True)
             return CurrentUser(
                 id=UUID("00000000-0000-0000-0000-000000000000"),
                 email=settings.demo_email,
@@ -198,7 +206,10 @@ async def get_current_active_user(
                 role=role,
                 is_active=True,
                 organization_id=vibotaj_org_id,
-                permissions=permissions
+                permissions=permissions,
+                org_role=org_role,
+                org_type=org_type,
+                org_permissions=[p.value for p in org_permissions]
             )
         raise credentials_exception
 
@@ -212,6 +223,26 @@ async def get_current_active_user(
     # Get permissions for user's role
     permissions = [p.value for p in get_role_permissions(user.role)]
 
+    # Load organization membership to get org role and org type
+    membership = db.query(OrganizationMembership).filter(
+        OrganizationMembership.user_id == user.id,
+        OrganizationMembership.organization_id == user.organization_id
+    ).options(joinedload(OrganizationMembership.organization)).first()
+
+    # Determine org role and org type
+    org_role = None
+    org_type = OrganizationType.VIBOTAJ  # Default
+    org_permissions = []
+
+    if membership and membership.organization:
+        org_role = membership.role
+        org_type = membership.organization.type
+        # Compute org permissions based on role + org type + system admin status
+        computed_perms = compute_effective_permissions(
+            org_role, org_type, is_system_admin=(user.role == UserRole.ADMIN)
+        )
+        org_permissions = [p.value for p in computed_perms]
+
     return CurrentUser(
         id=user.id,
         email=user.email,
@@ -219,7 +250,10 @@ async def get_current_active_user(
         role=user.role,
         is_active=user.is_active,
         organization_id=user.organization_id,
-        permissions=permissions
+        permissions=permissions,
+        org_role=org_role,
+        org_type=org_type,
+        org_permissions=org_permissions
     )
 
 
@@ -232,6 +266,22 @@ async def login(
 
     Accepts either email or username for backward compatibility.
     """
+    import logging
+    logger = logging.getLogger(__name__)
+
+    # Initialize password_match to prevent NameError in debug code path
+    password_match = None
+    
+    # Debug: Check user lookup
+    db_user = get_user_by_email(db, form_data.username)
+    if db_user:
+        logger.info(f"LOGIN DEBUG: Found user {db_user.email}, hash_prefix={db_user.hashed_password[:20] if db_user.hashed_password else 'NONE'}")
+        # Debug: Check password verification
+        password_match = verify_password(form_data.password, db_user.hashed_password)
+        logger.info(f"LOGIN DEBUG: Password verification result: {password_match}")
+    else:
+        logger.info(f"LOGIN DEBUG: No user found for email: {form_data.username}")
+
     # First try to authenticate against database
     user = authenticate_user(db, form_data.username, form_data.password)
 
@@ -262,6 +312,23 @@ async def login(
             )
             return Token(access_token=access_token, token_type="bearer")
 
+    # Return debug info for non-production environments
+    from ..config import get_settings
+    debug_settings = get_settings()
+    if debug_settings.environment != "production":
+        debug_info = {
+            "user_found": db_user is not None,
+            "email_searched": form_data.username,
+            "hash_exists": db_user.hashed_password is not None if db_user else False,
+            "hash_prefix": db_user.hashed_password[:20] if db_user and db_user.hashed_password else None,
+            "password_match": password_match if db_user else None,
+            "environment": debug_settings.environment
+        }
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=f"Incorrect username or password. Debug: {debug_info}",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
     raise HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Incorrect username or password",
@@ -289,3 +356,52 @@ async def get_my_permissions(current_user: CurrentUser = Depends(get_current_act
         "role": current_user.role.value,
         "permissions": current_user.permissions
     }
+
+
+@router.get("/debug/ping")
+async def debug_ping():
+    """Simple debug endpoint to test if new routes are being loaded."""
+    return {"pong": True, "message": "Auth router is loaded"}
+
+
+@router.get("/debug/user-count")
+async def debug_user_count(db: Session = Depends(get_db)):
+    """Debug endpoint to count users in database."""
+    from ..config import get_settings
+    settings = get_settings()
+    if settings.environment == "production":
+        raise HTTPException(status_code=404, detail="Not found")
+
+    from ..models.user import User as UserModel
+    try:
+        count = db.query(UserModel).count()
+        return {"user_count": count, "environment": settings.environment}
+    except Exception as e:
+        return {"error": str(e), "environment": settings.environment}
+
+
+@router.get("/debug/user-check/{email}")
+async def debug_user_check(email: str, db: Session = Depends(get_db)):
+    """Debug endpoint to check if a user exists (non-production only)."""
+    from ..config import get_settings
+    settings = get_settings()
+    # Only allow on non-production environments
+    if settings.environment == "production":
+        raise HTTPException(status_code=404, detail="Not found")
+
+    try:
+        user = get_user_by_email(db, email)
+        if user:
+            return {
+                "found": True,
+                "email": user.email,
+                "hash_prefix": user.hashed_password[:20] if user.hashed_password else None,
+                "hash_length": len(user.hashed_password) if user.hashed_password else 0,
+                "is_active": user.is_active,
+                "role": user.role.value if user.role else None,
+                "org_id": str(user.organization_id) if user.organization_id else None,
+                "environment": settings.environment
+            }
+        return {"found": False, "email": email, "environment": settings.environment}
+    except Exception as e:
+        return {"error": str(e), "environment": settings.environment}

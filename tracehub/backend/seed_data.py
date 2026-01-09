@@ -25,10 +25,12 @@ from app.models import (
     Organization, OrganizationType, OrganizationStatus,
     OrganizationMembership, OrgRole
 )
-from passlib.context import CryptContext
+import bcrypt
 
-# Password hashing
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+def get_password_hash(password: str) -> str:
+    """Hash a password using bcrypt directly (same as auth.py)."""
+    return bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
 
 
 def create_tables():
@@ -305,19 +307,70 @@ def seed_users(db: Session):
             registration_number="HRB123456"
         )
         db.add(witatrade_org)
+
+        # Create HAGES Organization (Pilot Customer)
+        hages_org = Organization(
+            name="HAGES GmbH",
+            slug="hages",
+            type=OrganizationType.BUYER,
+            status=OrganizationStatus.ACTIVE,
+            contact_email="info@hages.de",
+            contact_phone="+49 4501 123456",
+            address={"city": "Bad Schwartau", "country": "Germany"},
+            tax_id="DE987654321",
+            registration_number="HRB987654"
+        )
+        db.add(hages_org)
         db.flush()
     else:
         vibotaj_org = db.query(Organization).filter_by(slug="vibotaj").first()
         witatrade_org = db.query(Organization).filter_by(slug="witatrade").first()
+        hages_org = db.query(Organization).filter_by(slug="hages").first()
+
+        # Create HAGES if it doesn't exist
+        if not hages_org:
+            hages_org = Organization(
+                name="HAGES GmbH",
+                slug="hages",
+                type=OrganizationType.BUYER,
+                status=OrganizationStatus.ACTIVE,
+                contact_email="info@hages.de",
+                contact_phone="+49 4501 123456",
+                address={"city": "Bad Schwartau", "country": "Germany"},
+                tax_id="DE987654321",
+                registration_number="HRB987654"
+            )
+            db.add(hages_org)
+            db.flush()
 
     # Check if users already exist
     existing_user = db.query(User).first()
-    if existing_user:
-        print("Users already exist. Skipping user seed.")
-        return vibotaj_org.id, witatrade_org.id
+    force_reseed = os.environ.get("FORCE_RESEED", "").lower() in ("true", "1", "yes")
+    if existing_user and not force_reseed:
+        print("Users already exist. Skipping user seed. Set FORCE_RESEED=true to override.")
+        return vibotaj_org.id, witatrade_org.id if witatrade_org else None
+    elif existing_user and force_reseed:
+        print("FORCE_RESEED enabled - clearing existing data (shipments, documents, then users)...")
+        # Delete in dependency-safe order: events, docs, origins, products, parties, shipments, memberships, users
+        try:
+            db.query(ContainerEvent).delete()
+            db.query(Document).delete()
+            db.query(Origin).delete()
+            db.query(Product).delete()
+            db.query(Party).delete()
+            db.query(Shipment).delete()
+            db.query(OrganizationMembership).delete()
+            db.query(User).delete()
+            db.commit()
+            print("Existing data cleared.")
+        except Exception as e:
+            print(f"Warning: Failed to clear data: {e}")
+            db.rollback()
+            print("Continuing with seed anyway...")
 
     # Create test users
     users_data = [
+        # VIBOTAJ users
         {
             "email": "admin@vibotaj.com",
             "full_name": "System Administrator",
@@ -343,6 +396,23 @@ def seed_users(db: Session):
             "org_role": OrgRole.MEMBER
         },
         {
+            "email": "supplier@vibotaj.com",
+            "full_name": "Origin Supplier",
+            "password": "tracehub2026",
+            "role": UserRole.SUPPLIER,
+            "org": vibotaj_org,
+            "org_role": OrgRole.MEMBER
+        },
+        {
+            "email": "viewer@vibotaj.com",
+            "full_name": "Audit Viewer",
+            "password": "tracehub2026",
+            "role": UserRole.VIEWER,
+            "org": vibotaj_org,
+            "org_role": OrgRole.MEMBER
+        },
+        # WITATRADE users
+        {
             "email": "buyer@witatrade.de",
             "full_name": "Hans Mueller",
             "password": "tracehub2026",
@@ -350,13 +420,40 @@ def seed_users(db: Session):
             "org": witatrade_org,
             "org_role": OrgRole.ADMIN
         },
+        # HAGES users (Pilot Customer)
+        {
+            "email": "helge.bischoff@hages.de",
+            "full_name": "Helge Bischoff",
+            "password": "Hages2026Helge!",
+            "role": UserRole.BUYER,
+            "org": hages_org,
+            "org_role": OrgRole.ADMIN  # Organization owner
+        },
+        {
+            "email": "mats.jarsetz@hages.de",
+            "full_name": "Mats Morten Jarsetz",
+            "password": "Hages2026Mats!",
+            "role": UserRole.BUYER,
+            "org": hages_org,
+            "org_role": OrgRole.ADMIN
+        },
+        {
+            "email": "eike.pannen@hages.de",
+            "full_name": "Eike Pannen",
+            "password": "Hages2026Eike!",
+            "role": UserRole.BUYER,
+            "org": hages_org,
+            "org_role": OrgRole.ADMIN
+        },
     ]
 
     for ud in users_data:
+        password_hash = get_password_hash(ud["password"])
+        print(f"Creating user {ud['email']} with hash prefix: {password_hash[:20]}...")
         user = User(
             email=ud["email"],
             full_name=ud["full_name"],
-            hashed_password=pwd_context.hash(ud["password"]),
+            hashed_password=password_hash,
             role=ud["role"],
             organization_id=ud["org"].id,
             is_active=True
@@ -375,6 +472,10 @@ def seed_users(db: Session):
 
     db.commit()
     print("Test users and organizations created.")
+
+    # Verify users were created
+    user_count = db.query(User).count()
+    print(f"Verified: {user_count} users in database after seeding.")
     return vibotaj_org.id, witatrade_org.id
 
 
@@ -382,20 +483,61 @@ def main():
     """Main entry point."""
     create_tables()
 
-    db = SessionLocal()
+    # Use separate session for users to ensure they're committed independently
+    db_users = SessionLocal()
     try:
         # Seed users first and get organization IDs
-        vibotaj_id, witatrade_id = seed_users(db)
+        vibotaj_id, witatrade_id = seed_users(db_users)
+    finally:
+        db_users.close()
+
+    # Use separate session for sample data - if this fails, users are still committed
+    db_sample = SessionLocal()
+    try:
+        # If FORCE_RESEED is enabled, wipe shipment-related data to match local
+        force_reseed = os.environ.get("FORCE_RESEED", "").lower() in ("true", "1", "yes")
+        if force_reseed:
+            print("\nFORCE_RESEED enabled - clearing shipment-related data (shipments, products, origins, parties, documents, events)...")
+            # Delete in dependency-safe order
+            try:
+                db_sample.query(ContainerEvent).delete()
+            except Exception as e:
+                print(f"Warning: Failed to clear ContainerEvent: {e}")
+            try:
+                db_sample.query(Document).delete()
+            except Exception as e:
+                print(f"Warning: Failed to clear Document: {e}")
+            try:
+                db_sample.query(Origin).delete()
+            except Exception as e:
+                print(f"Warning: Failed to clear Origin: {e}")
+            try:
+                db_sample.query(Product).delete()
+            except Exception as e:
+                print(f"Warning: Failed to clear Product: {e}")
+            try:
+                db_sample.query(Party).delete()
+            except Exception as e:
+                print(f"Warning: Failed to clear Party: {e}")
+            try:
+                db_sample.query(Shipment).delete()
+            except Exception as e:
+                print(f"Warning: Failed to clear Shipment: {e}")
+            db_sample.commit()
+            print("Shipment-related data cleared.")
 
         # Check if shipment data already exists
-        existing = db.query(Shipment).first()
+        existing = db_sample.query(Shipment).first()
         if existing:
             print(f"\nShipment data already exists (shipment {existing.reference}). Skipping shipment seed.")
             return
 
-        seed_sample_data(db, vibotaj_id, witatrade_id)
+        seed_sample_data(db_sample, vibotaj_id, witatrade_id)
+    except Exception as e:
+        print(f"\nWarning: Sample data seeding failed (schema might differ): {e}")
+        print("User seeding completed successfully - login should work.")
     finally:
-        db.close()
+        db_sample.close()
 
 if __name__ == "__main__":
     main()

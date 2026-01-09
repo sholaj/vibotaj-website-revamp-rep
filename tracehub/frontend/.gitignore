@@ -1,1 +1,27 @@
 .vite/
+# Playwright test results
+test-results/
+playwright-report/
+
+# Playwright browser downloads
+ms-playwright/
+pw-run-*
+
+# Test artifacts
+*.trace
+*.webm
+
+# Coverage reports
+coverage/
+.nyc_output/
+
+# Debug logs
+debug.log
+
+# Node modules
+node_modules/
+dist/
+
+# Environment
+.env
+.env.local
