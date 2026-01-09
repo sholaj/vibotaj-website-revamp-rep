@@ -85,6 +85,7 @@ async def create_shipment(
     shipment = Shipment(
         reference=shipment_data.reference,
         container_number=shipment_data.container_number,
+        product_type=shipment_data.product_type,  # Required - determines document requirements
         bl_number=shipment_data.bl_number,
         booking_ref=shipment_data.booking_ref,  # Renamed from booking_reference
         vessel_name=shipment_data.vessel_name,

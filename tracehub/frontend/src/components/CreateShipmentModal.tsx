@@ -4,15 +4,17 @@
  * Modal dialog for creating new shipments with:
  * - Reference number with VIBO-YYYY-NNN pattern
  * - Container number with ISO 6346 validation
+ * - Product type selection (determines document requirements & EUDR applicability)
  * - Optional vessel name
  * - Buyer organization dropdown (multi-tenancy)
  * - Historical shipment checkbox
  */
 
 import { useState, useEffect, useCallback } from 'react'
-import { X, Ship, AlertCircle, Loader2, CheckCircle } from 'lucide-react'
+import { X, Ship, AlertCircle, Loader2, CheckCircle, Leaf } from 'lucide-react'
 import api from '../api/client'
-import type { ShipmentCreateRequest, BuyerOrganization, Shipment } from '../types'
+import type { ShipmentCreateRequest, BuyerOrganization, Shipment, ProductType } from '../types'
+import { PRODUCT_TYPE_OPTIONS } from '../types'
 
 interface CreateShipmentModalProps {
   isOpen: boolean
@@ -36,6 +38,7 @@ export default function CreateShipmentModal({
   // Form field state
   const [reference, setReference] = useState('')
   const [containerNumber, setContainerNumber] = useState('')
+  const [productType, setProductType] = useState<ProductType | ''>('')
   const [vesselName, setVesselName] = useState('')
   const [buyerOrgId, setBuyerOrgId] = useState<string>('')
   const [isHistorical, setIsHistorical] = useState(false)
@@ -52,11 +55,13 @@ export default function CreateShipmentModal({
   // Field validation errors
   const [referenceError, setReferenceError] = useState<string | null>(null)
   const [containerError, setContainerError] = useState<string | null>(null)
+  const [productTypeError, setProductTypeError] = useState<string | null>(null)
 
   // Reset form state
   const resetForm = useCallback(() => {
     setReference('')
     setContainerNumber('')
+    setProductType('')
     setVesselName('')
     setBuyerOrgId('')
     setIsHistorical(false)
@@ -64,6 +69,7 @@ export default function CreateShipmentModal({
     setError(null)
     setReferenceError(null)
     setContainerError(null)
+    setProductTypeError(null)
   }, [])
 
   // Handle modal close
@@ -122,6 +128,16 @@ export default function CreateShipmentModal({
     return true
   }
 
+  // Validate product type (required)
+  const validateProductType = (value: ProductType | ''): boolean => {
+    if (!value) {
+      setProductTypeError('Product type is required')
+      return false
+    }
+    setProductTypeError(null)
+    return true
+  }
+
   // Handle container number input change
   const handleContainerChange = (value: string) => {
     const normalizedValue = value.toUpperCase().replace(/\s/g, '')
@@ -157,8 +173,9 @@ export default function CreateShipmentModal({
     // Validate all fields
     const isReferenceValid = validateReference(reference)
     const isContainerValid = validateContainer(containerNumber)
+    const isProductTypeValid = validateProductType(productType)
 
-    if (!isReferenceValid || !isContainerValid) {
+    if (!isReferenceValid || !isContainerValid || !isProductTypeValid) {
       return
     }
 
@@ -170,6 +187,7 @@ export default function CreateShipmentModal({
       const shipmentData: ShipmentCreateRequest = {
         reference: reference,
         container_number: containerNumber,
+        product_type: productType as ProductType,
         vessel_name: vesselName || undefined,
         buyer_organization_id: buyerOrgId || undefined,
         is_historical: isHistorical,
@@ -286,6 +304,51 @@ export default function CreateShipmentModal({
                 <p className="mt-1 text-xs text-gray-500">
                   ISO 6346 format: 4 letters + 7 digits (e.g., MSCU1234567)
                 </p>
+              </div>
+
+              {/* Product Type */}
+              <div>
+                <label htmlFor="productType" className="block text-sm font-medium text-gray-700 mb-1">
+                  Product Type <span className="text-danger-500">*</span>
+                </label>
+                <select
+                  id="productType"
+                  value={productType}
+                  onChange={(e) => {
+                    setProductType(e.target.value as ProductType | '')
+                    if (e.target.value) setProductTypeError(null)
+                  }}
+                  onBlur={() => validateProductType(productType)}
+                  className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent ${
+                    productTypeError ? 'border-danger-500 bg-danger-50' : 'border-gray-300'
+                  }`}
+                  disabled={isSubmitting}
+                >
+                  <option value="">Select product type</option>
+                  {PRODUCT_TYPE_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label} (HS {option.hsCode})
+                    </option>
+                  ))}
+                </select>
+                {productTypeError && (
+                  <p className="mt-1 text-sm text-danger-600 flex items-center">
+                    <AlertCircle className="h-4 w-4 mr-1" />
+                    {productTypeError}
+                  </p>
+                )}
+                {productType && (
+                  <p className="mt-1 text-xs flex items-center">
+                    {PRODUCT_TYPE_OPTIONS.find(o => o.value === productType)?.eudrRequired ? (
+                      <span className="text-warning-600 flex items-center">
+                        <Leaf className="h-3 w-3 mr-1" />
+                        EUDR compliance required
+                      </span>
+                    ) : (
+                      <span className="text-gray-500">No EUDR requirements</span>
+                    )}
+                  </p>
+                )}
               </div>
 
               {/* Vessel Name */}

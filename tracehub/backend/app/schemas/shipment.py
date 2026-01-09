@@ -9,7 +9,7 @@ from typing import Optional, List
 from uuid import UUID
 from datetime import datetime, date
 
-from ..models.shipment import ShipmentStatus
+from ..models.shipment import ShipmentStatus, ProductType
 
 # ISO 6346 container number format: 4 letters + 7 digits
 ISO_6346_PATTERN = re.compile(r'^[A-Z]{4}[0-9]{7}$')
@@ -19,6 +19,7 @@ class ShipmentCreate(BaseModel):
     """Schema for creating a new shipment."""
     reference: str
     container_number: str
+    product_type: ProductType  # Required - determines document requirements
     bl_number: Optional[str] = None
     booking_ref: Optional[str] = None  # Renamed from booking_reference
     vessel_name: Optional[str] = None
@@ -211,6 +212,7 @@ class ShipmentResponse(BaseModel):
     id: UUID
     reference: str
     container_number: str
+    product_type: Optional[ProductType] = None  # Product category for compliance requirements
     bl_number: Optional[str] = None
     booking_ref: Optional[str] = None  # Renamed from booking_reference
     vessel_name: Optional[str] = None

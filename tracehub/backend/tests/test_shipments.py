@@ -21,7 +21,7 @@ from app.main import app
 from app.database import get_db
 from app.models.user import User, UserRole
 from app.models.organization import Organization, OrganizationType, OrganizationStatus
-from app.models.shipment import Shipment, ShipmentStatus
+from app.models.shipment import Shipment, ShipmentStatus, ProductType
 from app.routers.auth import get_password_hash, get_current_active_user
 from app.schemas.user import CurrentUser
 from app.services.permissions import get_role_permissions
@@ -178,6 +178,7 @@ def vibotaj_shipment(db_session, org_vibotaj):
     shipment = Shipment(
         reference="VIBO-2024-001",
         container_number="MSKU1234567",
+        product_type=ProductType.HORN_HOOF,  # Default for VIBOTAJ
         bl_number="BL123456",
         vessel_name="MAERSK SEALAND",
         voyage_number="V001",
@@ -201,6 +202,7 @@ def hages_shipment(db_session, org_hages):
     shipment = Shipment(
         reference="HAGES-2024-001",
         container_number="CMAU9876543",
+        product_type=ProductType.HORN_HOOF,  # HAGES also buys horn & hoof
         bl_number="BL789012",
         vessel_name="MSC SINFONIA",
         voyage_number="V002",
@@ -224,74 +226,80 @@ class TestShipmentCreation:
     def test_create_shipment_as_admin(self, client, admin_user, org_vibotaj):
         """Admin should be able to create shipments."""
         app.dependency_overrides[get_current_active_user] = lambda: mock_auth(admin_user)
-        
+
         shipment_data = {
             "reference": "VIBO-TEST-001",
             "container_number": "TCNU1234567",
+            "product_type": "horn_hoof",  # Required field
             "bl_number": "BL-TEST-001",
             "vessel_name": "TEST VESSEL",
             "voyage_number": "V999",
             "organization_id": str(org_vibotaj.id)
         }
-        
+
         response = client.post("/api/shipments", json=shipment_data)
-        
+
         assert response.status_code == 201
         data = response.json()
         assert data["reference"] == shipment_data["reference"]
         assert data["container_number"] == shipment_data["container_number"]
+        assert data["product_type"] == "horn_hoof"
         assert data["status"] == "draft"
-        
+
         del app.dependency_overrides[get_current_active_user]
 
     def test_create_shipment_as_logistics(self, client, logistics_user, org_vibotaj):
         """Logistics agent should be able to create shipments."""
         app.dependency_overrides[get_current_active_user] = lambda: mock_auth(logistics_user)
-        
+
         shipment_data = {
             "reference": "VIBO-TEST-002",
             "container_number": "TCNU7654321",
+            "product_type": "sweet_potato",  # Required field
             "organization_id": str(org_vibotaj.id)
         }
-        
+
         response = client.post("/api/shipments", json=shipment_data)
-        
+
         assert response.status_code == 201
-        
+        assert response.json()["product_type"] == "sweet_potato"
+
         del app.dependency_overrides[get_current_active_user]
 
     def test_create_shipment_as_viewer_fails(self, client, viewer_user, org_vibotaj):
         """Viewer should NOT be able to create shipments."""
         app.dependency_overrides[get_current_active_user] = lambda: mock_auth(viewer_user)
-        
+
         shipment_data = {
             "reference": "VIBO-FAIL-001",
             "container_number": "TCNU0000000",
+            "product_type": "horn_hoof",  # Required field
             "organization_id": str(org_vibotaj.id)
         }
-        
+
         response = client.post("/api/shipments", json=shipment_data)
-        
+
         assert response.status_code == 403
         assert "Permission denied" in response.json()["detail"]
-        
+
         del app.dependency_overrides[get_current_active_user]
 
     def test_create_duplicate_reference_fails(self, client, admin_user, vibotaj_shipment, org_vibotaj):
         """Creating shipment with duplicate reference should fail."""
         app.dependency_overrides[get_current_active_user] = lambda: mock_auth(admin_user)
-        
+
         shipment_data = {
             "reference": vibotaj_shipment.reference,  # Duplicate
             "container_number": "TCNU9999999",
+            "product_type": "horn_hoof",  # Required field
             "organization_id": str(org_vibotaj.id)
         }
-        
+
         response = client.post("/api/shipments", json=shipment_data)
-        
+
         assert response.status_code == 400
         assert "already exists" in response.json()["detail"]
-        
+
         del app.dependency_overrides[get_current_active_user]
 
 
@@ -439,6 +447,7 @@ class TestShipmentUpdate:
         shipment = Shipment(
             reference=f"VIBO-UPDATE-{uuid.uuid4().hex[:6]}",
             container_number="UPDT1234567",
+            product_type=ProductType.HORN_HOOF,
             status=ShipmentStatus.DRAFT,
             organization_id=org_vibotaj.id,
             created_at=datetime.utcnow(),
@@ -468,6 +477,7 @@ class TestShipmentUpdate:
         shipment = Shipment(
             reference=f"VIBO-MULTI-{uuid.uuid4().hex[:6]}",
             container_number="MULT1234567",
+            product_type=ProductType.HORN_HOOF,
             status=ShipmentStatus.DRAFT,
             organization_id=org_vibotaj.id,
             created_at=datetime.utcnow(),
@@ -541,6 +551,7 @@ class TestShipmentStatusTransitions:
         shipment = Shipment(
             reference=f"VIBO-TRANS-{uuid.uuid4().hex[:6]}",
             container_number="TRNS1234567",
+            product_type=ProductType.HORN_HOOF,
             status=from_status,
             organization_id=org_vibotaj.id,
             created_at=datetime.utcnow(),

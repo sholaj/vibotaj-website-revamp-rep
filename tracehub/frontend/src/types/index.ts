@@ -24,6 +24,30 @@ export interface LoginResponse {
 // User roles aligned with backend UserRole enum
 export type UserRole = 'admin' | 'compliance' | 'logistics_agent' | 'buyer' | 'supplier' | 'viewer'
 
+// Product types aligned with compliance matrix
+export type ProductType =
+  | 'horn_hoof'      // HS 0506, 0507 - Animal by-products (NO EUDR)
+  | 'sweet_potato'   // HS 0714 - Sweet potato pellets (NO EUDR)
+  | 'hibiscus'       // HS 0902 - Hibiscus flowers (NO EUDR)
+  | 'ginger'         // HS 0910 - Dried ginger (NO EUDR)
+  | 'cocoa'          // HS 1801 - Cocoa beans (EUDR APPLICABLE)
+  | 'other'          // Other/unspecified
+
+// Product type metadata for UI display
+export const PRODUCT_TYPE_OPTIONS: Array<{
+  value: ProductType
+  label: string
+  hsCode: string
+  eudrRequired: boolean
+}> = [
+  { value: 'horn_hoof', label: 'Horn & Hoof', hsCode: '0506/0507', eudrRequired: false },
+  { value: 'sweet_potato', label: 'Sweet Potato Pellets', hsCode: '0714', eudrRequired: false },
+  { value: 'hibiscus', label: 'Hibiscus Flowers', hsCode: '0902', eudrRequired: false },
+  { value: 'ginger', label: 'Dried Ginger', hsCode: '0910', eudrRequired: false },
+  { value: 'cocoa', label: 'Cocoa Beans', hsCode: '1801', eudrRequired: true },
+  { value: 'other', label: 'Other', hsCode: 'N/A', eudrRequired: false },
+]
+
 export interface User {
   username: string
   email: string
@@ -311,6 +335,7 @@ export interface Shipment {
   id: string
   reference: string
   container_number: string
+  product_type?: ProductType  // Product category for compliance requirements
   bl_number?: string
   booking_reference?: string
   vessel_name?: string
@@ -404,6 +429,7 @@ export interface DocumentSummary {
 export interface ShipmentCreateRequest {
   reference: string
   container_number: string
+  product_type: ProductType  // Required - determines document requirements
   vessel_name?: string
   voyage_number?: string
   bl_number?: string

@@ -21,6 +21,20 @@ class ShipmentStatus(str, enum.Enum):
     ARCHIVED = "archived"
 
 
+class ProductType(str, enum.Enum):
+    """Product type categories aligned with compliance matrix.
+
+    Maps to HS codes for document requirement determination.
+    See docs/COMPLIANCE_MATRIX.md for full documentation.
+    """
+    HORN_HOOF = "horn_hoof"           # HS 0506, 0507 - Animal by-products (NO EUDR)
+    SWEET_POTATO = "sweet_potato"     # HS 0714 - Sweet potato pellets (NO EUDR)
+    HIBISCUS = "hibiscus"             # HS 0902 - Hibiscus flowers (NO EUDR)
+    GINGER = "ginger"                 # HS 0910 - Dried ginger (NO EUDR)
+    COCOA = "cocoa"                   # HS 1801 - Cocoa beans (EUDR APPLICABLE)
+    OTHER = "other"                   # Other/unspecified
+
+
 class Shipment(Base):
     """Shipment entity - tracks a container shipment end-to-end.
 
@@ -60,6 +74,13 @@ class Shipment(Base):
 
     # Status
     status = Column(Enum(ShipmentStatus), default=ShipmentStatus.DRAFT, nullable=False)
+
+    # Product type (aligned with compliance matrix)
+    product_type = Column(
+        Enum(ProductType),
+        nullable=True,  # Nullable for migration, will be required in API
+        index=True  # For filtering shipments by product type
+    )
 
     # Party names (replacing buyer_id/supplier_id relationships)
     exporter_name = Column(String(255))  # Exporting company name
