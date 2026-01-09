@@ -103,8 +103,8 @@ test.describe('ROLE - Description', () => {
 |------|-------|----------|-----|
 | admin | admin@vibotaj.com | tracehub2026 | VIBOTAJ |
 | compliance | compliance@vibotaj.com | tracehub2026 | VIBOTAJ |
-| logistics | 31stcenturyglobalventures@gmail.com | Adeshola123! | VIBOTAJ |
-| buyer | buyer@vibotaj.com | tracehub2026 | VIBOTAJ |
+| logistics | logistic@vibotaj.com | tracehub2026 | VIBOTAJ |
+| buyer | buyer@witatrade.de | tracehub2026 | WITATRADE |
 | supplier | supplier@vibotaj.com | tracehub2026 | VIBOTAJ |
 | viewer | viewer@vibotaj.com | tracehub2026 | VIBOTAJ |
 

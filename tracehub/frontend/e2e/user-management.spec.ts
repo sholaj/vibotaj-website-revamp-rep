@@ -5,12 +5,12 @@
  */
 
 import { test, expect } from '@playwright/test'
-import { loginAsRole } from './helpers/auth'
+import { login } from './helpers'
 
 test.describe('Admin User Management', () => {
   test.beforeEach(async ({ page }) => {
     // Login as admin
-    await loginAsRole(page, 'admin')
+    await login(page, 'admin')
     await page.waitForURL('**/dashboard')
   })
 
@@ -130,7 +130,7 @@ test.describe('Admin User Management', () => {
     await page.click('text=Logout')
 
     // Login as viewer
-    await loginAsRole(page, 'viewer')
+    await login(page, 'viewer')
     await page.waitForURL('**/dashboard')
 
     // Try to navigate to users page

@@ -11,7 +11,7 @@ import { login, logout, verifyLoggedIn, expectActionAvailable, expectActionNotAv
  */
 
 test.describe('LOGISTICS AGENT - Shipment Creation & Document Upload', () => {
-  const LOGISTICS_EMAIL = '31stcenturyglobalventures@gmail.com';
+  const LOGISTICS_EMAIL = 'logistic@vibotaj.com';
   const TEST_SHIPMENT_ID = 'VIBO-2026-001';
 
   test.beforeEach(async ({ page }) => {

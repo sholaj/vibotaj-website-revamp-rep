@@ -8,6 +8,33 @@ All notable changes to the TraceHub platform are documented in this file.
 
 ---
 
+## [1.3.3] - 2026-01-09
+
+### E2E Test Infrastructure Fixes
+
+**Bug Fixes:**
+1. **Backend Auth Bug (Critical):**
+   - Fixed `auth.py:238` - Changed `membership.role` to `membership.org_role`
+   - This was causing 500 errors on all authenticated API calls after login
+   - Root cause: `OrganizationMembership` model uses `org_role`, not `role`
+
+2. **E2E Test File Fixes:**
+   - Fixed `logistics.spec.ts`: Updated email from `31stcenturyglobalventures@gmail.com` to `logistic@vibotaj.com`
+   - Fixed `user-management.spec.ts`: Corrected import from `./helpers/auth` to `./helpers`
+   - Fixed `user-management.spec.ts`: Changed `loginAsRole` function calls to `login`
+   - Updated `e2e/README.md`: Corrected test user credentials table
+
+**E2E Test Results:**
+- Before fix: 1 passed, 84 failed (login completely broken)
+- After fix: 38 passed, 47 failed (45% pass rate)
+- Login smoke tests: 6/6 passing (all user roles can authenticate)
+
+**Remaining Work:**
+- UI selector updates needed for remaining 47 failing tests
+- Test selectors don't match actual frontend menu items and button labels
+
+---
+
 ## [1.3.2] - 2026-01-06
 
 ### Test Suite Fixes & Complete API Validation
