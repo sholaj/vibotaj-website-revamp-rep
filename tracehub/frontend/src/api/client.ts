@@ -20,6 +20,7 @@ import type {
   LoginRequest,
   LoginResponse,
   Shipment,
+  ShipmentCreateRequest,
   Document,
   LiveTracking,
   ComplianceStatus,
@@ -67,6 +68,7 @@ import type {
   EUDRCountryRiskLevels,
   EUDRRegulationInfo,
   UserRole,
+  BuyerOrganization,
 } from '../types'
 
 // ============================================
@@ -411,6 +413,26 @@ class ApiClient {
   async getShipmentBasic(id: string): Promise<Shipment> {
     const response = await this.getShipment(id)
     return response.shipment
+  }
+
+  /**
+   * Create a new shipment
+   */
+  async createShipment(data: ShipmentCreateRequest): Promise<Shipment> {
+    const response = await this.client.post<Shipment>('shipments', data)
+    this.cache.invalidate('/shipments')
+    return response.data
+  }
+
+  // ============================================
+  // Organization Methods
+  // ============================================
+
+  /**
+   * Get list of buyer organizations for dropdown
+   */
+  async getBuyerOrganizations(): Promise<BuyerOrganization[]> {
+    return this.cachedGet<BuyerOrganization[]>('organizations/buyers', 5 * 60 * 1000)
   }
 
   // ============================================

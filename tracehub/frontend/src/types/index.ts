@@ -388,6 +388,42 @@ export interface DocumentSummary {
 }
 
 // ============================================
+// Shipment Creation Types
+// ============================================
+
+// Request type for creating a shipment
+export interface ShipmentCreateRequest {
+  reference: string
+  container_number: string
+  vessel_name?: string
+  voyage_number?: string
+  bl_number?: string
+  booking_ref?: string
+  carrier_code?: string
+  carrier_name?: string
+  etd?: string  // ISO date string
+  eta?: string  // ISO date string
+  pol_code?: string
+  pol_name?: string
+  pod_code?: string
+  pod_name?: string
+  incoterms?: string
+  exporter_name?: string
+  importer_name?: string
+  buyer_organization_id?: string  // UUID string
+  is_historical?: boolean
+  notes?: string
+}
+
+// Buyer organization for dropdown
+export interface BuyerOrganization {
+  id: string
+  name: string
+  slug: string
+  type: string
+}
+
+// ============================================
 // API Response Types
 // ============================================
 
