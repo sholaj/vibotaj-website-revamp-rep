@@ -204,7 +204,8 @@ class TestShipmentCreationWithBuyerOrg:
             "organization_id": str(org_vibotaj.id),
             "buyer_organization_id": str(org_hages_buyer.id),  # Key field being tested
             "importer_name": "HAGES GmbH",
-            "exporter_name": "VIBOTAJ Global Nigeria Ltd"
+            "exporter_name": "VIBOTAJ Global Nigeria Ltd",
+            "product_type": "horn_hoof"
         }
 
         response = client.post("/api/shipments", json=shipment_data)
@@ -236,7 +237,8 @@ class TestShipmentCreationWithBuyerOrg:
         shipment_data = {
             "reference": f"VIBO-NOBUYER-{uuid.uuid4().hex[:6]}",
             "container_number": "TCNU7654321",
-            "organization_id": str(org_vibotaj.id)
+            "organization_id": str(org_vibotaj.id),
+            "product_type": "horn_hoof"
             # No buyer_organization_id - should be optional
         }
 
@@ -267,7 +269,8 @@ class TestShipmentCreationWithBuyerOrg:
             "reference": f"VIBO-INVALID-{uuid.uuid4().hex[:6]}",
             "container_number": "INVU1234567",
             "organization_id": str(org_vibotaj.id),
-            "buyer_organization_id": "not-a-valid-uuid"  # Invalid UUID
+            "buyer_organization_id": "not-a-valid-uuid",  # Invalid UUID
+            "product_type": "horn_hoof"
         }
 
         response = client.post("/api/shipments", json=shipment_data)
@@ -296,7 +299,8 @@ class TestShipmentCreationWithBuyerOrg:
             "reference": f"VIBO-NONEXIST-{uuid.uuid4().hex[:6]}",
             "container_number": "NXST1234567",
             "organization_id": str(org_vibotaj.id),
-            "buyer_organization_id": non_existent_id
+            "buyer_organization_id": non_existent_id,
+            "product_type": "horn_hoof"
         }
 
         response = client.post("/api/shipments", json=shipment_data)
@@ -328,7 +332,8 @@ class TestShipmentCreationWithBuyerOrg:
             "reference": f"VIBO-WRONGTYPE-{uuid.uuid4().hex[:6]}",
             "container_number": "WRNG1234567",
             "organization_id": str(org_vibotaj.id),
-            "buyer_organization_id": str(org_supplier.id)  # SUPPLIER, not BUYER
+            "buyer_organization_id": str(org_supplier.id),  # SUPPLIER, not BUYER
+            "product_type": "horn_hoof"
         }
 
         response = client.post("/api/shipments", json=shipment_data)
@@ -358,7 +363,8 @@ class TestShipmentCreationWithBuyerOrg:
             "reference": f"VIBO-LOGISTICS-{uuid.uuid4().hex[:6]}",
             "container_number": "LGST1234567",
             "organization_id": str(org_vibotaj.id),
-            "buyer_organization_id": str(org_logistics_agent.id)  # Not a BUYER
+            "buyer_organization_id": str(org_logistics_agent.id),  # Not a BUYER
+            "product_type": "horn_hoof"
         }
 
         response = client.post("/api/shipments", json=shipment_data)
@@ -385,7 +391,8 @@ class TestShipmentCreationWithBuyerOrg:
             "reference": f"VIBO-SELFBUYER-{uuid.uuid4().hex[:6]}",
             "container_number": "SELF1234567",
             "organization_id": str(org_vibotaj.id),
-            "buyer_organization_id": str(org_vibotaj.id)  # Same org as seller - invalid
+            "buyer_organization_id": str(org_vibotaj.id),  # Same org as seller - invalid
+            "product_type": "horn_hoof"
         }
 
         response = client.post("/api/shipments", json=shipment_data)
@@ -414,7 +421,8 @@ class TestShipmentCreationWithBuyerOrg:
             "container_number": "WITA1234567",
             "bl_number": "BL-WITA-001",
             "organization_id": str(org_vibotaj.id),
-            "buyer_organization_id": str(org_witatrade_buyer.id)
+            "buyer_organization_id": str(org_witatrade_buyer.id),
+            "product_type": "horn_hoof"
         }
 
         response = client.post("/api/shipments", json=shipment_data)
@@ -459,7 +467,8 @@ class TestShipmentSchemaValidation:
             "reference": "TEST-SCHEMA-001",
             "container_number": "MSKU1234567",
             "organization_id": str(uuid.uuid4()),
-            "buyer_organization_id": str(uuid.uuid4())
+            "buyer_organization_id": str(uuid.uuid4()),
+            "product_type": "horn_hoof"
         }
 
         # Should not raise validation error
@@ -476,7 +485,8 @@ class TestShipmentSchemaValidation:
         valid_data = {
             "reference": "TEST-SCHEMA-002",
             "container_number": "TCNU1234567",
-            "organization_id": str(uuid.uuid4())
+            "organization_id": str(uuid.uuid4()),
+            "product_type": "horn_hoof"
             # No buyer_organization_id
         }
 
@@ -492,7 +502,8 @@ class TestShipmentSchemaValidation:
             "reference": "TEST-SCHEMA-003",
             "container_number": "INVU1234567",
             "organization_id": str(uuid.uuid4()),
-            "buyer_organization_id": "not-a-uuid"
+            "buyer_organization_id": "not-a-uuid",
+            "product_type": "horn_hoof"
         }
 
         with pytest.raises(Exception):  # Pydantic ValidationError
@@ -522,7 +533,8 @@ class TestShipmentResponseWithBuyerOrg:
             "reference": shipment_ref,
             "container_number": "RESP1234567",
             "organization_id": str(org_vibotaj.id),
-            "buyer_organization_id": str(org_hages_buyer.id)
+            "buyer_organization_id": str(org_hages_buyer.id),
+            "product_type": "horn_hoof"
         }
 
         create_response = client.post("/api/shipments", json=shipment_data)
@@ -561,7 +573,8 @@ class TestShipmentResponseWithBuyerOrg:
             "reference": shipment_ref,
             "container_number": "DTIL1234567",
             "organization_id": str(org_vibotaj.id),
-            "buyer_organization_id": str(org_hages_buyer.id)
+            "buyer_organization_id": str(org_hages_buyer.id),
+            "product_type": "horn_hoof"
         }
 
         create_response = client.post("/api/shipments", json=shipment_data)
@@ -603,7 +616,8 @@ class TestShipmentResponseWithBuyerOrg:
         shipment_data = {
             "reference": shipment_ref,
             "container_number": "NBDT1234567",
-            "organization_id": str(org_vibotaj.id)
+            "organization_id": str(org_vibotaj.id),
+            "product_type": "horn_hoof"
             # No buyer_organization_id
         }
 
@@ -649,7 +663,8 @@ class TestQueryShipmentsByBuyerOrg:
                 "reference": f"VIBO-FILTER-{i}-{uuid.uuid4().hex[:6]}",
                 "container_number": f"FLTR{i}234567",
                 "organization_id": str(org_vibotaj.id),
-                "buyer_organization_id": str(buyer.id)
+                "buyer_organization_id": str(buyer.id),
+                "product_type": "horn_hoof"
             }
             client.post("/api/shipments", json=shipment_data)
 

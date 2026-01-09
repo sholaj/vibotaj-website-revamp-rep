@@ -56,7 +56,8 @@ class TestContainerFormatValidation:
             shipment = ShipmentCreate(
                 reference=f"TEST-{container}",
                 container_number=container,
-                organization_id=uuid.uuid4()
+                organization_id=uuid.uuid4(),
+                product_type="horn_hoof"
             )
             assert shipment.container_number == container
 
@@ -73,7 +74,8 @@ class TestContainerFormatValidation:
         shipment = ShipmentCreate(
             reference="TEST-LOWERCASE",
             container_number=lowercase_container,
-            organization_id=uuid.uuid4()
+            organization_id=uuid.uuid4(),
+            product_type="horn_hoof"
         )
 
         # Assert - should be normalized to uppercase
@@ -92,7 +94,8 @@ class TestContainerFormatValidation:
             ShipmentCreate(
                 reference="TEST-SHORT",
                 container_number=short_container,
-                organization_id=uuid.uuid4()
+                organization_id=uuid.uuid4(),
+                product_type="horn_hoof"
             )
 
         # Verify the error message mentions container validation
@@ -112,7 +115,8 @@ class TestContainerFormatValidation:
             ShipmentCreate(
                 reference="TEST-LONG",
                 container_number=long_container,
-                organization_id=uuid.uuid4()
+                organization_id=uuid.uuid4(),
+                product_type="horn_hoof"
             )
 
         # Verify validation error is raised
@@ -131,7 +135,8 @@ class TestContainerFormatValidation:
             ShipmentCreate(
                 reference="TEST-WRONGFORMAT",
                 container_number=wrong_format,
-                organization_id=uuid.uuid4()
+                organization_id=uuid.uuid4(),
+                product_type="horn_hoof"
             )
 
         # Verify validation error is raised
@@ -150,7 +155,8 @@ class TestContainerFormatValidation:
             ShipmentCreate(
                 reference="TEST-DASHED",
                 container_number=dashed_container,
-                organization_id=uuid.uuid4()
+                organization_id=uuid.uuid4(),
+                product_type="horn_hoof"
             )
 
         # Verify validation error is raised
@@ -169,7 +175,8 @@ class TestContainerFormatValidation:
             ShipmentCreate(
                 reference="TEST-SPECIAL",
                 container_number=special_container,
-                organization_id=uuid.uuid4()
+                organization_id=uuid.uuid4(),
+                product_type="horn_hoof"
             )
 
         # Verify validation error is raised
@@ -188,7 +195,8 @@ class TestContainerFormatValidation:
             ShipmentCreate(
                 reference="TEST-MIXED",
                 container_number=mixed_container,
-                organization_id=uuid.uuid4()
+                organization_id=uuid.uuid4(),
+                product_type="horn_hoof"
             )
 
         # Verify validation error is raised
@@ -207,7 +215,8 @@ class TestContainerFormatValidation:
             ShipmentCreate(
                 reference="TEST-DIGITSONLY",
                 container_number=digits_only,
-                organization_id=uuid.uuid4()
+                organization_id=uuid.uuid4(),
+                product_type="horn_hoof"
             )
 
         # Verify validation error is raised
@@ -226,7 +235,8 @@ class TestContainerFormatValidation:
             ShipmentCreate(
                 reference="TEST-LETTERSONLY",
                 container_number=letters_only,
-                organization_id=uuid.uuid4()
+                organization_id=uuid.uuid4(),
+                product_type="horn_hoof"
             )
 
         # Verify validation error is raised
@@ -242,7 +252,8 @@ class TestContainerFormatValidation:
             ShipmentCreate(
                 reference="TEST-EMPTY",
                 container_number=empty_container,
-                organization_id=uuid.uuid4()
+                organization_id=uuid.uuid4(),
+                product_type="horn_hoof"
             )
 
         # Verify validation error is raised
@@ -258,7 +269,8 @@ class TestContainerFormatValidation:
             ShipmentCreate(
                 reference="TEST-WHITESPACE",
                 container_number=whitespace_container,
-                organization_id=uuid.uuid4()
+                organization_id=uuid.uuid4(),
+                product_type="horn_hoof"
             )
 
         # Verify validation error is raised
@@ -290,7 +302,8 @@ class TestShipmentCreateSchemaValidation:
             organization_id=org_id,
             vessel_name="Ever Given",
             pol_code="NGLOS",
-            pod_code="DEHAM"
+            pod_code="DEHAM",
+            product_type="horn_hoof"
         )
 
         # Assert
@@ -308,7 +321,8 @@ class TestShipmentCreateSchemaValidation:
             ShipmentCreate(
                 reference="VIB-2026-002",
                 container_number=invalid_container,
-                organization_id=uuid.uuid4()
+                organization_id=uuid.uuid4(),
+                product_type="horn_hoof"
             )
 
         # Verify the error is about container_number field
@@ -326,7 +340,8 @@ class TestShipmentCreateSchemaValidation:
         shipment = ShipmentCreate(
             reference="VIB-2026-003",
             container_number=lowercase_container,
-            organization_id=uuid.uuid4()
+            organization_id=uuid.uuid4(),
+            product_type="horn_hoof"
         )
 
         # Assert - container should be uppercased
@@ -342,7 +357,8 @@ class TestShipmentCreateSchemaValidation:
         shipment = ShipmentCreate(
             reference="VIB-2026-004",
             container_number=mixed_case,
-            organization_id=uuid.uuid4()
+            organization_id=uuid.uuid4(),
+            product_type="horn_hoof"
         )
 
         # Assert
@@ -358,7 +374,8 @@ class TestShipmentCreateSchemaValidation:
         shipment = ShipmentCreate(
             reference="VIB-2026-005",
             container_number=padded_container,
-            organization_id=uuid.uuid4()
+            organization_id=uuid.uuid4(),
+            product_type="horn_hoof"
         )
 
         # Assert
@@ -384,7 +401,8 @@ class TestContainerValidationErrorMessages:
             ShipmentCreate(
                 reference="TEST-MSG",
                 container_number=invalid_container,
-                organization_id=uuid.uuid4()
+                organization_id=uuid.uuid4(),
+                product_type="horn_hoof"
             )
 
         # Verify error message is helpful
@@ -408,7 +426,8 @@ class TestContainerValidationErrorMessages:
             ShipmentCreate(
                 reference="TEST-PATTERN",
                 container_number=invalid_container,
-                organization_id=uuid.uuid4()
+                organization_id=uuid.uuid4(),
+                product_type="horn_hoof"
             )
 
         # Verify the error includes pattern info or example
