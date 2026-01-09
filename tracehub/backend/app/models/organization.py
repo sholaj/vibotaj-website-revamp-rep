@@ -68,7 +68,18 @@ class Organization(Base):
     memberships = relationship("OrganizationMembership", back_populates="organization", cascade="all, delete-orphan")
     invitations = relationship("Invitation", back_populates="organization", cascade="all, delete-orphan")
     users = relationship("User", back_populates="organization", foreign_keys="User.organization_id")
-    shipments = relationship("Shipment", back_populates="organization", cascade="all, delete-orphan")
+    shipments = relationship(
+        "Shipment",
+        foreign_keys="[Shipment.organization_id]",
+        back_populates="organization",
+        cascade="all, delete-orphan"
+    )
+    # Shipments where this organization is the buyer
+    buyer_shipments = relationship(
+        "Shipment",
+        foreign_keys="[Shipment.buyer_organization_id]",
+        back_populates="buyer_organization"
+    )
     products = relationship("Product", back_populates="organization", cascade="all, delete-orphan")
     container_events = relationship("ContainerEvent", back_populates="organization", cascade="all, delete-orphan")
     origins = relationship("Origin", back_populates="organization", cascade="all, delete-orphan")

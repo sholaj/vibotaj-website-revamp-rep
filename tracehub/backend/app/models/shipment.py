@@ -77,12 +77,29 @@ class Shipment(Base):
         index=True
     )
 
+    # Buyer organization (optional - links VIBOTAJ shipment to buyer like HAGES, Witatrade)
+    buyer_organization_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("organizations.id"),
+        nullable=True,  # Backward compatible with existing shipments
+        index=True  # For efficient buyer queries
+    )
+
     # Timestamps
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     # Relationships
-    organization = relationship("Organization", back_populates="shipments")
+    organization = relationship(
+        "Organization",
+        foreign_keys=[organization_id],
+        back_populates="shipments"
+    )
+    buyer_organization = relationship(
+        "Organization",
+        foreign_keys=[buyer_organization_id],
+        back_populates="buyer_shipments"
+    )
     products = relationship("Product", back_populates="shipment", cascade="all, delete-orphan")
     documents = relationship("Document", back_populates="shipment", cascade="all, delete-orphan")
     container_events = relationship("ContainerEvent", back_populates="shipment", cascade="all, delete-orphan")
