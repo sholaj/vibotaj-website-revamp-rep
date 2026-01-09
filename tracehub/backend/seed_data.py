@@ -350,11 +350,23 @@ def seed_users(db: Session):
         print("Users already exist. Skipping user seed. Set FORCE_RESEED=true to override.")
         return vibotaj_org.id, witatrade_org.id if witatrade_org else None
     elif existing_user and force_reseed:
-        print("FORCE_RESEED enabled - clearing existing users and memberships...")
-        db.query(OrganizationMembership).delete()
-        db.query(User).delete()
-        db.commit()
-        print("Existing users cleared.")
+        print("FORCE_RESEED enabled - clearing existing data (shipments, documents, then users)...")
+        # Delete in dependency-safe order: events, docs, origins, products, parties, shipments, memberships, users
+        try:
+            db.query(ContainerEvent).delete()
+            db.query(Document).delete()
+            db.query(Origin).delete()
+            db.query(Product).delete()
+            db.query(Party).delete()
+            db.query(Shipment).delete()
+            db.query(OrganizationMembership).delete()
+            db.query(User).delete()
+            db.commit()
+            print("Existing data cleared.")
+        except Exception as e:
+            print(f"Warning: Failed to clear data: {e}")
+            db.rollback()
+            print("Continuing with seed anyway...")
 
     # Create test users
     users_data = [

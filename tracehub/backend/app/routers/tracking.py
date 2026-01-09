@@ -7,7 +7,7 @@ from datetime import datetime
 from typing import Optional
 
 from ..database import get_db
-from ..models import Shipment, ContainerEvent, EventStatus
+from ..models import Shipment, ShipmentStatus, ContainerEvent, EventStatus
 from ..routers.auth import get_current_active_user
 from ..schemas.user import CurrentUser
 from ..services.jsoncargo import get_jsoncargo_client
@@ -174,6 +174,57 @@ async def refresh_tracking(
         )
 
     events_added = 0
+    # Map JSONCargo / carrier event types to our enum
+    event_type_map = {
+        "CONTAINER_LOADED": EventStatus.LOADED,
+        "VESSEL_DEPARTED": EventStatus.DEPARTED,
+        "VESSEL_ARRIVED": EventStatus.ARRIVED,
+        "CONTAINER_DISCHARGED": EventStatus.DISCHARGED,
+        "CONTAINER_DELIVERED": EventStatus.DELIVERED,
+        "DELIVERED": EventStatus.DELIVERED,
+        "DISCHARGED": EventStatus.DISCHARGED,
+        "DEPARTED": EventStatus.DEPARTED,
+        "ARRIVED": EventStatus.ARRIVED,
+        "TRANSSHIPMENT": EventStatus.TRANSSHIPMENT,
+        "GATE_IN": EventStatus.GATE_IN,
+        "GATE_OUT": EventStatus.GATE_OUT,
+        "BOOKED": EventStatus.BOOKED,
+        "IN_TRANSIT": EventStatus.IN_TRANSIT,
+        "LOADED": EventStatus.LOADED,
+    }
+
+    status_priority = {
+        EventStatus.DELIVERED: 5,
+        EventStatus.GATE_OUT: 4,
+        EventStatus.ARRIVED: 4,
+        EventStatus.DISCHARGED: 4,
+        EventStatus.DEPARTED: 3,
+        EventStatus.IN_TRANSIT: 2,
+        EventStatus.LOADED: 2,
+        EventStatus.GATE_IN: 1,
+        EventStatus.BOOKED: 1,
+    }
+
+    def normalize_event_status(raw_status: str) -> EventStatus:
+        key = (raw_status or "").upper()
+        if key in event_type_map:
+            return event_type_map[key]
+        try:
+            return EventStatus(key)
+        except ValueError:
+            return EventStatus.OTHER
+
+    def consider_status(best_status, candidate):
+        if not candidate:
+            return best_status
+        if best_status is None:
+            return candidate
+        if status_priority.get(candidate, 0) > status_priority.get(best_status, 0):
+            return candidate
+        return best_status
+
+    highest_status = None
+    highest_status_time: Optional[datetime] = None
 
     # Update shipment ETA if available
     if tracking_data.get("eta"):
@@ -187,11 +238,8 @@ async def refresh_tracking(
     # Sync events to database
     for event_data in tracking_data.get("events", []):
         # Map event type to EventStatus
-        event_type_str = event_data.get("type", "OTHER").upper()
-        try:
-            event_status = EventStatus(event_type_str)
-        except ValueError:
-            event_status = EventStatus.OTHER
+        event_type_str = event_data.get("type", "OTHER")
+        event_status = normalize_event_status(event_type_str)
 
         # Parse timestamp
         timestamp = event_data.get("timestamp")
@@ -200,6 +248,8 @@ async def refresh_tracking(
                 timestamp = datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
             except ValueError:
                 timestamp = datetime.utcnow()
+        if not timestamp:
+            timestamp = datetime.utcnow()
 
         # Helper to truncate strings to max length
         def truncate(value, max_len):
@@ -207,21 +257,63 @@ async def refresh_tracking(
                 return value[:max_len]
             return value
 
-        event = ContainerEvent(
-            shipment_id=shipment_id,
-            organization_id=shipment.organization_id,
-            event_status=event_status,
-            event_time=timestamp,
-            location_name=truncate(event_data.get("location"), 255),
-            location_code=truncate(event_data.get("location_code"), 20),
-            vessel_name=truncate(event_data.get("vessel"), 100),
-            voyage_number=truncate(event_data.get("voyage"), 50),
-            description=event_data.get("description"),
-            source="jsoncargo",
-            raw_data=event_data
+        # Avoid duplicate events with same status and timestamp
+        duplicate = (
+            db.query(ContainerEvent)
+            .filter_by(
+                shipment_id=shipment_id,
+                event_status=event_status,
+                event_time=timestamp
+            )
+            .first()
         )
-        db.add(event)
-        events_added += 1
+
+        if not duplicate:
+            event = ContainerEvent(
+                shipment_id=shipment_id,
+                organization_id=shipment.organization_id,
+                event_status=event_status,
+                event_time=timestamp,
+                location_name=truncate(event_data.get("location"), 255),
+                location_code=truncate(event_data.get("location_code"), 20),
+                vessel_name=truncate(event_data.get("vessel"), 100),
+                voyage_number=truncate(event_data.get("voyage"), 50),
+                description=event_data.get("description"),
+                source="jsoncargo",
+                raw_data=event_data
+            )
+            db.add(event)
+            events_added += 1
+
+        # Track most advanced status for shipment lifecycle updates
+        highest_status = consider_status(highest_status, event_status)
+        if event_status in {EventStatus.ARRIVED, EventStatus.DELIVERED, EventStatus.DEPARTED}:
+            if not highest_status_time or (timestamp and timestamp > highest_status_time):
+                highest_status_time = timestamp
+
+    # Consider live container status when no events are present
+    live_status_raw = tracking_data.get("status")
+    live_status_event = normalize_event_status(live_status_raw) if live_status_raw else None
+    highest_status = consider_status(highest_status, live_status_event)
+
+    # Update shipment status based on the most advanced event/status
+    if highest_status:
+        previous_status = shipment.status
+        if highest_status == EventStatus.DELIVERED:
+            shipment.status = ShipmentStatus.DELIVERED
+            if highest_status_time and shipment.ata is None:
+                shipment.ata = highest_status_time
+        elif highest_status in {EventStatus.ARRIVED, EventStatus.DISCHARGED}:
+            shipment.status = ShipmentStatus.ARRIVED
+            if highest_status_time and shipment.ata is None:
+                shipment.ata = highest_status_time
+        elif highest_status in {EventStatus.DEPARTED, EventStatus.IN_TRANSIT, EventStatus.GATE_OUT, EventStatus.LOADED}:
+            shipment.status = ShipmentStatus.IN_TRANSIT
+            if highest_status_time and shipment.atd is None:
+                shipment.atd = highest_status_time
+
+        if shipment.status != previous_status:
+            shipment.updated_at = datetime.utcnow()
 
     db.commit()
 
