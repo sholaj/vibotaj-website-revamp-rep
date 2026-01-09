@@ -40,6 +40,7 @@ class ShipmentCreate(BaseModel):
     eudr_compliant: Optional[bool] = False  # New field
     eudr_statement_id: Optional[str] = None  # New field
     organization_id: UUID  # Required for multi-tenancy
+    buyer_organization_id: Optional[UUID] = None  # Optional buyer org (HAGES, Witatrade, etc.)
     # For historical shipments, set is_historical=True
     is_historical: Optional[bool] = False
     notes: Optional[str] = None
@@ -231,6 +232,7 @@ class ShipmentResponse(BaseModel):
     eudr_compliant: Optional[bool] = False  # New field
     eudr_statement_id: Optional[str] = None  # New field
     organization_id: UUID  # New field for multi-tenancy
+    buyer_organization_id: Optional[UUID] = None  # Buyer org (HAGES, Witatrade, etc.)
     created_at: datetime
     updated_at: datetime
     # Include products for HS code-based compliance checks (e.g., Horn & Hoof exemption)

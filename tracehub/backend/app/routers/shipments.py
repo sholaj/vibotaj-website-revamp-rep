@@ -11,6 +11,7 @@ import io
 from ..database import get_db
 from ..models import Shipment, Document, ContainerEvent, Product, Organization
 from ..models.shipment import ShipmentStatus
+from ..models.organization import OrganizationType
 from ..schemas.shipment import ShipmentResponse, ShipmentDetailResponse, ShipmentListResponse, ShipmentCreate, ShipmentUpdate
 from ..schemas.user import CurrentUser
 from ..routers.auth import get_current_active_user
@@ -62,6 +63,24 @@ async def create_shipment(
             detail=f"Organization with id '{shipment_data.organization_id}' not found"
         )
 
+    # Validate buyer_organization_id if provided
+    if shipment_data.buyer_organization_id:
+        buyer_org = db.query(Organization).filter(
+            Organization.id == shipment_data.buyer_organization_id
+        ).first()
+
+        if not buyer_org:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Buyer organization not found"
+            )
+
+        if buyer_org.type != OrganizationType.BUYER:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Organization must be of type BUYER, got {buyer_org.type.value}"
+            )
+
     # Create the shipment (updated for Sprint 8 schema)
     shipment = Shipment(
         reference=shipment_data.reference,
@@ -87,6 +106,7 @@ async def create_shipment(
         eudr_compliant=shipment_data.eudr_compliant,  # New field
         eudr_statement_id=shipment_data.eudr_statement_id,  # New field
         organization_id=shipment_data.organization_id,  # Required for multi-tenancy
+        buyer_organization_id=shipment_data.buyer_organization_id,  # Optional buyer org
         created_at=datetime.utcnow(),
         updated_at=datetime.utcnow()
     )
@@ -248,6 +268,7 @@ async def get_shipment(
             "eudr_compliant": shipment.eudr_compliant,
             "eudr_statement_id": shipment.eudr_statement_id,
             "organization_id": shipment.organization_id,
+            "buyer_organization_id": shipment.buyer_organization_id,
             "created_at": shipment.created_at,
             "updated_at": shipment.updated_at,
             "products": [
