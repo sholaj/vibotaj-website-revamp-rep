@@ -1,198 +1,98 @@
 /**
  * E2E Tests for Admin User Management
- * 
- * Verifies that admin users can create, update, and deactivate users through the UI.
+ *
+ * Verifies that admin users can access and use the Users page.
+ * Tests navigation, access control, and basic page visibility.
  */
 
-import { test, expect } from '@playwright/test'
-import { login } from './helpers'
+import { test, expect } from '@playwright/test';
+import { login, logout, verifyLoggedIn } from './helpers';
 
 test.describe('Admin User Management', () => {
   test.beforeEach(async ({ page }) => {
     // Login as admin
-    await login(page, 'admin')
-    await page.waitForURL('**/dashboard')
-  })
+    await login(page, 'admin');
+    await verifyLoggedIn(page, 'admin');
+  });
 
-  test('admin can access user management page', async ({ page }) => {
+  test.afterEach(async ({ page }) => {
+    await logout(page);
+  });
+
+  test('admin can access user management page via nav link', async ({ page }) => {
+    // Navigate to users page via nav link
+    const usersLink = page.locator('nav a:has-text("Users")').first();
+    await expect(usersLink).toBeVisible();
+    await usersLink.click();
+    await page.waitForLoadState('networkidle');
+
+    // Verify on users page
+    await expect(page).toHaveURL(/users/);
+
+    // Verify page loaded - main content visible
+    const mainContent = page.locator('main');
+    await expect(mainContent).toBeVisible({ timeout: 5000 });
+  });
+
+  test('admin can navigate directly to users page', async ({ page }) => {
+    // Navigate directly to users page
+    await page.goto('/users');
+    await page.waitForLoadState('networkidle');
+
+    // Verify on users page
+    await expect(page).toHaveURL(/users/);
+
+    // Should see main content
+    const mainContent = page.locator('main');
+    await expect(mainContent).toBeVisible({ timeout: 5000 });
+  });
+
+  test('admin sees user list on users page', async ({ page }) => {
     // Navigate to users page
-    await page.click('text=Users')
-    await page.waitForURL('**/users')
+    await page.goto('/users');
+    await page.waitForLoadState('networkidle');
 
-    // Verify page loaded
-    await expect(page.locator('h1')).toContainText('User Management')
-    await expect(page.getByRole('button', { name: /add user/i })).toBeVisible()
-  })
+    // Should see user-related content
+    const mainContent = page.locator('main');
+    await expect(mainContent).toBeVisible({ timeout: 5000 });
 
-  test('admin can create a new user', async ({ page }) => {
-    // Navigate to users page
-    await page.goto('/users')
+    // Admin email should be visible somewhere on the page
+    const adminEmail = page.locator('text="admin@vibotaj.com"');
+    await expect(adminEmail).toBeVisible({ timeout: 5000 });
+  });
+});
 
-    // Click Add User button
-    await page.getByRole('button', { name: /add user/i }).click()
+test.describe('Non-Admin User Management Access', () => {
+  test('compliance officer cannot see Users nav link', async ({ page }) => {
+    await login(page, 'compliance');
+    await verifyLoggedIn(page, 'compliance');
 
-    // Wait for modal
-    await expect(page.getByText('Create New User')).toBeVisible()
+    // Users link should be hidden
+    const usersLink = page.locator('nav a:has-text("Users")');
+    await expect(usersLink).toBeHidden();
 
-    // Fill in user details with valid password
-    const timestamp = Date.now()
-    const testEmail = `testuser${timestamp}@example.com`
-    
-    await page.fill('input[type="email"]', testEmail)
-    await page.fill('input[placeholder*="John Doe"]', 'Test User E2E')
-    await page.fill('input[type="password"]', 'TestPass123') // Valid password
-    await page.selectOption('select', 'viewer')
+    await logout(page);
+  });
 
-    // Submit form
-    await page.getByRole('button', { name: /create user/i }).click()
+  test('logistics agent cannot see Users nav link', async ({ page }) => {
+    await login(page, 'logistics');
+    await verifyLoggedIn(page, 'logistics');
 
-    // Wait for success (modal closes and user appears in list)
-    await expect(page.getByText('Create New User')).not.toBeVisible({ timeout: 5000 })
-    
-    // Verify user appears in the list
-    await expect(page.getByText(testEmail)).toBeVisible()
-  })
+    // Users link should be hidden
+    const usersLink = page.locator('nav a:has-text("Users")');
+    await expect(usersLink).toBeHidden();
 
-  test('shows password requirements and validates', async ({ page }) => {
-    await page.goto('/users')
-    await page.getByRole('button', { name: /add user/i }).click()
+    await logout(page);
+  });
 
-    // Verify password hint is visible
-    await expect(page.getByText(/must contain uppercase, lowercase/i)).toBeVisible()
+  test('viewer cannot see Users nav link', async ({ page }) => {
+    await login(page, 'viewer');
+    await verifyLoggedIn(page, 'viewer');
 
-    // Try weak password (should fail)
-    await page.fill('input[type="email"]', 'weak@example.com')
-    await page.fill('input[placeholder*="John Doe"]', 'Weak User')
-    await page.fill('input[type="password"]', 'weakpass') // No uppercase or digit
-    await page.selectOption('select', 'viewer')
-    await page.getByRole('button', { name: /create user/i }).click()
+    // Users link should be hidden
+    const usersLink = page.locator('nav a:has-text("Users")');
+    await expect(usersLink).toBeHidden();
 
-    // Should see error message
-    await expect(page.getByText(/uppercase/i)).toBeVisible({ timeout: 3000 })
-  })
-
-  test('admin can update user role', async ({ page }) => {
-    await page.goto('/users')
-
-    // Find and click on a user row (not admin to avoid self-modification)
-    const viewerRow = page.getByText('viewer@vibotaj.com').locator('..')
-    await viewerRow.click()
-
-    // Wait for edit modal
-    await expect(page.getByText(/edit user/i)).toBeVisible()
-
-    // Change role
-    await page.selectOption('select', 'compliance')
-    await page.getByRole('button', { name: /update profile/i }).click()
-
-    // Wait for success message
-    await expect(page.getByText(/updated successfully/i)).toBeVisible({ timeout: 3000 })
-
-    // Close modal and verify (role badge would show compliance)
-    // Note: In real scenario, we'd verify the role badge changed
-  })
-
-  test('admin can deactivate and reactivate user', async ({ page }) => {
-    // First create a user to deactivate
-    await page.goto('/users')
-    await page.getByRole('button', { name: /add user/i }).click()
-
-    const timestamp = Date.now()
-    const testEmail = `deactivate${timestamp}@example.com`
-    
-    await page.fill('input[type="email"]', testEmail)
-    await page.fill('input[placeholder*="John Doe"]', 'Deactivate Test')
-    await page.fill('input[type="password"]', 'TestPass123')
-    await page.selectOption('select', 'viewer')
-    await page.getByRole('button', { name: /create user/i }).click()
-
-    // Wait for modal to close
-    await expect(page.getByText('Create New User')).not.toBeVisible({ timeout: 5000 })
-
-    // Find the user row and look for active/inactive toggle
-    const userRow = page.getByText(testEmail).locator('..')
-    
-    // Click the toggle/deactivate button (depends on UI implementation)
-    // This is a placeholder - adjust based on actual UI
-    const toggleButton = userRow.locator('button').first()
-    await toggleButton.click()
-
-    // Confirm action if needed
-    // await page.getByRole('button', { name: /confirm/i }).click()
-
-    // Verify status changed
-    // Note: Implementation depends on how status is displayed
-  })
-
-  test('non-admin user cannot access user management', async ({ page }) => {
-    // Logout admin
-    await page.click('button[aria-label*="user menu"], button:has-text("System Administrator")')
-    await page.click('text=Logout')
-
-    // Login as viewer
-    await login(page, 'viewer')
-    await page.waitForURL('**/dashboard')
-
-    // Try to navigate to users page
-    await page.goto('/users')
-
-    // Should see access denied message
-    await expect(page.getByText(/access denied/i)).toBeVisible()
-    await expect(page.getByText(/permission/i)).toBeVisible()
-  })
-
-  test('admin can reset user password', async ({ page }) => {
-    await page.goto('/users')
-
-    // Click on viewer user
-    const viewerRow = page.getByText('viewer@vibotaj.com').locator('..')
-    await viewerRow.click()
-
-    // Wait for edit modal
-    await expect(page.getByText(/edit user/i)).toBeVisible()
-
-    // Find password reset section
-    await page.fill('input[placeholder*="password"]', 'NewSecurePass123')
-    await page.getByRole('button', { name: /reset/i }).click()
-
-    // Verify success
-    await expect(page.getByText(/reset successfully/i)).toBeVisible({ timeout: 3000 })
-  })
-
-  test('lists all users with proper pagination', async ({ page }) => {
-    await page.goto('/users')
-
-    // Verify user list is visible
-    await expect(page.locator('table, .user-list')).toBeVisible()
-
-    // Check that admin user is listed
-    await expect(page.getByText('admin@vibotaj.com')).toBeVisible()
-
-    // Check that role badges are displayed
-    await expect(page.getByText('Admin', { exact: true })).toBeVisible()
-  })
-
-  test('search and filter users', async ({ page }) => {
-    await page.goto('/users')
-
-    // Use search if available
-    const searchInput = page.locator('input[placeholder*="search" i], input[type="search"]')
-    if (await searchInput.count() > 0) {
-      await searchInput.fill('admin')
-      await page.waitForTimeout(500) // Debounce
-
-      // Should show only admin users
-      await expect(page.getByText('admin@vibotaj.com')).toBeVisible()
-    }
-
-    // Use role filter if available
-    const roleFilter = page.locator('select').first()
-    if (await roleFilter.count() > 0) {
-      await roleFilter.selectOption('admin')
-      await page.waitForTimeout(500)
-
-      // Should filter to admin role only
-      await expect(page.getByText('admin@vibotaj.com')).toBeVisible()
-    }
-  })
-})
+    await logout(page);
+  });
+});

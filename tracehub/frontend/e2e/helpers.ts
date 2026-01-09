@@ -118,12 +118,12 @@ export async function logout(page: Page) {
  */
 export async function verifyLoggedIn(page: Page, role: UserRole) {
   const user = TEST_USERS[role];
-  
+
   // Check for dashboard or welcome element
   await expect(page).toHaveURL(/dashboard|home/);
-  
-  // Verify user info visible somewhere
-  const userIndicator = page.locator('text=' + user.email).first();
+
+  // Verify user info visible in footer (format: "Logged in as {email}")
+  const userIndicator = page.locator(`text=Logged in as ${user.email}`);
   await expect(userIndicator).toBeVisible({ timeout: 5000 });
 }
 
@@ -174,46 +174,52 @@ export async function navigateTo(page: Page, section: string) {
 
 /**
  * Verify menu items visible for role
+ *
+ * Actual UI navigation (from Layout.tsx):
+ * - Dashboard: visible to all
+ * - Analytics: visible to all
+ * - Users: visible only to admin (canManageUsers permission)
+ * - Logout: always visible
  */
 export async function verifyMenuVisibility(page: Page, role: UserRole) {
   const menuRules: Record<UserRole, { visible: string[]; hidden?: string[] }> = {
     admin: {
-      visible: ['Dashboard', 'Shipments', 'Users', 'Organizations', 'Analytics', 'Settings'],
+      visible: ['Dashboard', 'Analytics', 'Users'],
     },
     compliance: {
-      visible: ['Dashboard', 'Shipments', 'Documents', 'Analytics'],
-      hidden: ['Users', 'Organizations', 'Settings'],
+      visible: ['Dashboard', 'Analytics'],
+      hidden: ['Users'],
     },
     logistics: {
-      visible: ['Dashboard', 'Shipments', 'Create Shipment', 'My Documents'],
-      hidden: ['Users', 'Organizations', 'Analytics'],
+      visible: ['Dashboard', 'Analytics'],
+      hidden: ['Users'],
     },
     buyer: {
-      visible: ['Dashboard', 'My Shipments', 'Analytics'],
-      hidden: ['Create Shipment', 'Users', 'Organizations', 'Settings'],
+      visible: ['Dashboard', 'Analytics'],
+      hidden: ['Users'],
     },
     supplier: {
-      visible: ['Dashboard', 'My Shipments', 'Upload Documents'],
-      hidden: ['Create Shipment', 'Users', 'Organizations', 'Settings'],
+      visible: ['Dashboard', 'Analytics'],
+      hidden: ['Users'],
     },
     viewer: {
-      visible: ['Dashboard', 'Analytics', 'Reports'],
-      hidden: ['Create Shipment', 'Users', 'Organizations', 'Settings'],
+      visible: ['Dashboard', 'Analytics'],
+      hidden: ['Users'],
     },
   };
 
   const rule = menuRules[role];
 
-  // Check visible items
+  // Check visible items in nav
   for (const item of rule.visible) {
-    const menuItem = page.locator(`nav >> text="${item}", aside >> text="${item}"`).first();
+    const menuItem = page.locator(`nav a:has-text("${item}")`).first();
     await expect(menuItem).toBeVisible({ timeout: 5000 });
   }
 
   // Check hidden items
   if (rule.hidden) {
     for (const item of rule.hidden) {
-      const menuItem = page.locator(`nav >> text="${item}", aside >> text="${item}"`).first();
+      const menuItem = page.locator(`nav a:has-text("${item}")`).first();
       await expect(menuItem).toBeHidden();
     }
   }
