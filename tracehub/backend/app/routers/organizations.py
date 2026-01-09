@@ -580,6 +580,9 @@ async def remove_organization_member(
 
 def _org_to_response(org: Organization, member_count: int = 0) -> OrganizationResponse:
     """Convert Organization model to OrganizationResponse schema."""
+    # Handle address - pass None if empty dict or missing required country field
+    address = org.address if org.address and isinstance(org.address, dict) and org.address.get("country") else None
+
     return OrganizationResponse(
         id=org.id,
         name=org.name,
@@ -588,7 +591,7 @@ def _org_to_response(org: Organization, member_count: int = 0) -> OrganizationRe
         status=OrganizationStatus(org.status.value),
         contact_email=org.contact_email,
         contact_phone=org.contact_phone,
-        address=org.address,
+        address=address,
         tax_id=org.tax_id,
         registration_number=org.registration_number,
         logo_url=org.logo_url,
