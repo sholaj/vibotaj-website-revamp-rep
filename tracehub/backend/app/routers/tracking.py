@@ -291,9 +291,22 @@ async def refresh_tracking(
             if not highest_status_time or (timestamp and timestamp > highest_status_time):
                 highest_status_time = timestamp
 
-    # Consider live container status when no events are present
-    live_status_raw = tracking_data.get("status")
-    live_status_event = normalize_event_status(live_status_raw) if live_status_raw else None
+    # Consider live container status to fill gaps
+    live_status_raw = tracking_data.get("status", "")
+    # Map common status strings to event statuses
+    status_to_event_map = {
+        "DISCHARGED FROM VESSEL": EventStatus.DISCHARGED,
+        "DISCHARGED": EventStatus.DISCHARGED,
+        "DELIVERED": EventStatus.DELIVERED,
+        "ARRIVED": EventStatus.ARRIVED,
+        "DEPARTED": EventStatus.DEPARTED,
+        "IN TRANSIT": EventStatus.IN_TRANSIT,
+        "LOADED": EventStatus.LOADED,
+    }
+    live_status_upper = live_status_raw.upper().strip()
+    live_status_event = status_to_event_map.get(live_status_upper)
+    if not live_status_event:
+        live_status_event = normalize_event_status(live_status_raw)
     highest_status = consider_status(highest_status, live_status_event)
 
     # Update shipment status based on the most advanced event/status
