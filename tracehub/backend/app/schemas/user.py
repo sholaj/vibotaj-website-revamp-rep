@@ -7,6 +7,7 @@ from datetime import datetime
 import re
 
 from ..models.user import UserRole
+from ..models.organization import OrgRole, OrganizationType
 
 
 class UserBase(BaseModel):
@@ -104,6 +105,10 @@ class CurrentUser(BaseModel):
     is_active: bool
     organization_id: UUID  # Multi-tenancy: the user's organization
     permissions: List[str] = []
+    # Organization-scoped permissions
+    org_role: Optional[OrgRole] = None
+    org_type: Optional[OrganizationType] = None
+    org_permissions: List[str] = []
 
     class Config:
         from_attributes = True
