@@ -20,7 +20,21 @@ branch_labels = None
 depends_on = None
 
 
+def column_exists(table_name: str, column_name: str) -> bool:
+    """Check if a column exists in the table."""
+    bind = op.get_bind()
+    result = bind.execute(sa.text(
+        "SELECT 1 FROM information_schema.columns "
+        "WHERE table_name = :table AND column_name = :column"
+    ), {"table": table_name, "column": column_name})
+    return result.fetchone() is not None
+
+
 def upgrade() -> None:
+    # Skip if column already exists (baseline migration created it)
+    if column_exists("shipments", "buyer_organization_id"):
+        return
+
     # Add buyer_organization_id column to shipments table
     op.add_column(
         "shipments",

@@ -22,7 +22,21 @@ branch_labels = None
 depends_on = None
 
 
+def column_exists(table_name: str, column_name: str) -> bool:
+    """Check if a column exists in the table."""
+    bind = op.get_bind()
+    result = bind.execute(sa.text(
+        "SELECT 1 FROM information_schema.columns "
+        "WHERE table_name = :table AND column_name = :column"
+    ), {"table": table_name, "column": column_name})
+    return result.fetchone() is not None
+
+
 def upgrade() -> None:
+    # Skip if column already exists (baseline migration created it)
+    if column_exists("shipments", "product_type"):
+        return
+
     # Create the producttype enum
     product_type_enum = sa.Enum(
         'horn_hoof', 'sweet_potato', 'hibiscus', 'ginger', 'cocoa', 'other',
@@ -43,8 +57,8 @@ def upgrade() -> None:
         )
     )
 
-    # Backfill all existing shipments as horn_hoof
-    op.execute("UPDATE shipments SET product_type = 'horn_hoof' WHERE product_type IS NULL")
+    # Backfill all existing shipments as horn_hoof (cast to enum type)
+    op.execute("UPDATE shipments SET product_type = 'horn_hoof'::producttype WHERE product_type IS NULL")
 
     # Add index for filtering shipments by product type
     op.create_index(
