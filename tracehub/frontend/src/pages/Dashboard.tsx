@@ -10,10 +10,13 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { Link } from 'react-router-dom'
-import { Package, Ship, MapPin, Calendar, ChevronRight, RefreshCw, AlertCircle } from 'lucide-react'
+import { Package, Ship, MapPin, Calendar, ChevronRight, RefreshCw, AlertCircle, Plus } from 'lucide-react'
 import api, { ApiClientError, NetworkError } from '../api/client'
 import type { Shipment, ShipmentStatus } from '../types'
 import { format } from 'date-fns'
+import { useAuth } from '../contexts/AuthContext'
+import { PermissionGuard } from '../components/PermissionGuard'
+import CreateShipmentModal from '../components/CreateShipmentModal'
 
 // Status badge styles and labels
 const STATUS_CONFIG: Record<ShipmentStatus, { style: string; label: string }> = {
@@ -144,10 +147,12 @@ function ShipmentCard({ shipment }: { shipment: Shipment }) {
 }
 
 export default function Dashboard() {
+  const { user } = useAuth()
   const [shipments, setShipments] = useState<Shipment[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [showCreateModal, setShowCreateModal] = useState(false)
 
   const fetchShipments = useCallback(async (showLoadingState = true) => {
     if (showLoadingState) {
@@ -186,6 +191,12 @@ export default function Dashboard() {
     fetchShipments(false)
   }, [fetchShipments])
 
+  // Handle successful shipment creation
+  const handleShipmentCreated = useCallback(() => {
+    api.invalidateCache('/shipments')
+    fetchShipments(false)
+  }, [fetchShipments])
+
   return (
     <div>
       {/* Header */}
@@ -194,14 +205,25 @@ export default function Dashboard() {
           <h1 className="text-2xl font-bold text-gray-900">Shipments</h1>
           <p className="text-gray-600 mt-1">Track your container shipments and documentation</p>
         </div>
-        <button
-          onClick={handleRefresh}
-          disabled={isRefreshing}
-          className="btn-secondary"
-        >
-          <RefreshCw className={`h-4 w-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
-          {isRefreshing ? 'Refreshing...' : 'Refresh'}
-        </button>
+        <div className="flex items-center space-x-3">
+          <PermissionGuard permission="shipments:create">
+            <button
+              onClick={() => setShowCreateModal(true)}
+              className="btn-primary"
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              New Shipment
+            </button>
+          </PermissionGuard>
+          <button
+            onClick={handleRefresh}
+            disabled={isRefreshing}
+            className="btn-secondary"
+          >
+            <RefreshCw className={`h-4 w-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
+            {isRefreshing ? 'Refreshing...' : 'Refresh'}
+          </button>
+        </div>
       </div>
 
       {/* Content */}
@@ -225,6 +247,14 @@ export default function Dashboard() {
           Showing {shipments.length} shipment{shipments.length !== 1 ? 's' : ''}
         </div>
       )}
+
+      {/* Create Shipment Modal */}
+      <CreateShipmentModal
+        isOpen={showCreateModal}
+        onClose={() => setShowCreateModal(false)}
+        onSuccess={handleShipmentCreated}
+        organizationId={user?.organization_id ?? ''}
+      />
     </div>
   )
 }

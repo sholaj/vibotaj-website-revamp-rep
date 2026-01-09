@@ -5,6 +5,7 @@
 
 export * from './organization'
 export type { OrgPermission, OrgRole, OrganizationType } from './organization'
+import type { OrgRole, OrganizationType } from './organization'
 
 // ============================================
 // Authentication Types
