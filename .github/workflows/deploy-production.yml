@@ -16,10 +16,6 @@ on:
         description: 'Skip tests (emergency deploy only)'
         required: false
         default: 'false'
-      reset_db:
-        description: 'Drop database and start fresh (DANGEROUS)'
-        required: false
-        default: 'false'
 
 env:
   DEPLOY_PATH: /opt/tracehub-app/tracehub
@@ -209,38 +205,6 @@ jobs:
             docker compose ps
           ENDSSH
 
-      - name: Reset database (if requested)
-        if: ${{ github.event.inputs.reset_db == 'true' }}
-        run: |
-          echo "WARNING: Resetting production database..."
-          ssh ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }} << 'ENDSSH'
-            set -e
-            cd ${{ env.DEPLOY_PATH }}
-
-            echo "Stopping services..."
-            docker compose down || true
-
-            echo "Removing DB volume..."
-            docker volume rm tracehub_tracehub_postgres_data || docker volume rm tracehub_postgres_data || true
-
-            echo "Starting database container..."
-            docker compose up -d db
-
-            echo "Waiting for database to initialize..."
-            sleep 15
-            docker compose ps
-          ENDSSH
-
-      - name: Restart services after DB reset
-        if: ${{ github.event.inputs.reset_db == 'true' }}
-        run: |
-          ssh ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }} << 'ENDSSH'
-            cd ${{ env.DEPLOY_PATH }}
-            docker compose up -d
-            sleep 10
-            docker compose ps
-          ENDSSH
-
       - name: Run database migrations
         run: |
           ssh ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }} << 'ENDSSH'
@@ -252,15 +216,6 @@ jobs:
             else
               echo "Alembic not configured, skipping migrations"
             fi
-          ENDSSH
-
-      - name: Seed database
-        if: ${{ github.event.inputs.reset_db == 'true' }}
-        run: |
-          ssh ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }} << 'ENDSSH'
-            cd ${{ env.DEPLOY_PATH }}
-            echo "Seeding database..."
-            docker compose exec -T -e FORCE_RESEED=true backend python -m seed_data || echo "Seed completed or skipped"
           ENDSSH
 
       - name: Verify deployment

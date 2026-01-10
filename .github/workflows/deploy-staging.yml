@@ -4,11 +4,6 @@ on:
   push:
     branches: [develop]
   workflow_dispatch:
-    inputs:
-      reset_db:
-        description: "Drop staging DB volume and start fresh"
-        required: false
-        default: "false"
 
 env:
   DEPLOY_PATH: /home/tracehub/staging
@@ -155,29 +150,6 @@ jobs:
           FRONTEND_PORT=3100
           EOF
             sed -i 's/^[[:space:]]*//' .env
-          ENDSSH
-
-      - name: Reset staging database (optional)
-        if: ${{ github.event.inputs.reset_db == 'true' }}
-        run: |
-          echo "Resetting staging database..."
-          ssh ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }} << 'ENDSSH'
-            set -e
-            cd ${{ env.DEPLOY_PATH }}
-            export COMPOSE_FILE=docker-compose.staging.yml
-
-            echo "Stopping services..."
-            docker compose down || true
-
-            echo "Removing DB volume..."
-            docker volume rm tracehub_staging_postgres_data || true
-
-            echo "Starting database container..."
-            docker compose up -d db
-
-            echo "Waiting for database to initialize..."
-            sleep 10
-            docker compose ps
           ENDSSH
 
       - name: Rebuild and restart containers
