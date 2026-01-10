@@ -20,6 +20,7 @@ import type {
   LoginRequest,
   LoginResponse,
   Shipment,
+  ShipmentCreateRequest,
   Document,
   LiveTracking,
   ComplianceStatus,
@@ -67,6 +68,15 @@ import type {
   EUDRCountryRiskLevels,
   EUDRRegulationInfo,
   UserRole,
+  BuyerOrganization,
+  Organization,
+  OrganizationCreate,
+  OrganizationUpdate,
+  OrganizationListResponse,
+  OrganizationMember,
+  MembershipCreate,
+  MembershipUpdate,
+  MemberListResponse,
 } from '../types'
 
 // ============================================
@@ -411,6 +421,128 @@ class ApiClient {
   async getShipmentBasic(id: string): Promise<Shipment> {
     const response = await this.getShipment(id)
     return response.shipment
+  }
+
+  /**
+   * Create a new shipment
+   */
+  async createShipment(data: ShipmentCreateRequest): Promise<Shipment> {
+    const response = await this.client.post<Shipment>('shipments', data)
+    this.cache.invalidate('/shipments')
+    return response.data
+  }
+
+  // ============================================
+  // Organization Methods
+  // ============================================
+
+  /**
+   * Get list of buyer organizations for dropdown
+   */
+  async getBuyerOrganizations(): Promise<BuyerOrganization[]> {
+    return this.cachedGet<BuyerOrganization[]>('organizations/buyers', 5 * 60 * 1000)
+  }
+
+  /**
+   * Get paginated list of all organizations (admin only)
+   */
+  async getOrganizations(params?: {
+    page?: number
+    limit?: number
+    type?: string
+    status?: string
+    search?: string
+  }): Promise<OrganizationListResponse> {
+    const queryParams = new URLSearchParams()
+    if (params?.page) queryParams.append('page', params.page.toString())
+    if (params?.limit) queryParams.append('limit', params.limit.toString())
+    if (params?.type) queryParams.append('type', params.type)
+    if (params?.status) queryParams.append('status', params.status)
+    if (params?.search) queryParams.append('search', params.search)
+
+    const queryString = queryParams.toString()
+    const url = queryString ? `organizations?${queryString}` : 'organizations'
+
+    const response = await this.client.get<OrganizationListResponse>(url)
+    return response.data
+  }
+
+  /**
+   * Get organization details by ID (admin only)
+   */
+  async getOrganization(id: string): Promise<Organization> {
+    const response = await this.client.get<Organization>(`organizations/${id}`)
+    return response.data
+  }
+
+  /**
+   * Create a new organization (admin only)
+   */
+  async createOrganization(data: OrganizationCreate): Promise<Organization> {
+    const response = await this.client.post<Organization>('organizations', data)
+    this.cache.invalidate('/organizations')
+    this.cache.invalidate('/organizations/buyers')
+    return response.data
+  }
+
+  /**
+   * Update an organization (admin only)
+   */
+  async updateOrganization(id: string, data: OrganizationUpdate): Promise<Organization> {
+    const response = await this.client.patch<Organization>(`organizations/${id}`, data)
+    this.cache.invalidate('/organizations')
+    this.cache.invalidate(`/organizations/${id}`)
+    return response.data
+  }
+
+  /**
+   * Get members of an organization (admin only)
+   */
+  async getOrganizationMembers(orgId: string, params?: {
+    page?: number
+    limit?: number
+  }): Promise<MemberListResponse> {
+    const queryParams = new URLSearchParams()
+    if (params?.page) queryParams.append('page', params.page.toString())
+    if (params?.limit) queryParams.append('limit', params.limit.toString())
+
+    const queryString = queryParams.toString()
+    const url = queryString ? `organizations/${orgId}/members?${queryString}` : `organizations/${orgId}/members`
+
+    const response = await this.client.get<MemberListResponse>(url)
+    return response.data
+  }
+
+  /**
+   * Add a user to an organization (admin only)
+   */
+  async addOrganizationMember(orgId: string, data: MembershipCreate): Promise<OrganizationMember> {
+    const response = await this.client.post<OrganizationMember>(`organizations/${orgId}/members`, data)
+    this.cache.invalidate(`/organizations/${orgId}`)
+    return response.data
+  }
+
+  /**
+   * Update a member's role or status (admin only)
+   */
+  async updateOrganizationMember(
+    orgId: string,
+    userId: string,
+    data: MembershipUpdate
+  ): Promise<OrganizationMember> {
+    const response = await this.client.patch<OrganizationMember>(
+      `organizations/${orgId}/members/${userId}`,
+      data
+    )
+    return response.data
+  }
+
+  /**
+   * Remove a user from an organization (admin only)
+   */
+  async removeOrganizationMember(orgId: string, userId: string): Promise<void> {
+    await this.client.delete(`organizations/${orgId}/members/${userId}`)
+    this.cache.invalidate(`/organizations/${orgId}`)
   }
 
   // ============================================

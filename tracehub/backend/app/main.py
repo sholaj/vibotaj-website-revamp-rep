@@ -12,7 +12,7 @@ from sqlalchemy import text
 from .config import get_settings
 from .database import engine, Base, get_db, SessionLocal
 from .routers import shipments, documents, tracking, webhooks, auth, notifications, users
-from .routers import analytics, audit, eudr
+from .routers import analytics, audit, eudr, organizations
 from .middleware import RequestTrackingMiddleware, RateLimitMiddleware, ErrorHandlerMiddleware
 from .models import ContainerEvent, Shipment, Product
 
@@ -237,6 +237,7 @@ Use the `/api/auth/login` endpoint to obtain a token.
         {"name": "Webhooks", "description": "Webhook endpoints for carrier updates"},
         {"name": "Notifications", "description": "User notifications"},
         {"name": "Users", "description": "User management"},
+        {"name": "Organizations", "description": "Organization management and listings"},
         {"name": "Health", "description": "Health check and status endpoints"},
     ]
 )
@@ -292,6 +293,7 @@ app.include_router(eudr.router, prefix="/api/eudr", tags=["EUDR Compliance"])
 app.include_router(webhooks.router, prefix="/api/webhooks", tags=["Webhooks"])
 app.include_router(notifications.router, prefix="/api/notifications", tags=["Notifications"])
 app.include_router(users.router, prefix="/api/users", tags=["Users"])
+app.include_router(organizations.router, prefix="/api/organizations", tags=["Organizations"])
 
 
 @app.get("/", tags=["Health"])

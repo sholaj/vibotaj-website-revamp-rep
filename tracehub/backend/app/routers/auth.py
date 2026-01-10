@@ -235,7 +235,7 @@ async def get_current_active_user(
     org_permissions = []
 
     if membership and membership.organization:
-        org_role = membership.role
+        org_role = membership.org_role
         org_type = membership.organization.type
         # Compute org permissions based on role + org type + system admin status
         computed_perms = compute_effective_permissions(

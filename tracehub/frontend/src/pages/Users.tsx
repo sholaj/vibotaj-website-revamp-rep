@@ -9,7 +9,7 @@ import { Users as UsersIcon, Plus, Search, Shield, Check, X, RefreshCw, UserPlus
 import api, { ApiClientError } from '../api/client'
 import { useAuth, Permission } from '../contexts/AuthContext'
 import PermissionGuard from '../components/PermissionGuard'
-import type { UserResponse, UserRole, RoleInfo, UserCreate, UserUpdate } from '../types'
+import type { UserResponse, UserRole, RoleInfo, UserCreate, UserUpdate, OrganizationType } from '../types'
 
 // Role badge styling
 const roleBadgeStyles: Record<UserRole, string> = {
@@ -28,6 +28,21 @@ const roleLabels: Record<UserRole, string> = {
   buyer: 'Buyer',
   supplier: 'Supplier',
   viewer: 'Viewer',
+}
+
+// Organization type badge styling
+const orgTypeBadgeStyles: Record<OrganizationType, string> = {
+  vibotaj: 'bg-purple-100 text-purple-800',
+  buyer: 'bg-green-100 text-green-800',
+  supplier: 'bg-orange-100 text-orange-800',
+  logistics_agent: 'bg-teal-100 text-teal-800',
+}
+
+const orgTypeLabels: Record<OrganizationType, string> = {
+  vibotaj: 'VIBOTAJ',
+  buyer: 'Buyer',
+  supplier: 'Supplier',
+  logistics_agent: 'Logistics',
 }
 
 function EditUserModal({
@@ -520,6 +535,9 @@ export default function Users() {
                   Role
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Organization
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Status
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -550,6 +568,20 @@ export default function Users() {
                       {user.role === 'admin' && <Shield className="h-3 w-3 mr-1" />}
                       {roleLabels[user.role]}
                     </span>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    {user.primary_organization ? (
+                      <div>
+                        <div className="text-sm font-medium text-gray-900">
+                          {user.primary_organization.organization_name}
+                        </div>
+                        <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${orgTypeBadgeStyles[user.primary_organization.organization_type]}`}>
+                          {orgTypeLabels[user.primary_organization.organization_type]}
+                        </span>
+                      </div>
+                    ) : (
+                      <span className="text-sm text-gray-400 italic">No organization</span>
+                    )}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     {user.is_active ? (

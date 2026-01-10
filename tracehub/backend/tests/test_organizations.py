@@ -543,6 +543,509 @@ class TestOrganizationSettings:
         
         assert org.address["city"] == "Hamburg"
         assert org.address["country"] == "Germany"
-        
+
         db_session.delete(org)
         db_session.commit()
+
+
+# =============================================================================
+# API Endpoint Tests for Organization Management
+# Tests for routes in app/routers/organizations.py
+# =============================================================================
+
+class TestOrganizationAPI:
+    """Tests for organization CRUD API endpoints."""
+
+    @pytest.fixture
+    def admin_org(self, db_session):
+        """Create organization for admin user."""
+        org = Organization(
+            name="Admin Org",
+            slug=f"admin-org-{uuid.uuid4().hex[:6]}",
+            type=OrganizationType.VIBOTAJ,
+            status=OrganizationStatus.ACTIVE,
+            contact_email="admin@vibotaj.com"
+        )
+        db_session.add(org)
+        db_session.commit()
+        db_session.refresh(org)
+        yield org
+        # Cleanup handled by cascading deletes
+
+    @pytest.fixture
+    def admin_user(self, db_session, admin_org):
+        """Create admin user."""
+        user = User(
+            email=f"admin-{uuid.uuid4().hex[:6]}@vibotaj.com",
+            full_name="Admin User",
+            hashed_password=get_password_hash("Admin123!"),
+            role=UserRole.ADMIN,
+            organization_id=admin_org.id,
+            is_active=True
+        )
+        db_session.add(user)
+        db_session.commit()
+        db_session.refresh(user)
+        yield user
+
+    @pytest.fixture
+    def viewer_user(self, db_session, admin_org):
+        """Create viewer user (non-admin)."""
+        user = User(
+            email=f"viewer-{uuid.uuid4().hex[:6]}@test.com",
+            full_name="Viewer User",
+            hashed_password=get_password_hash("Viewer123!"),
+            role=UserRole.VIEWER,
+            organization_id=admin_org.id,
+            is_active=True
+        )
+        db_session.add(user)
+        db_session.commit()
+        db_session.refresh(user)
+        yield user
+
+    @pytest.fixture
+    def auth_admin_client(self, client, admin_user):
+        """Client authenticated as admin."""
+        permissions = [p.value for p in get_role_permissions(admin_user.role)]
+        mock_user = CurrentUser(
+            id=admin_user.id,
+            email=admin_user.email,
+            full_name=admin_user.full_name,
+            role=admin_user.role,
+            is_active=True,
+            organization_id=admin_user.organization_id,
+            permissions=permissions
+        )
+        app.dependency_overrides[get_current_active_user] = lambda: mock_user
+        yield client
+        del app.dependency_overrides[get_current_active_user]
+
+    @pytest.fixture
+    def auth_viewer_client(self, client, viewer_user):
+        """Client authenticated as viewer (non-admin)."""
+        permissions = [p.value for p in get_role_permissions(viewer_user.role)]
+        mock_user = CurrentUser(
+            id=viewer_user.id,
+            email=viewer_user.email,
+            full_name=viewer_user.full_name,
+            role=viewer_user.role,
+            is_active=True,
+            organization_id=viewer_user.organization_id,
+            permissions=permissions
+        )
+        app.dependency_overrides[get_current_active_user] = lambda: mock_user
+        yield client
+        del app.dependency_overrides[get_current_active_user]
+
+    def test_create_organization_as_admin(self, auth_admin_client):
+        """Admin should be able to create organization."""
+        org_data = {
+            "name": "New Test Buyer",
+            "slug": f"new-buyer-{uuid.uuid4().hex[:6]}",
+            "type": "buyer",
+            "contact_email": "new@buyer.com"
+        }
+        response = auth_admin_client.post("/api/organizations", json=org_data)
+        assert response.status_code == 201
+        data = response.json()
+        assert data["name"] == org_data["name"]
+        assert data["slug"] == org_data["slug"]
+        assert data["type"] == "buyer"
+        assert data["status"] == "active"
+
+    def test_create_organization_as_viewer_forbidden(self, auth_viewer_client):
+        """Non-admin should not be able to create organization."""
+        org_data = {
+            "name": "Forbidden Org",
+            "slug": f"forbidden-{uuid.uuid4().hex[:6]}",
+            "type": "buyer",
+            "contact_email": "forbidden@test.com"
+        }
+        response = auth_viewer_client.post("/api/organizations", json=org_data)
+        assert response.status_code == 403
+
+    def test_create_organization_duplicate_slug(self, auth_admin_client, db_session):
+        """Duplicate slug should fail."""
+        # First org
+        unique_slug = f"dup-slug-{uuid.uuid4().hex[:6]}"
+        org_data = {
+            "name": "First Org",
+            "slug": unique_slug,
+            "type": "buyer",
+            "contact_email": "first@test.com"
+        }
+        response = auth_admin_client.post("/api/organizations", json=org_data)
+        assert response.status_code == 201
+
+        # Duplicate slug
+        org_data2 = {
+            "name": "Second Org",
+            "slug": unique_slug,
+            "type": "supplier",
+            "contact_email": "second@test.com"
+        }
+        response = auth_admin_client.post("/api/organizations", json=org_data2)
+        assert response.status_code == 400
+
+    def test_list_organizations(self, auth_admin_client):
+        """Should list organizations with pagination."""
+        response = auth_admin_client.get("/api/organizations")
+        assert response.status_code == 200
+        data = response.json()
+        assert "items" in data
+        assert "total" in data
+        assert "page" in data
+        assert "limit" in data
+
+    def test_list_organizations_filter_by_type(self, auth_admin_client, db_session):
+        """Should filter organizations by type."""
+        # Create a buyer org
+        buyer_org = Organization(
+            name="Filter Test Buyer",
+            slug=f"filter-buyer-{uuid.uuid4().hex[:6]}",
+            type=OrganizationType.BUYER,
+            status=OrganizationStatus.ACTIVE,
+            contact_email="filter@buyer.com"
+        )
+        db_session.add(buyer_org)
+        db_session.commit()
+
+        response = auth_admin_client.get("/api/organizations?type=buyer")
+        assert response.status_code == 200
+        data = response.json()
+        for item in data["items"]:
+            assert item["type"] == "buyer"
+
+    def test_list_organizations_search(self, auth_admin_client, db_session):
+        """Should search organizations by name."""
+        # Create org with unique name
+        search_name = f"Searchable-{uuid.uuid4().hex[:6]}"
+        org = Organization(
+            name=search_name,
+            slug=f"search-{uuid.uuid4().hex[:6]}",
+            type=OrganizationType.BUYER,
+            status=OrganizationStatus.ACTIVE,
+            contact_email="search@test.com"
+        )
+        db_session.add(org)
+        db_session.commit()
+
+        response = auth_admin_client.get(f"/api/organizations?search={search_name[:10]}")
+        assert response.status_code == 200
+        data = response.json()
+        assert len(data["items"]) >= 1
+
+    def test_get_organization(self, auth_admin_client, db_session):
+        """Should get organization by ID."""
+        org = Organization(
+            name="Get Test Org",
+            slug=f"get-test-{uuid.uuid4().hex[:6]}",
+            type=OrganizationType.BUYER,
+            status=OrganizationStatus.ACTIVE,
+            contact_email="get@test.com"
+        )
+        db_session.add(org)
+        db_session.commit()
+
+        response = auth_admin_client.get(f"/api/organizations/{org.id}")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["id"] == str(org.id)
+        assert data["name"] == org.name
+
+    def test_get_organization_not_found(self, auth_admin_client):
+        """Should return 404 for non-existent organization."""
+        fake_id = str(uuid.uuid4())
+        response = auth_admin_client.get(f"/api/organizations/{fake_id}")
+        assert response.status_code == 404
+
+    def test_update_organization(self, auth_admin_client, db_session):
+        """Should update organization."""
+        org = Organization(
+            name="Update Test Org",
+            slug=f"update-test-{uuid.uuid4().hex[:6]}",
+            type=OrganizationType.BUYER,
+            status=OrganizationStatus.ACTIVE,
+            contact_email="update@test.com"
+        )
+        db_session.add(org)
+        db_session.commit()
+
+        update_data = {"name": "Updated Name", "contact_email": "updated@test.com"}
+        response = auth_admin_client.patch(f"/api/organizations/{org.id}", json=update_data)
+        assert response.status_code == 200
+        data = response.json()
+        assert data["name"] == "Updated Name"
+        assert data["contact_email"] == "updated@test.com"
+
+
+class TestOrganizationMembershipAPI:
+    """Tests for organization membership API endpoints."""
+
+    @pytest.fixture
+    def admin_org(self, db_session):
+        """Create organization for admin user."""
+        org = Organization(
+            name="Member API Org",
+            slug=f"memb-api-{uuid.uuid4().hex[:6]}",
+            type=OrganizationType.VIBOTAJ,
+            status=OrganizationStatus.ACTIVE,
+            contact_email="membapi@vibotaj.com"
+        )
+        db_session.add(org)
+        db_session.commit()
+        db_session.refresh(org)
+        yield org
+
+    @pytest.fixture
+    def target_org(self, db_session):
+        """Create target organization for membership tests."""
+        org = Organization(
+            name="Target Org for Members",
+            slug=f"target-org-{uuid.uuid4().hex[:6]}",
+            type=OrganizationType.BUYER,
+            status=OrganizationStatus.ACTIVE,
+            contact_email="target@test.com"
+        )
+        db_session.add(org)
+        db_session.commit()
+        db_session.refresh(org)
+        yield org
+
+    @pytest.fixture
+    def admin_user(self, db_session, admin_org):
+        """Create admin user."""
+        user = User(
+            email=f"memb-admin-{uuid.uuid4().hex[:6]}@vibotaj.com",
+            full_name="Member Admin",
+            hashed_password=get_password_hash("Admin123!"),
+            role=UserRole.ADMIN,
+            organization_id=admin_org.id,
+            is_active=True
+        )
+        db_session.add(user)
+        db_session.commit()
+        db_session.refresh(user)
+        yield user
+
+    @pytest.fixture
+    def test_user(self, db_session, admin_org):
+        """Create test user to add as member."""
+        user = User(
+            email=f"test-memb-{uuid.uuid4().hex[:6]}@test.com",
+            full_name="Test Member User",
+            hashed_password=get_password_hash("Test123!"),
+            role=UserRole.VIEWER,
+            organization_id=admin_org.id,
+            is_active=True
+        )
+        db_session.add(user)
+        db_session.commit()
+        db_session.refresh(user)
+        yield user
+
+    @pytest.fixture
+    def auth_admin_client(self, client, admin_user):
+        """Client authenticated as admin."""
+        permissions = [p.value for p in get_role_permissions(admin_user.role)]
+        mock_user = CurrentUser(
+            id=admin_user.id,
+            email=admin_user.email,
+            full_name=admin_user.full_name,
+            role=admin_user.role,
+            is_active=True,
+            organization_id=admin_user.organization_id,
+            permissions=permissions
+        )
+        app.dependency_overrides[get_current_active_user] = lambda: mock_user
+        yield client
+        del app.dependency_overrides[get_current_active_user]
+
+    def test_add_member_to_organization(self, auth_admin_client, target_org, test_user):
+        """Should add user as member to organization."""
+        member_data = {
+            "user_id": str(test_user.id),
+            "org_role": "member"
+        }
+        response = auth_admin_client.post(
+            f"/api/organizations/{target_org.id}/members",
+            json=member_data
+        )
+        assert response.status_code == 201
+        data = response.json()
+        assert data["user_id"] == str(test_user.id)
+        assert data["organization_id"] == str(target_org.id)
+        assert data["org_role"] == "member"
+
+    def test_add_member_duplicate(self, auth_admin_client, target_org, test_user, db_session):
+        """Should not add duplicate member."""
+        # Add member first
+        membership = OrganizationMembership(
+            user_id=test_user.id,
+            organization_id=target_org.id,
+            org_role=OrgRole.MEMBER
+        )
+        db_session.add(membership)
+        db_session.commit()
+
+        # Try to add again
+        member_data = {
+            "user_id": str(test_user.id),
+            "org_role": "admin"
+        }
+        response = auth_admin_client.post(
+            f"/api/organizations/{target_org.id}/members",
+            json=member_data
+        )
+        assert response.status_code == 400
+
+    def test_list_organization_members(self, auth_admin_client, target_org, test_user, db_session):
+        """Should list organization members."""
+        # Add member
+        membership = OrganizationMembership(
+            user_id=test_user.id,
+            organization_id=target_org.id,
+            org_role=OrgRole.MEMBER
+        )
+        db_session.add(membership)
+        db_session.commit()
+
+        response = auth_admin_client.get(f"/api/organizations/{target_org.id}/members")
+        assert response.status_code == 200
+        data = response.json()
+        assert "items" in data
+        assert len(data["items"]) >= 1
+
+    def test_remove_member_from_organization(self, auth_admin_client, target_org, test_user, db_session):
+        """Should remove member from organization."""
+        # Add member first
+        membership = OrganizationMembership(
+            user_id=test_user.id,
+            organization_id=target_org.id,
+            org_role=OrgRole.MEMBER
+        )
+        db_session.add(membership)
+        db_session.commit()
+
+        response = auth_admin_client.delete(
+            f"/api/organizations/{target_org.id}/members/{test_user.id}"
+        )
+        assert response.status_code == 204
+
+    def test_update_member_role(self, auth_admin_client, target_org, test_user, db_session):
+        """Should update member role."""
+        # Add member first
+        membership = OrganizationMembership(
+            user_id=test_user.id,
+            organization_id=target_org.id,
+            org_role=OrgRole.MEMBER
+        )
+        db_session.add(membership)
+        db_session.commit()
+
+        update_data = {"org_role": "admin"}
+        response = auth_admin_client.patch(
+            f"/api/organizations/{target_org.id}/members/{test_user.id}",
+            json=update_data
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert data["org_role"] == "admin"
+
+
+class TestOrganizationPermissions:
+    """Tests for organization API permission checks."""
+
+    @pytest.fixture
+    def vibotaj_org(self, db_session):
+        """Create VIBOTAJ organization."""
+        org = Organization(
+            name="Perm Test VIBOTAJ",
+            slug=f"perm-vibotaj-{uuid.uuid4().hex[:6]}",
+            type=OrganizationType.VIBOTAJ,
+            status=OrganizationStatus.ACTIVE,
+            contact_email="perm@vibotaj.com"
+        )
+        db_session.add(org)
+        db_session.commit()
+        db_session.refresh(org)
+        yield org
+
+    @pytest.fixture
+    def compliance_user(self, db_session, vibotaj_org):
+        """Create compliance user (not admin)."""
+        user = User(
+            email=f"compliance-{uuid.uuid4().hex[:6]}@test.com",
+            full_name="Compliance User",
+            hashed_password=get_password_hash("Compliance123!"),
+            role=UserRole.COMPLIANCE,
+            organization_id=vibotaj_org.id,
+            is_active=True
+        )
+        db_session.add(user)
+        db_session.commit()
+        db_session.refresh(user)
+        yield user
+
+    @pytest.fixture
+    def auth_compliance_client(self, client, compliance_user):
+        """Client authenticated as compliance user."""
+        permissions = [p.value for p in get_role_permissions(compliance_user.role)]
+        mock_user = CurrentUser(
+            id=compliance_user.id,
+            email=compliance_user.email,
+            full_name=compliance_user.full_name,
+            role=compliance_user.role,
+            is_active=True,
+            organization_id=compliance_user.organization_id,
+            permissions=permissions
+        )
+        app.dependency_overrides[get_current_active_user] = lambda: mock_user
+        yield client
+        del app.dependency_overrides[get_current_active_user]
+
+    def test_compliance_cannot_create_organization(self, auth_compliance_client):
+        """Compliance user should not be able to create organizations."""
+        org_data = {
+            "name": "Unauthorized Org",
+            "slug": f"unauth-{uuid.uuid4().hex[:6]}",
+            "type": "buyer",
+            "contact_email": "unauth@test.com"
+        }
+        response = auth_compliance_client.post("/api/organizations", json=org_data)
+        assert response.status_code == 403
+
+    def test_compliance_cannot_add_members(self, auth_compliance_client, vibotaj_org):
+        """Compliance user should not be able to add organization members."""
+        member_data = {
+            "user_id": str(uuid.uuid4()),
+            "org_role": "member"
+        }
+        response = auth_compliance_client.post(
+            f"/api/organizations/{vibotaj_org.id}/members",
+            json=member_data
+        )
+        assert response.status_code == 403
+
+    def test_unauthenticated_cannot_access(self, db_session):
+        """Unauthenticated requests should be rejected."""
+        # Create a fresh client without auth overrides
+        def override_get_db():
+            try:
+                yield db_session
+            finally:
+                pass
+
+        # Store existing overrides and clear them
+        saved_overrides = dict(app.dependency_overrides)
+        app.dependency_overrides.clear()
+        app.dependency_overrides[get_db] = override_get_db
+
+        unauth_client = TestClient(app)
+        response = unauth_client.get("/api/organizations")
+        assert response.status_code == 401
+
+        # Restore overrides
+        app.dependency_overrides.clear()
+        app.dependency_overrides.update(saved_overrides)

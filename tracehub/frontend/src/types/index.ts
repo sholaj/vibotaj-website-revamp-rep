@@ -5,6 +5,7 @@
 
 export * from './organization'
 export type { OrgPermission, OrgRole, OrganizationType } from './organization'
+import type { OrgRole, OrganizationType } from './organization'
 
 // ============================================
 // Authentication Types
@@ -22,6 +23,30 @@ export interface LoginResponse {
 
 // User roles aligned with backend UserRole enum
 export type UserRole = 'admin' | 'compliance' | 'logistics_agent' | 'buyer' | 'supplier' | 'viewer'
+
+// Product types aligned with compliance matrix
+export type ProductType =
+  | 'horn_hoof'      // HS 0506, 0507 - Animal by-products (NO EUDR)
+  | 'sweet_potato'   // HS 0714 - Sweet potato pellets (NO EUDR)
+  | 'hibiscus'       // HS 0902 - Hibiscus flowers (NO EUDR)
+  | 'ginger'         // HS 0910 - Dried ginger (NO EUDR)
+  | 'cocoa'          // HS 1801 - Cocoa beans (EUDR APPLICABLE)
+  | 'other'          // Other/unspecified
+
+// Product type metadata for UI display
+export const PRODUCT_TYPE_OPTIONS: Array<{
+  value: ProductType
+  label: string
+  hsCode: string
+  eudrRequired: boolean
+}> = [
+  { value: 'horn_hoof', label: 'Horn & Hoof', hsCode: '0506/0507', eudrRequired: false },
+  { value: 'sweet_potato', label: 'Sweet Potato Pellets', hsCode: '0714', eudrRequired: false },
+  { value: 'hibiscus', label: 'Hibiscus Flowers', hsCode: '0902', eudrRequired: false },
+  { value: 'ginger', label: 'Dried Ginger', hsCode: '0910', eudrRequired: false },
+  { value: 'cocoa', label: 'Cocoa Beans', hsCode: '1801', eudrRequired: true },
+  { value: 'other', label: 'Other', hsCode: 'N/A', eudrRequired: false },
+]
 
 export interface User {
   username: string
@@ -60,6 +85,13 @@ export interface UserUpdate {
   is_active?: boolean
 }
 
+export interface UserOrganizationInfo {
+  organization_id: string
+  organization_name: string
+  organization_type: OrganizationType
+  org_role: OrgRole
+}
+
 export interface UserResponse {
   id: string
   email: string
@@ -69,6 +101,7 @@ export interface UserResponse {
   created_at: string
   updated_at?: string
   last_login?: string
+  primary_organization?: UserOrganizationInfo
 }
 
 export interface UserListResponse {
@@ -302,6 +335,7 @@ export interface Shipment {
   id: string
   reference: string
   container_number: string
+  product_type?: ProductType  // Product category for compliance requirements
   bl_number?: string
   booking_reference?: string
   vessel_name?: string
@@ -385,6 +419,43 @@ export interface DocumentSummary {
   missing: DocumentType[]
   pending_validation: number
   is_complete: boolean
+}
+
+// ============================================
+// Shipment Creation Types
+// ============================================
+
+// Request type for creating a shipment
+export interface ShipmentCreateRequest {
+  reference: string
+  container_number: string
+  product_type: ProductType  // Required - determines document requirements
+  vessel_name?: string
+  voyage_number?: string
+  bl_number?: string
+  booking_ref?: string
+  carrier_code?: string
+  carrier_name?: string
+  etd?: string  // ISO date string
+  eta?: string  // ISO date string
+  pol_code?: string
+  pol_name?: string
+  pod_code?: string
+  pod_name?: string
+  incoterms?: string
+  exporter_name?: string
+  importer_name?: string
+  buyer_organization_id?: string  // UUID string
+  is_historical?: boolean
+  notes?: string
+}
+
+// Buyer organization for dropdown
+export interface BuyerOrganization {
+  id: string
+  name: string
+  slug: string
+  type: string
 }
 
 // ============================================
@@ -944,4 +1015,109 @@ export interface EUDRRegulationInfo {
     traceability: string
   }
   compliance_checklist: string[]
+}
+
+// ============================================
+// Organization Management Types
+// ============================================
+
+export type OrganizationStatus = 'active' | 'suspended' | 'pending_setup'
+
+export interface OrganizationAddress {
+  street?: string
+  city?: string
+  postal_code?: string
+  country: string
+}
+
+export interface Organization {
+  id: string
+  name: string
+  slug: string
+  type: OrganizationType
+  status: OrganizationStatus
+  contact_email: string
+  contact_phone?: string
+  address?: OrganizationAddress
+  tax_id?: string
+  registration_number?: string
+  logo_url?: string
+  member_count?: number
+  shipment_count?: number
+  created_at: string
+  updated_at?: string
+  created_by?: string
+}
+
+export interface OrganizationListItem {
+  id: string
+  name: string
+  slug: string
+  type: OrganizationType
+  status: OrganizationStatus
+  member_count: number
+  created_at: string
+}
+
+export interface OrganizationListResponse {
+  items: OrganizationListItem[]
+  total: number
+  page: number
+  limit: number
+  pages: number
+}
+
+export interface OrganizationCreate {
+  name: string
+  slug: string
+  type: OrganizationType
+  contact_email: string
+  contact_phone?: string
+  address?: OrganizationAddress
+  tax_id?: string
+  registration_number?: string
+}
+
+export interface OrganizationUpdate {
+  name?: string
+  contact_email?: string
+  contact_phone?: string
+  address?: OrganizationAddress
+  tax_id?: string
+  registration_number?: string
+  logo_url?: string
+}
+
+export type MembershipStatus = 'active' | 'suspended' | 'pending'
+
+export interface OrganizationMember {
+  id: string
+  user_id: string
+  organization_id: string
+  email: string
+  full_name: string
+  org_role: OrgRole
+  status: MembershipStatus
+  is_primary: boolean
+  joined_at: string
+  last_active_at?: string
+  invited_by?: string
+}
+
+export interface MembershipCreate {
+  user_id: string
+  org_role: OrgRole
+}
+
+export interface MembershipUpdate {
+  org_role?: OrgRole
+  status?: MembershipStatus
+}
+
+export interface MemberListResponse {
+  items: OrganizationMember[]
+  total: number
+  page: number
+  limit: number
+  pages: number
 }

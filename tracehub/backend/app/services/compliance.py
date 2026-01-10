@@ -13,6 +13,7 @@ Key functions:
 from typing import List, Dict, Any, Optional
 
 from ..models import Shipment, Document, DocumentType, DocumentStatus
+from ..models.shipment import ProductType
 from ..schemas.shipment import DocumentSummary
 
 
@@ -41,6 +42,63 @@ NOT in EUDR:
 
 # Horn and hoof HS codes - explicitly NOT covered by EUDR
 HORN_HOOF_HS_CODES = ['0506', '0507']
+
+
+# ============================================================================
+# PRODUCT TYPE TO HS CODE MAPPING
+# Maps ProductType enum to primary HS codes for document requirements
+# ============================================================================
+
+PRODUCT_TYPE_TO_HS_CODE: Dict[ProductType, str] = {
+    ProductType.HORN_HOOF: "0506",      # Animal by-products
+    ProductType.SWEET_POTATO: "0714",   # Sweet potato pellets
+    ProductType.HIBISCUS: "0902",       # Hibiscus flowers
+    ProductType.GINGER: "0910",         # Dried ginger
+    ProductType.COCOA: "1801",          # Cocoa beans (EUDR)
+    ProductType.OTHER: "default",       # Default requirements
+}
+
+# Human-readable product type labels
+PRODUCT_TYPE_LABELS: Dict[ProductType, str] = {
+    ProductType.HORN_HOOF: "Horn & Hoof",
+    ProductType.SWEET_POTATO: "Sweet Potato Pellets",
+    ProductType.HIBISCUS: "Hibiscus Flowers",
+    ProductType.GINGER: "Dried Ginger",
+    ProductType.COCOA: "Cocoa Beans",
+    ProductType.OTHER: "Other",
+}
+
+
+def is_eudr_product_type(product_type: ProductType) -> bool:
+    """Check if a product type requires EUDR compliance.
+
+    Args:
+        product_type: The ProductType enum value
+
+    Returns:
+        True if the product type requires EUDR compliance
+    """
+    return product_type == ProductType.COCOA
+
+
+def get_required_documents_by_product_type(
+    product_type: ProductType,
+    destination: str = "DE"
+) -> List[DocumentType]:
+    """Get required documents based on product type.
+
+    This is the primary function for determining document requirements
+    when creating a shipment with a known product type.
+
+    Args:
+        product_type: The ProductType enum value
+        destination: Destination country code (default: DE for Germany)
+
+    Returns:
+        List of required DocumentType enums
+    """
+    hs_code = PRODUCT_TYPE_TO_HS_CODE.get(product_type, "default")
+    return get_required_documents_by_hs_code(hs_code, destination)
 
 
 def is_eudr_required(hs_code: str) -> bool:

@@ -3,18 +3,23 @@
 Updated to match production database schema (Sprint 8).
 """
 
-from pydantic import BaseModel, validator
+import re
+from pydantic import BaseModel, validator, field_validator
 from typing import Optional, List
 from uuid import UUID
 from datetime import datetime, date
 
-from ..models.shipment import ShipmentStatus
+from ..models.shipment import ShipmentStatus, ProductType
+
+# ISO 6346 container number format: 4 letters + 7 digits
+ISO_6346_PATTERN = re.compile(r'^[A-Z]{4}[0-9]{7}$')
 
 
 class ShipmentCreate(BaseModel):
     """Schema for creating a new shipment."""
     reference: str
     container_number: str
+    product_type: ProductType  # Required - determines document requirements
     bl_number: Optional[str] = None
     booking_ref: Optional[str] = None  # Renamed from booking_reference
     vessel_name: Optional[str] = None
@@ -36,9 +41,43 @@ class ShipmentCreate(BaseModel):
     eudr_compliant: Optional[bool] = False  # New field
     eudr_statement_id: Optional[str] = None  # New field
     organization_id: UUID  # Required for multi-tenancy
+    buyer_organization_id: Optional[UUID] = None  # Optional buyer org (HAGES, Witatrade, etc.)
     # For historical shipments, set is_historical=True
     is_historical: Optional[bool] = False
     notes: Optional[str] = None
+
+    @field_validator('container_number')
+    @classmethod
+    def validate_container_number(cls, v: str) -> str:
+        """Validate ISO 6346 container number format.
+
+        Format: 4 letters (owner code) + 7 digits (serial + check digit)
+        Pattern: ^[A-Z]{4}[0-9]{7}$
+        Examples: MRSU3452572, TCNU1234567, MSKU9876543
+
+        Args:
+            v: Container number to validate
+
+        Returns:
+            Normalized (uppercase, trimmed) container number
+
+        Raises:
+            ValueError: If container number doesn't match ISO 6346 format
+        """
+        if not v or not v.strip():
+            raise ValueError('Container number is required')
+
+        # Normalize: strip whitespace and uppercase
+        normalized = v.strip().upper()
+
+        # Validate ISO 6346 format
+        if not ISO_6346_PATTERN.match(normalized):
+            raise ValueError(
+                'Invalid container number format. '
+                'Expected ISO 6346 format: 4 letters + 7 digits (e.g., MRSU3452572)'
+            )
+
+        return normalized
 
 
 class ShipmentUpdate(BaseModel):
@@ -65,6 +104,31 @@ class ShipmentUpdate(BaseModel):
     importer_name: Optional[str] = None
     eudr_compliant: Optional[bool] = None
     eudr_statement_id: Optional[str] = None
+
+    @field_validator('container_number')
+    @classmethod
+    def validate_container_number(cls, v: Optional[str]) -> Optional[str]:
+        """Validate ISO 6346 container number format if provided.
+
+        Same validation as ShipmentCreate but allows None for partial updates.
+        """
+        if v is None:
+            return v
+
+        if not v.strip():
+            return None  # Treat empty string as None for updates
+
+        # Normalize: strip whitespace and uppercase
+        normalized = v.strip().upper()
+
+        # Validate ISO 6346 format
+        if not ISO_6346_PATTERN.match(normalized):
+            raise ValueError(
+                'Invalid container number format. '
+                'Expected ISO 6346 format: 4 letters + 7 digits (e.g., MRSU3452572)'
+            )
+
+        return normalized
 
 
 class ProductInfo(BaseModel):
@@ -148,6 +212,7 @@ class ShipmentResponse(BaseModel):
     id: UUID
     reference: str
     container_number: str
+    product_type: Optional[ProductType] = None  # Product category for compliance requirements
     bl_number: Optional[str] = None
     booking_ref: Optional[str] = None  # Renamed from booking_reference
     vessel_name: Optional[str] = None
@@ -169,6 +234,7 @@ class ShipmentResponse(BaseModel):
     eudr_compliant: Optional[bool] = False  # New field
     eudr_statement_id: Optional[str] = None  # New field
     organization_id: UUID  # New field for multi-tenancy
+    buyer_organization_id: Optional[UUID] = None  # Buyer org (HAGES, Witatrade, etc.)
     created_at: datetime
     updated_at: datetime
     # Include products for HS code-based compliance checks (e.g., Horn & Hoof exemption)
