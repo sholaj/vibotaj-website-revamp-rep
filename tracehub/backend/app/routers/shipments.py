@@ -334,6 +334,88 @@ async def get_shipment(
         )
 
 
+@router.patch("/{shipment_id}", response_model=ShipmentResponse)
+async def update_shipment(
+    shipment_id: UUID,
+    shipment_data: ShipmentUpdate,
+    db: Session = Depends(get_db),
+    current_user: CurrentUser = Depends(get_current_active_user)
+):
+    """Update a shipment.
+
+    Requires: shipments:update permission (admin, logistics_agent roles)
+    Users can only update shipments belonging to their organization.
+    """
+    check_permission(current_user, Permission.SHIPMENTS_UPDATE)
+
+    # Find shipment with organization filter
+    shipment = db.query(Shipment).filter(
+        Shipment.id == shipment_id,
+        Shipment.organization_id == current_user.organization_id
+    ).first()
+
+    if not shipment:
+        raise HTTPException(status_code=404, detail="Shipment not found")
+
+    # Update only provided fields
+    update_data = shipment_data.model_dump(exclude_unset=True)
+
+    # Check for duplicate reference if reference is being changed
+    if "reference" in update_data and update_data["reference"] != shipment.reference:
+        existing = db.query(Shipment).filter(
+            Shipment.reference == update_data["reference"],
+            Shipment.id != shipment_id
+        ).first()
+        if existing:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"A shipment with reference '{update_data['reference']}' already exists"
+            )
+
+    for field, value in update_data.items():
+        setattr(shipment, field, value)
+
+    shipment.updated_at = datetime.utcnow()
+    db.commit()
+    db.refresh(shipment)
+
+    return shipment
+
+
+@router.delete("/{shipment_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_shipment(
+    shipment_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: CurrentUser = Depends(get_current_active_user)
+):
+    """Delete a shipment.
+
+    Requires: shipments:delete permission (admin role only)
+    Also deletes associated documents, products, and events.
+    """
+    check_permission(current_user, Permission.SHIPMENTS_DELETE)
+
+    # Find shipment with organization filter
+    shipment = db.query(Shipment).filter(
+        Shipment.id == shipment_id,
+        Shipment.organization_id == current_user.organization_id
+    ).first()
+
+    if not shipment:
+        raise HTTPException(status_code=404, detail="Shipment not found")
+
+    # Delete associated records (cascade should handle this, but being explicit)
+    db.query(Document).filter(Document.shipment_id == shipment_id).delete()
+    db.query(ContainerEvent).filter(ContainerEvent.shipment_id == shipment_id).delete()
+    db.query(Product).filter(Product.shipment_id == shipment_id).delete()
+
+    # Delete the shipment
+    db.delete(shipment)
+    db.commit()
+
+    return None
+
+
 @router.get("/{shipment_id}/documents")
 async def get_shipment_documents(
     shipment_id: UUID,
