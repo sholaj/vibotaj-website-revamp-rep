@@ -259,6 +259,10 @@ describe('CreateShipmentModal Component', () => {
       const vesselInput = screen.getByLabelText(/Vessel Name/)
       await user.type(vesselInput, 'MSC AURORA')
 
+      // Select product type (required)
+      const productTypeSelect = screen.getByLabelText(/Product Type/)
+      await user.selectOptions(productTypeSelect, 'horn_hoof')
+
       // Submit form
       const submitButton = screen.getByRole('button', { name: /Create Shipment/i })
       await user.click(submitButton)
@@ -289,6 +293,7 @@ describe('CreateShipmentModal Component', () => {
       // Fill form
       await user.type(screen.getByLabelText(/Reference Number/), 'VIBO-2026-001')
       await user.type(screen.getByLabelText(/Container Number/), 'MSCU1234567')
+      await user.selectOptions(screen.getByLabelText(/Product Type/), 'horn_hoof')
 
       // Submit
       await user.click(screen.getByRole('button', { name: /Create Shipment/i }))
@@ -314,6 +319,7 @@ describe('CreateShipmentModal Component', () => {
       // Fill form
       await user.type(screen.getByLabelText(/Reference Number/), 'VIBO-2026-001')
       await user.type(screen.getByLabelText(/Container Number/), 'MSCU1234567')
+      await user.selectOptions(screen.getByLabelText(/Product Type/), 'horn_hoof')
 
       // Submit
       await user.click(screen.getByRole('button', { name: /Create Shipment/i }))
@@ -342,6 +348,7 @@ describe('CreateShipmentModal Component', () => {
       // Fill form
       await user.type(screen.getByLabelText(/Reference Number/), 'VIBO-2026-001')
       await user.type(screen.getByLabelText(/Container Number/), 'MSCU1234567')
+      await user.selectOptions(screen.getByLabelText(/Product Type/), 'horn_hoof')
 
       // Select buyer
       const buyerSelect = screen.getByLabelText(/Buyer Organization/)
@@ -354,7 +361,7 @@ describe('CreateShipmentModal Component', () => {
         expect(api.createShipment).toHaveBeenCalledWith(
           expect.objectContaining({
             buyer_organization_id: '1',
-            product_type: 'horn_hoof',  // Default product type
+            product_type: 'horn_hoof',
           })
         )
       })
@@ -374,6 +381,7 @@ describe('CreateShipmentModal Component', () => {
       // Fill form
       await user.type(screen.getByLabelText(/Reference Number/), 'VIBO-2026-001')
       await user.type(screen.getByLabelText(/Container Number/), 'MSCU1234567')
+      await user.selectOptions(screen.getByLabelText(/Product Type/), 'horn_hoof')
 
       // Check historical
       const historicalCheckbox = screen.getByLabelText(/Historical Shipment/)
@@ -386,7 +394,7 @@ describe('CreateShipmentModal Component', () => {
         expect(api.createShipment).toHaveBeenCalledWith(
           expect.objectContaining({
             is_historical: true,
-            product_type: 'horn_hoof',  // Default product type
+            product_type: 'horn_hoof',
           })
         )
       })
@@ -466,6 +474,7 @@ describe('CreateShipmentModal Component', () => {
       // Fill form
       await user.type(screen.getByLabelText(/Reference Number/), 'VIBO-2026-001')
       await user.type(screen.getByLabelText(/Container Number/), 'MSCU1234567')
+      await user.selectOptions(screen.getByLabelText(/Product Type/), 'horn_hoof')
 
       // Submit
       await user.click(screen.getByRole('button', { name: /Create Shipment/i }))
@@ -553,6 +562,7 @@ describe('CreateShipmentModal Component', () => {
       // Fill form with lowercase
       await user.type(screen.getByLabelText(/Reference Number/), 'vibo-2026-001')
       await user.type(screen.getByLabelText(/Container Number/), 'mscu1234567')
+      await user.selectOptions(screen.getByLabelText(/Product Type/), 'horn_hoof')
 
       // Submit
       await user.click(screen.getByRole('button', { name: /Create Shipment/i }))
@@ -562,7 +572,7 @@ describe('CreateShipmentModal Component', () => {
           expect.objectContaining({
             reference: 'VIBO-2026-001',
             container_number: 'MSCU1234567',
-            product_type: 'horn_hoof',  // Default product type
+            product_type: 'horn_hoof',
           })
         )
       })
