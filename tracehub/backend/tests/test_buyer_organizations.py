@@ -72,9 +72,7 @@ def vibotaj_org(db_session):
     db_session.add(org)
     db_session.commit()
     db_session.refresh(org)
-    yield org
-    db_session.delete(org)
-    db_session.commit()
+    return org  # No cleanup - schema dropped at module start
 
 
 @pytest.fixture(scope="module")
@@ -90,9 +88,7 @@ def supplier_org(db_session):
     db_session.add(org)
     db_session.commit()
     db_session.refresh(org)
-    yield org
-    db_session.delete(org)
-    db_session.commit()
+    return org  # No cleanup - schema dropped at module start
 
 
 @pytest.fixture(scope="module")
@@ -108,9 +104,7 @@ def buyer_hages(db_session):
     db_session.add(org)
     db_session.commit()
     db_session.refresh(org)
-    yield org
-    db_session.delete(org)
-    db_session.commit()
+    return org  # No cleanup - schema dropped at module start
 
 
 @pytest.fixture(scope="module")
@@ -126,9 +120,7 @@ def buyer_witatrade(db_session):
     db_session.add(org)
     db_session.commit()
     db_session.refresh(org)
-    yield org
-    db_session.delete(org)
-    db_session.commit()
+    return org  # No cleanup - schema dropped at module start
 
 
 @pytest.fixture(scope="module")
@@ -144,9 +136,7 @@ def buyer_beckman(db_session):
     db_session.add(org)
     db_session.commit()
     db_session.refresh(org)
-    yield org
-    db_session.delete(org)
-    db_session.commit()
+    return org  # No cleanup - schema dropped at module start
 
 
 @pytest.fixture(scope="module")
@@ -174,10 +164,7 @@ def vibotaj_admin(db_session, vibotaj_org):
     db_session.add(membership)
     db_session.commit()
 
-    yield user
-    db_session.delete(membership)
-    db_session.delete(user)
-    db_session.commit()
+    return user  # No cleanup - schema dropped at module start
 
 
 class TestBuyerOrganizationsEndpoint:
