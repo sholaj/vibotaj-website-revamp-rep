@@ -432,6 +432,24 @@ class ApiClient {
     return response.data
   }
 
+  /**
+   * Update an existing shipment
+   */
+  async updateShipment(id: string, data: Partial<ShipmentCreateRequest>): Promise<Shipment> {
+    const response = await this.client.patch<Shipment>(`shipments/${id}`, data)
+    this.cache.invalidate('/shipments')
+    this.cache.invalidate(`/shipments/${id}`)
+    return response.data
+  }
+
+  /**
+   * Delete a shipment (admin only)
+   */
+  async deleteShipment(id: string): Promise<void> {
+    await this.client.delete(`shipments/${id}`)
+    this.cache.invalidate('/shipments')
+  }
+
   // ============================================
   // Organization Methods
   // ============================================

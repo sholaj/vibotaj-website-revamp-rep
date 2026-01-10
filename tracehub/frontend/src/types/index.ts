@@ -353,6 +353,7 @@ export interface Shipment {
   status: ShipmentStatus
   buyer?: Party
   supplier?: Party
+  buyer_organization_id?: string  // UUID of linked buyer organization
   products?: Product[]
   documents?: Document[]
   container_events?: ContainerEvent[]

@@ -10,13 +10,15 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { Link } from 'react-router-dom'
-import { Package, Ship, MapPin, Calendar, ChevronRight, RefreshCw, AlertCircle, Plus } from 'lucide-react'
+import { Package, Ship, MapPin, Calendar, ChevronRight, RefreshCw, AlertCircle, Plus, Pencil, Trash2 } from 'lucide-react'
 import api, { ApiClientError, NetworkError } from '../api/client'
 import type { Shipment, ShipmentStatus } from '../types'
 import { format } from 'date-fns'
 import { useAuth } from '../contexts/AuthContext'
 import { PermissionGuard } from '../components/PermissionGuard'
 import CreateShipmentModal from '../components/CreateShipmentModal'
+import EditShipmentModal from '../components/EditShipmentModal'
+import DeleteConfirmationModal from '../components/DeleteConfirmationModal'
 
 // Status badge styles and labels
 const STATUS_CONFIG: Record<ShipmentStatus, { style: string; label: string }> = {
@@ -91,58 +93,97 @@ function LoadingSkeleton() {
 }
 
 // Shipment card component
-function ShipmentCard({ shipment }: { shipment: Shipment }) {
+interface ShipmentCardProps {
+  shipment: Shipment
+  onEdit: (shipment: Shipment) => void
+  onDelete: (shipment: Shipment) => void
+}
+
+function ShipmentCard({ shipment, onEdit, onDelete }: ShipmentCardProps) {
+  const handleEdit = (e: React.MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    onEdit(shipment)
+  }
+
+  const handleDelete = (e: React.MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    onDelete(shipment)
+  }
+
   return (
-    <Link
-      to={`/shipment/${shipment.id}`}
-      className="card p-6 hover:shadow-md transition-shadow block"
-    >
-      <div className="flex items-start justify-between">
-        <div className="flex-1">
-          {/* Reference and Status */}
-          <div className="flex items-center gap-3 mb-3">
-            <h2 className="text-lg font-semibold text-gray-900">
-              {shipment.reference}
-            </h2>
-            {getStatusBadge(shipment.status)}
+    <div className="card p-6 hover:shadow-md transition-shadow group relative">
+      <Link to={`/shipment/${shipment.id}`} className="block">
+        <div className="flex items-start justify-between">
+          <div className="flex-1">
+            {/* Reference and Status */}
+            <div className="flex items-center gap-3 mb-3">
+              <h2 className="text-lg font-semibold text-gray-900">
+                {shipment.reference}
+              </h2>
+              {getStatusBadge(shipment.status)}
+            </div>
+
+            {/* Container and B/L */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+              <div className="flex items-center text-gray-600">
+                <Package className="h-4 w-4 mr-2 text-gray-400 flex-shrink-0" />
+                <span className="font-mono truncate">{shipment.container_number}</span>
+              </div>
+
+              <div className="flex items-center text-gray-600">
+                <Ship className="h-4 w-4 mr-2 text-gray-400 flex-shrink-0" />
+                <span className="truncate">
+                  {shipment.vessel_name || 'TBD'}
+                  {shipment.voyage_number ? ` / ${shipment.voyage_number}` : ''}
+                </span>
+              </div>
+
+              <div className="flex items-center text-gray-600">
+                <MapPin className="h-4 w-4 mr-2 text-gray-400 flex-shrink-0" />
+                <span className="truncate">
+                  {shipment.pol_name || shipment.pol_code || 'Origin'}
+                  {' -> '}
+                  {shipment.pod_name || shipment.pod_code || 'Destination'}
+                </span>
+              </div>
+
+              <div className="flex items-center text-gray-600">
+                <Calendar className="h-4 w-4 mr-2 text-gray-400 flex-shrink-0" />
+                <span>
+                  ETA: {shipment.eta ? format(new Date(shipment.eta), 'MMM d, yyyy') : 'TBD'}
+                </span>
+              </div>
+            </div>
           </div>
 
-          {/* Container and B/L */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-            <div className="flex items-center text-gray-600">
-              <Package className="h-4 w-4 mr-2 text-gray-400 flex-shrink-0" />
-              <span className="font-mono truncate">{shipment.container_number}</span>
-            </div>
-
-            <div className="flex items-center text-gray-600">
-              <Ship className="h-4 w-4 mr-2 text-gray-400 flex-shrink-0" />
-              <span className="truncate">
-                {shipment.vessel_name || 'TBD'}
-                {shipment.voyage_number ? ` / ${shipment.voyage_number}` : ''}
-              </span>
-            </div>
-
-            <div className="flex items-center text-gray-600">
-              <MapPin className="h-4 w-4 mr-2 text-gray-400 flex-shrink-0" />
-              <span className="truncate">
-                {shipment.pol_name || shipment.pol_code || 'Origin'}
-                {' -> '}
-                {shipment.pod_name || shipment.pod_code || 'Destination'}
-              </span>
-            </div>
-
-            <div className="flex items-center text-gray-600">
-              <Calendar className="h-4 w-4 mr-2 text-gray-400 flex-shrink-0" />
-              <span>
-                ETA: {shipment.eta ? format(new Date(shipment.eta), 'MMM d, yyyy') : 'TBD'}
-              </span>
-            </div>
-          </div>
+          <ChevronRight className="h-5 w-5 text-gray-400 flex-shrink-0 ml-4" />
         </div>
+      </Link>
 
-        <ChevronRight className="h-5 w-5 text-gray-400 flex-shrink-0 ml-4" />
+      {/* Action buttons - show on hover */}
+      <div className="absolute top-4 right-12 opacity-0 group-hover:opacity-100 transition-opacity flex space-x-1">
+        <PermissionGuard permission="shipments:update">
+          <button
+            onClick={handleEdit}
+            className="p-2 text-gray-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors"
+            title="Edit shipment"
+          >
+            <Pencil className="h-4 w-4" />
+          </button>
+        </PermissionGuard>
+        <PermissionGuard permission="shipments:delete">
+          <button
+            onClick={handleDelete}
+            className="p-2 text-gray-400 hover:text-danger-600 hover:bg-danger-50 rounded-lg transition-colors"
+            title="Delete shipment"
+          >
+            <Trash2 className="h-4 w-4" />
+          </button>
+        </PermissionGuard>
       </div>
-    </Link>
+    </div>
   )
 }
 
@@ -153,6 +194,9 @@ export default function Dashboard() {
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [showCreateModal, setShowCreateModal] = useState(false)
+  const [showEditModal, setShowEditModal] = useState(false)
+  const [showDeleteModal, setShowDeleteModal] = useState(false)
+  const [selectedShipment, setSelectedShipment] = useState<Shipment | null>(null)
 
   const fetchShipments = useCallback(async (showLoadingState = true) => {
     if (showLoadingState) {
@@ -197,6 +241,35 @@ export default function Dashboard() {
     fetchShipments(false)
   }, [fetchShipments])
 
+  // Handle edit button click
+  const handleEditClick = useCallback((shipment: Shipment) => {
+    setSelectedShipment(shipment)
+    setShowEditModal(true)
+  }, [])
+
+  // Handle delete button click
+  const handleDeleteClick = useCallback((shipment: Shipment) => {
+    setSelectedShipment(shipment)
+    setShowDeleteModal(true)
+  }, [])
+
+  // Handle successful shipment update
+  const handleShipmentUpdated = useCallback(() => {
+    api.invalidateCache('/shipments')
+    fetchShipments(false)
+    setSelectedShipment(null)
+  }, [fetchShipments])
+
+  // Handle shipment deletion
+  const handleDeleteConfirm = useCallback(async () => {
+    if (!selectedShipment) return
+
+    await api.deleteShipment(selectedShipment.id)
+    api.invalidateCache('/shipments')
+    fetchShipments(false)
+    setSelectedShipment(null)
+  }, [selectedShipment, fetchShipments])
+
   return (
     <div>
       {/* Header */}
@@ -236,7 +309,12 @@ export default function Dashboard() {
       ) : (
         <div className="grid gap-4">
           {shipments.map((shipment) => (
-            <ShipmentCard key={shipment.id} shipment={shipment} />
+            <ShipmentCard
+              key={shipment.id}
+              shipment={shipment}
+              onEdit={handleEditClick}
+              onDelete={handleDeleteClick}
+            />
           ))}
         </div>
       )}
@@ -254,6 +332,30 @@ export default function Dashboard() {
         onClose={() => setShowCreateModal(false)}
         onSuccess={handleShipmentCreated}
         organizationId={user?.organization_id ?? ''}
+      />
+
+      {/* Edit Shipment Modal */}
+      <EditShipmentModal
+        isOpen={showEditModal}
+        onClose={() => {
+          setShowEditModal(false)
+          setSelectedShipment(null)
+        }}
+        onSuccess={handleShipmentUpdated}
+        shipment={selectedShipment}
+      />
+
+      {/* Delete Confirmation Modal */}
+      <DeleteConfirmationModal
+        isOpen={showDeleteModal}
+        onClose={() => {
+          setShowDeleteModal(false)
+          setSelectedShipment(null)
+        }}
+        onConfirm={handleDeleteConfirm}
+        title="Delete Shipment"
+        message="Are you sure you want to delete this shipment? This action cannot be undone."
+        itemName={selectedShipment?.reference}
       />
     </div>
   )
