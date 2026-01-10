@@ -55,6 +55,7 @@ describe('CreateShipmentModal Component', () => {
       expect(screen.getByLabelText(/Reference Number/)).toBeInTheDocument()
       expect(screen.getByLabelText(/Container Number/)).toBeInTheDocument()
       expect(screen.getByLabelText(/Vessel Name/)).toBeInTheDocument()
+      expect(screen.getByLabelText(/Product Type/)).toBeInTheDocument()
       expect(screen.getByLabelText(/Buyer Organization/)).toBeInTheDocument()
       expect(screen.getByLabelText(/Historical Shipment/)).toBeInTheDocument()
     })
@@ -267,6 +268,7 @@ describe('CreateShipmentModal Component', () => {
           reference: 'VIBO-2026-001',
           container_number: 'MSCU1234567',
           vessel_name: 'MSC AURORA',
+          product_type: 'horn_hoof',  // Default product type
           buyer_organization_id: undefined,
           is_historical: false,
         })
@@ -352,6 +354,7 @@ describe('CreateShipmentModal Component', () => {
         expect(api.createShipment).toHaveBeenCalledWith(
           expect.objectContaining({
             buyer_organization_id: '1',
+            product_type: 'horn_hoof',  // Default product type
           })
         )
       })
@@ -383,6 +386,7 @@ describe('CreateShipmentModal Component', () => {
         expect(api.createShipment).toHaveBeenCalledWith(
           expect.objectContaining({
             is_historical: true,
+            product_type: 'horn_hoof',  // Default product type
           })
         )
       })
@@ -558,6 +562,7 @@ describe('CreateShipmentModal Component', () => {
           expect.objectContaining({
             reference: 'VIBO-2026-001',
             container_number: 'MSCU1234567',
+            product_type: 'horn_hoof',  // Default product type
           })
         )
       })
