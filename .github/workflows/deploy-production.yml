@@ -187,6 +187,40 @@ jobs:
             sed -i 's/^[[:space:]]*//' .env
           ENDSSH
 
+      - name: Setup SSL certificates
+        run: |
+          ssh ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }} << 'ENDSSH'
+            # Check if certificates exist
+            if [ ! -f /etc/letsencrypt/live/tracehub.vibotaj.com/fullchain.pem ]; then
+              echo "SSL certificates not found, generating with certbot..."
+
+              # Install certbot if not present
+              if ! command -v certbot &> /dev/null; then
+                sudo apt-get update
+                sudo apt-get install -y certbot
+              fi
+
+              # Stop any services using port 80
+              cd ${{ env.DEPLOY_PATH }}
+              docker compose stop frontend || true
+
+              # Generate certificate using standalone mode
+              sudo certbot certonly --standalone \
+                --non-interactive \
+                --agree-tos \
+                --email admin@vibotaj.com \
+                -d tracehub.vibotaj.com \
+                || echo "Certbot failed, check logs"
+
+              echo "Certificate generation complete"
+              ls -la /etc/letsencrypt/live/tracehub.vibotaj.com/ || echo "Cert dir not found"
+            else
+              echo "SSL certificates already exist"
+              # Check expiry
+              sudo certbot certificates | grep -A2 "tracehub.vibotaj.com" || true
+            fi
+          ENDSSH
+
       - name: Rebuild and restart containers
         run: |
           ssh ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }} << 'ENDSSH'
