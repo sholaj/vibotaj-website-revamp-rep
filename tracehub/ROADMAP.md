@@ -1,124 +1,58 @@
 # TraceHub Roadmap
 
-**Last Updated:** 2026-01-03
-**Status:** Phase 2 Planning
+**Last Updated:** 2026-01-11
+**Status:** Phase 3 - Production Stabilization
 
 ---
 
 ## Overview
 
-TraceHub is a container tracking and documentation compliance platform for VIBOTAJ agro-exports. This roadmap outlines completed work (Sprints 1-5) and upcoming features (Sprints 6-9).
+TraceHub is a container tracking and documentation compliance platform for VIBOTAJ agro-exports. This roadmap tracks completed work (Sprints 1-11) and upcoming features (Sprints 12+).
 
 ---
 
-## Completed Sprints (1-5)
+## Completed Sprints (1-11)
 
 | Sprint | Theme | Key Deliverables | Status |
 |--------|-------|------------------|--------|
-| 1 | Backend Foundation | FastAPI, PostgreSQL, Docker, document upload | Done |
-| 1.5 | Tracking Integration | JSONCargo API, webhook support, event history | Done |
-| 2 | Access Control | 6 user roles, RBAC, user management | Done |
-| 3 | Document Workflow | Lifecycle states, validation, approval flow | Done |
-| 4 | EUDR Compliance | Compliance tracking, analytics dashboard | Done |
-| 5 | Historical Data | Shipment creation, logistics agent workflow | Done |
+| 1 | Backend Foundation | FastAPI, PostgreSQL, Docker, document upload | ✅ Done |
+| 1.5 | Tracking Integration | JSONCargo API, webhook support, event history | ✅ Done |
+| 2 | Access Control | 6 user roles, RBAC, user management | ✅ Done |
+| 3 | Document Workflow | Lifecycle states, validation, approval flow | ✅ Done |
+| 4 | EUDR Compliance | Compliance tracking, analytics dashboard | ✅ Done |
+| 5 | Historical Data | Shipment creation, logistics agent workflow | ✅ Done |
+| 6 | Live Tracking | Real-time visibility, email notifications | ✅ Done |
+| 7 | Stakeholder Portals | Buyer dashboard, supplier checklists | ✅ Done |
+| 8 | Multi-Tenancy | Organization model, data isolation, RBAC | ✅ Done |
+| 9 | Compliance Matrix | EUDR exemptions, Horn & Hoof handling | ✅ Done |
+| 10 | Architecture Cleanup | Deprecate legacy schemas, Party table removal | ✅ Done |
+| 11 | Schema Fixes | UUID FK constraints, buyer access control | ✅ Done |
 
 See [CHANGELOG.md](./CHANGELOG.md) for detailed feature list.
 
 ---
 
-## Upcoming Sprints (6-9)
+## Current Sprint (12)
 
-### Sprint 6: Live Tracking & Communication
-**Theme:** Real-time Visibility
-**Duration:** 2 weeks
+### Sprint 12: Final Stabilization
+**Theme:** Production Hardening
+**Duration:** 1-2 weeks
 
 **Goals:**
-- Buyers can answer "Where is my container?" with live data
-- Stakeholders receive proactive email alerts
+- Standardize DateTime timezone handling across all models
+- Add shipment status transition validation
+- Add EUDR compliance tests
 
 **Features:**
 | Feature | Priority | Status |
 |---------|----------|--------|
-| Enhanced container tracking (dual-provider) | MUST | Planned |
-| Email notifications (SendGrid) | MUST | Planned |
-| Mobile responsive UI | MUST | Planned |
-| CI/CD pipeline (GitHub Actions) | SHOULD | Planned |
-
-**Success Metrics:**
-- Container tracking latency < 15 min
-- Email delivery rate > 95%
-- Mobile usability pass
+| DateTime timezone standardization | SHOULD | Planned |
+| Shipment status state machine | SHOULD | Planned |
+| EUDR compliance tests | SHOULD | Planned |
 
 ---
 
-### Sprint 7: Stakeholder Portals
-**Theme:** Role-Optimized Experience
-**Duration:** 2 weeks
-
-**Goals:**
-- Buyers have simplified dashboard showing ETAs and document status
-- Suppliers have clear document checklists with upload CTAs
-
-**Features:**
-| Feature | Priority | Status |
-|---------|----------|--------|
-| Buyer dashboard view | MUST | Planned |
-| Supplier document checklist | MUST | Planned |
-| Enhanced audit pack PDF (EUDR section) | MUST | Planned |
-| User onboarding flow | SHOULD | Planned |
-
-**Success Metrics:**
-- Buyer time-to-answer < 30 seconds
-- Supplier upload completion > 90%
-
----
-
-### Sprint 8: AI-Augmented Workflows
-**Theme:** Intelligent Automation
-**Duration:** 2 weeks
-
-**Goals:**
-- Reduce document review time by 50% through AI validation
-- Auto-generate shipment summaries for buyers
-
-**Features:**
-| Feature | Priority | Status |
-|---------|----------|--------|
-| AI document validation (LLM) | SHOULD | Planned |
-| Shipment summary generator | SHOULD | Planned |
-| Bulk document upload | SHOULD | Planned |
-| Document OCR & extraction | COULD | Planned |
-
-**Success Metrics:**
-- AI validation accuracy > 85%
-- Time saved per review > 40%
-
----
-
-### Sprint 9: Production Hardening & SaaS Prep
-**Theme:** Scale & Stability
-**Duration:** 2 weeks
-
-**Goals:**
-- Platform is production-ready for pilot customers
-- Architecture supports multi-tenancy for future SaaS
-
-**Features:**
-| Feature | Priority | Status |
-|---------|----------|--------|
-| Multi-tenant data model | COULD | Planned |
-| Document version control | SHOULD | Planned |
-| Performance optimization | MUST | Planned |
-| Security hardening | MUST | Planned |
-
-**Success Metrics:**
-- P99 API latency < 500ms
-- Uptime > 99.5%
-- Zero critical security vulnerabilities
-
----
-
-## Future Considerations (Sprint 10+)
+## Future Considerations (Sprint 13+)
 
 | Feature | Description | Priority |
 |---------|-------------|----------|
@@ -143,10 +77,10 @@ See [CHANGELOG.md](./CHANGELOG.md) for detailed feature list.
 
 | Dependency | Sprint | Status |
 |------------|--------|--------|
-| JSONCargo API | Active | Integrated |
-| SendGrid account | Sprint 6 | Needed |
-| OpenAI/Claude API | Sprint 8 | Needed |
-| Security consultant | Sprint 9 | Needed |
+| JSONCargo API | Active | ✅ Integrated |
+| SendGrid account | Sprint 6 | ✅ Configured |
+| Anthropic Claude API | Sprint 7+ | ✅ Integrated |
+| PostgreSQL | Active | ✅ Running |
 
 ---
 
@@ -156,16 +90,16 @@ To continue development from where we left off:
 
 1. Check current sprint status in this file
 2. Review [CHANGELOG.md](./CHANGELOG.md) for completed features
-3. See [SPRINT_BACKLOG.md](./SPRINT_BACKLOG.md) for detailed task breakdown
+3. See [docs/KNOWN_ISSUES.md](./docs/KNOWN_ISSUES.md) for remaining tech debt
 4. Check git log for recent changes: `git log --oneline -20`
 
-**Current State:** Sprints 1-5 complete, Sprint 6 ready to start.
+**Current State:** Sprints 1-11 complete, Sprint 12 in progress.
 
 ---
 
 ## Related Documentation
 
 - [CHANGELOG.md](./CHANGELOG.md) - Completed features by version
+- [docs/KNOWN_ISSUES.md](./docs/KNOWN_ISSUES.md) - Known issues and tech debt
 - [docs/architecture/ARCHITECTURE.md](./docs/architecture/ARCHITECTURE.md) - System architecture
 - [README.md](./README.md) - Quick start and API reference
-- [docs/sprints/SPRINT_BACKLOG.md](./docs/sprints/SPRINT_BACKLOG.md) - Detailed task breakdown

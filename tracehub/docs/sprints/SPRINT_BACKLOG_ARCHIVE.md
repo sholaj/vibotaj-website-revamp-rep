@@ -1,6 +1,9 @@
-# TraceHub Sprint Backlog
+# TraceHub Sprint Backlog (ARCHIVED)
 
-## Detailed Task Breakdown for Sprints 6-9
+> **ARCHIVED:** 2026-01-11 - This document contains historical sprint planning from early 2026.
+> Sprints 6-9 have been completed. For current status, see `/ROADMAP.md` and `/CHANGELOG.md`.
+
+## Detailed Task Breakdown for Sprints 6-9 (Historical)
 
 ---
 
