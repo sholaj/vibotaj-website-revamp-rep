@@ -18,6 +18,7 @@ from ..routers.auth import get_current_active_user
 from ..services.compliance import get_required_documents, check_document_completeness
 from ..services.audit_pack import generate_audit_pack
 from ..services.permissions import Permission, has_permission
+from ..services.access_control import get_accessible_shipments_filter, get_accessible_shipment, user_is_shipment_owner
 
 router = APIRouter()
 
@@ -132,10 +133,12 @@ async def list_shipments(
 
     Returns a list of shipments sorted by creation date (newest first).
     Filtered by user's organization for multi-tenancy.
+
+    Sprint 11: Buyers can also see shipments assigned to them via buyer_organization_id.
     """
-    # Filter by organization for multi-tenancy
+    # Filter by organization for multi-tenancy (owner OR buyer)
     query = db.query(Shipment).filter(
-        Shipment.organization_id == current_user.organization_id
+        get_accessible_shipments_filter(current_user)
     )
 
     # Apply status filter if provided
@@ -168,13 +171,17 @@ async def get_shipment_debug(
     db: Session = Depends(get_db),
     current_user: CurrentUser = Depends(get_current_active_user)
 ):
-    """Debug endpoint to identify serialization issues."""
+    """Debug endpoint to identify serialization issues.
+
+    Sprint 11: Buyers can also access shipments assigned to them.
+    """
+    # Use access control for owner OR buyer access
     shipment = (
         db.query(Shipment)
         .options(joinedload(Shipment.products))
         .filter(
             Shipment.id == shipment_id,
-            Shipment.organization_id == current_user.organization_id
+            get_accessible_shipments_filter(current_user)
         )
         .first()
     )
@@ -200,20 +207,23 @@ async def get_shipment(
     db: Session = Depends(get_db),
     current_user: CurrentUser = Depends(get_current_active_user)
 ):
-    """Get shipment details with documents and tracking status."""
+    """Get shipment details with documents and tracking status.
+
+    Sprint 11: Buyers can also access shipments assigned to them via buyer_organization_id.
+    """
     import logging
     import traceback
     logger = logging.getLogger(__name__)
 
     try:
         # Eagerly load products to ensure HS code lookup works for compliance
-        # Filter by organization for multi-tenancy security
+        # Filter by organization for multi-tenancy security (owner OR buyer)
         shipment = (
             db.query(Shipment)
             .options(joinedload(Shipment.products))
             .filter(
                 Shipment.id == shipment_id,
-                Shipment.organization_id == current_user.organization_id
+                get_accessible_shipments_filter(current_user)
             )
             .first()
         )
@@ -345,18 +355,21 @@ async def update_shipment(
     """Update a shipment.
 
     Requires: shipments:update permission (admin, logistics_agent roles)
-    Users can only update shipments belonging to their organization.
+    Sprint 11: Only shipment OWNERS can update (not buyers).
     """
     check_permission(current_user, Permission.SHIPMENTS_UPDATE)
 
-    # Find shipment with organization filter
-    shipment = db.query(Shipment).filter(
-        Shipment.id == shipment_id,
-        Shipment.organization_id == current_user.organization_id
-    ).first()
-
+    # Find shipment - first check if user can access it at all
+    shipment = get_accessible_shipment(db, shipment_id, current_user)
     if not shipment:
         raise HTTPException(status_code=404, detail="Shipment not found")
+
+    # Only owners can update, not buyers
+    if not user_is_shipment_owner(shipment, current_user):
+        raise HTTPException(
+            status_code=403,
+            detail="Only shipment owners can update shipments. Buyers have read-only access."
+        )
 
     # Update only provided fields
     update_data = shipment_data.model_dump(exclude_unset=True)
@@ -392,18 +405,22 @@ async def delete_shipment(
     """Delete a shipment.
 
     Requires: shipments:delete permission (admin role only)
+    Sprint 11: Only shipment OWNERS can delete (not buyers).
     Also deletes associated documents, products, and events.
     """
     check_permission(current_user, Permission.SHIPMENTS_DELETE)
 
-    # Find shipment with organization filter
-    shipment = db.query(Shipment).filter(
-        Shipment.id == shipment_id,
-        Shipment.organization_id == current_user.organization_id
-    ).first()
-
+    # Find shipment - first check if user can access it at all
+    shipment = get_accessible_shipment(db, shipment_id, current_user)
     if not shipment:
         raise HTTPException(status_code=404, detail="Shipment not found")
+
+    # Only owners can delete, not buyers
+    if not user_is_shipment_owner(shipment, current_user):
+        raise HTTPException(
+            status_code=403,
+            detail="Only shipment owners can delete shipments. Buyers have read-only access."
+        )
 
     # Delete associated records (cascade should handle this, but being explicit)
     db.query(Document).filter(Document.shipment_id == shipment_id).delete()
@@ -423,15 +440,18 @@ async def get_shipment_documents(
     db: Session = Depends(get_db),
     current_user: CurrentUser = Depends(get_current_active_user)
 ):
-    """List all documents for a shipment."""
+    """List all documents for a shipment.
+
+    Sprint 11: Buyers can also access documents for shipments assigned to them.
+    """
     # Eagerly load products to ensure HS code lookup works for compliance
-    # Filter by organization for multi-tenancy security
+    # Filter by organization for multi-tenancy security (owner OR buyer)
     shipment = (
         db.query(Shipment)
         .options(joinedload(Shipment.products))
         .filter(
             Shipment.id == shipment_id,
-            Shipment.organization_id == current_user.organization_id
+            get_accessible_shipments_filter(current_user)
         )
         .first()
     )
@@ -455,12 +475,12 @@ async def get_shipment_events(
     db: Session = Depends(get_db),
     current_user: CurrentUser = Depends(get_current_active_user)
 ):
-    """Get container event history for a shipment."""
-    # Filter by organization for multi-tenancy security
-    shipment = db.query(Shipment).filter(
-        Shipment.id == shipment_id,
-        Shipment.organization_id == current_user.organization_id
-    ).first()
+    """Get container event history for a shipment.
+
+    Sprint 11: Buyers can also access events for shipments assigned to them.
+    """
+    # Filter by organization for multi-tenancy security (owner OR buyer)
+    shipment = get_accessible_shipment(db, shipment_id, current_user)
     if not shipment:
         raise HTTPException(status_code=404, detail="Shipment not found")
 
@@ -480,12 +500,12 @@ async def download_audit_pack(
     db: Session = Depends(get_db),
     current_user: CurrentUser = Depends(get_current_active_user)
 ):
-    """Download audit pack ZIP for a shipment."""
-    # Filter by organization for multi-tenancy security
-    shipment = db.query(Shipment).filter(
-        Shipment.id == shipment_id,
-        Shipment.organization_id == current_user.organization_id
-    ).first()
+    """Download audit pack ZIP for a shipment.
+
+    Sprint 11: Buyers can also download audit packs for shipments assigned to them.
+    """
+    # Filter by organization for multi-tenancy security (owner OR buyer)
+    shipment = get_accessible_shipment(db, shipment_id, current_user)
     if not shipment:
         raise HTTPException(status_code=404, detail="Shipment not found")
 
