@@ -1,6 +1,6 @@
 """Authentication router with database-backed user management."""
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Response
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
@@ -8,6 +8,7 @@ from sqlalchemy import func
 from datetime import datetime, timedelta
 from jose import JWTError, jwt
 import bcrypt
+import warnings
 from typing import Optional
 from uuid import UUID
 from sqlalchemy.orm import joinedload
@@ -41,8 +42,18 @@ class TokenData(BaseModel):
 
 
 # Legacy User class for backward compatibility
+# DEPRECATED: Use CurrentUser from schemas.user instead
 class User(BaseModel):
-    """User information (legacy format for backward compatibility)."""
+    """
+    DEPRECATED: Legacy user format for backward compatibility.
+
+    This class will be removed in v2.0. Please migrate to CurrentUser which provides:
+    - UUID-based user ID
+    - Organization-scoped permissions
+    - Multi-tenancy support
+
+    Use get_current_active_user() instead of get_current_user() in new endpoints.
+    """
     username: str
     email: str
     full_name: str
@@ -95,11 +106,23 @@ async def get_current_user(
     token: str = Depends(oauth2_scheme),
     db: Session = Depends(get_db)
 ) -> User:
-    """Get current authenticated user from token.
+    """
+    DEPRECATED: Get current authenticated user from token.
 
     Returns the legacy User format for backward compatibility.
-    Use get_current_active_user for the full user model.
+    This function will be removed in v2.0. Use get_current_active_user() instead.
+
+    Migration Guide:
+    - Replace: current_user: User = Depends(get_current_user)
+    - With:    current_user: CurrentUser = Depends(get_current_active_user)
     """
+    # Log deprecation warning
+    warnings.warn(
+        "get_current_user() is deprecated, use get_current_active_user() instead",
+        DeprecationWarning,
+        stacklevel=2
+    )
+
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
@@ -336,9 +359,21 @@ async def login(
     )
 
 
-@router.get("/me", response_model=User)
-async def get_me(current_user: User = Depends(get_current_user)):
-    """Get current user information (legacy format)."""
+@router.get("/me", response_model=User, deprecated=True)
+async def get_me(
+    response: Response,
+    current_user: User = Depends(get_current_user)
+):
+    """
+    DEPRECATED: Get current user information (legacy format).
+
+    This endpoint will be removed in v2.0. Use GET /api/auth/me/full instead
+    which provides UUID-based user ID and organization-scoped permissions.
+    """
+    # Add deprecation header to response
+    response.headers["Deprecation"] = "true"
+    response.headers["Sunset"] = "2026-06-01"
+    response.headers["Link"] = '</api/auth/me/full>; rel="successor-version"'
     return current_user
 
 
