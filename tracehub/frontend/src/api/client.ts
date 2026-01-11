@@ -311,7 +311,12 @@ class ApiClient {
           errorMessage = detail
         } else if (Array.isArray(detail)) {
           // FastAPI validation errors return an array of {loc, msg, type}
-          errorMessage = detail.map((e: { msg?: string }) => e.msg || String(e)).join(', ')
+          // Include field name for better UX: "field_name: error message"
+          errorMessage = detail.map((e: { loc?: string[]; msg?: string }) => {
+            const field = e.loc?.slice(-1)[0] // Get last element (field name)
+            const msg = e.msg || 'Validation error'
+            return field && field !== '__root__' ? `${field}: ${msg}` : msg
+          }).join(', ')
         } else if (detail && typeof detail === 'object') {
           errorMessage = JSON.stringify(detail)
         } else {

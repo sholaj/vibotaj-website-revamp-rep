@@ -55,12 +55,13 @@ async def create_shipment(
             detail=f"A shipment with reference '{shipment_data.reference}' already exists"
         )
 
-    # Verify organization exists
-    organization = db.query(Organization).filter(Organization.id == shipment_data.organization_id).first()
+    # Use current user's organization (auto-inject for multi-tenancy security)
+    organization_id = current_user.organization_id
+    organization = db.query(Organization).filter(Organization.id == organization_id).first()
     if not organization:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Organization with id '{shipment_data.organization_id}' not found"
+            detail="User's organization not found"
         )
 
     # Validate buyer_organization_id if provided
@@ -106,7 +107,7 @@ async def create_shipment(
         importer_name=shipment_data.importer_name,  # New field
         eudr_compliant=shipment_data.eudr_compliant,  # New field
         eudr_statement_id=shipment_data.eudr_statement_id,  # New field
-        organization_id=shipment_data.organization_id,  # Required for multi-tenancy
+        organization_id=organization_id,  # Auto-injected from current user
         buyer_organization_id=shipment_data.buyer_organization_id,  # Optional buyer org
         created_at=datetime.utcnow(),
         updated_at=datetime.utcnow()

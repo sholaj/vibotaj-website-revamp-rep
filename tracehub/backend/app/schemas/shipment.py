@@ -40,7 +40,7 @@ class ShipmentCreate(BaseModel):
     importer_name: Optional[str] = None  # New field (replaces buyer_id)
     eudr_compliant: Optional[bool] = False  # New field
     eudr_statement_id: Optional[str] = None  # New field
-    organization_id: UUID  # Required for multi-tenancy
+    organization_id: Optional[UUID] = None  # Auto-injected from current user if not provided
     buyer_organization_id: Optional[UUID] = None  # Optional buyer org (HAGES, Witatrade, etc.)
     # For historical shipments, set is_historical=True
     is_historical: Optional[bool] = False
