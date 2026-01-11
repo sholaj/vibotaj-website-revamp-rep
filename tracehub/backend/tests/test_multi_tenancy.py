@@ -206,13 +206,12 @@ def hages_document(db_session, hages_shipment):
 def vibotaj_audit_log(db_session, org_vibotaj, vibotaj_user, vibotaj_shipment):
     """Create audit log entry for VIBOTAJ."""
     log = AuditLog(
-        action="CREATE",
-        entity_type="shipment",
-        entity_id=str(vibotaj_shipment.id),
+        action="shipment.create",
+        resource_type="shipment",  # Correct field name
+        resource_id=str(vibotaj_shipment.id),  # Correct field name
         organization_id=org_vibotaj.id,
         user_id=str(vibotaj_user.id),
-        user_email=vibotaj_user.email,
-        timestamp=datetime.utcnow()
+        username=vibotaj_user.email,  # Correct field name
     )
     db_session.add(log)
     db_session.commit()
@@ -224,13 +223,12 @@ def vibotaj_audit_log(db_session, org_vibotaj, vibotaj_user, vibotaj_shipment):
 def hages_audit_log(db_session, org_hages, hages_user, hages_shipment):
     """Create audit log entry for HAGES."""
     log = AuditLog(
-        action="CREATE",
-        entity_type="shipment",
-        entity_id=str(hages_shipment.id),
+        action="shipment.create",
+        resource_type="shipment",  # Correct field name
+        resource_id=str(hages_shipment.id),  # Correct field name
         organization_id=org_hages.id,
         user_id=str(hages_user.id),
-        user_email=hages_user.email,
-        timestamp=datetime.utcnow()
+        username=hages_user.email,  # Correct field name
     )
     db_session.add(log)
     db_session.commit()
@@ -269,7 +267,9 @@ class TestShipmentIsolation:
         assert response.status_code == 200
 
         data = response.json()
-        shipment_ids = [s["id"] for s in data.get("items", data)]
+        # API returns a list directly, not {"items": [...]}
+        shipment_list = data if isinstance(data, list) else data.get("items", [])
+        shipment_ids = [s["id"] for s in shipment_list]
 
         # Should see VIBOTAJ shipment
         assert str(vibotaj_shipment.id) in shipment_ids
@@ -286,7 +286,9 @@ class TestShipmentIsolation:
         assert response.status_code == 200
 
         data = response.json()
-        shipment_ids = [s["id"] for s in data.get("items", data)]
+        # API returns a list directly, not {"items": [...]}
+        shipment_list = data if isinstance(data, list) else data.get("items", [])
+        shipment_ids = [s["id"] for s in shipment_list]
 
         # Should see HAGES shipment
         assert str(hages_shipment.id) in shipment_ids
@@ -344,7 +346,7 @@ class TestAuditLogIsolation:
         """VIBOTAJ user should only see VIBOTAJ audit logs."""
         app.dependency_overrides[get_current_active_user] = lambda: create_mock_current_user(vibotaj_user)
 
-        response = client.get("/api/audit/")
+        response = client.get("/api/audit")
         assert response.status_code == 200
 
         data = response.json()
@@ -362,7 +364,7 @@ class TestAuditLogIsolation:
         """HAGES user should only see HAGES audit logs."""
         app.dependency_overrides[get_current_active_user] = lambda: create_mock_current_user(hages_user)
 
-        response = client.get("/api/audit/")
+        response = client.get("/api/audit")
         assert response.status_code == 200
 
         data = response.json()
