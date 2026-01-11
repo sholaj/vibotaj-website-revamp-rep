@@ -12,6 +12,7 @@ import json
 
 from ..database import get_db
 from ..models import Shipment, Origin, Product
+from ..models.shipment import ProductType
 from ..routers.auth import get_current_active_user
 from ..schemas.user import CurrentUser
 from ..services.eudr import (
@@ -120,6 +121,8 @@ async def get_eudr_status(
     - Risk level assessment
     - Compliance checklist
     - Origin validation details
+
+    Note: Horn & Hoof products (HS 0506/0507) are NOT covered by EUDR.
     """
     shipment = db.query(Shipment).filter(
         Shipment.id == shipment_id,
@@ -127,6 +130,18 @@ async def get_eudr_status(
     ).first()
     if not shipment:
         raise HTTPException(status_code=404, detail="Shipment not found")
+
+    # Horn & Hoof products are NOT covered by EUDR
+    if shipment.product_type == ProductType.HORN_HOOF:
+        return {
+            "is_compliant": True,
+            "overall_status": "NOT_APPLICABLE",
+            "overall_risk_level": "not_applicable",
+            "checklist": [],
+            "origin_validations": [],
+            "compliance_percentage": 100,
+            "message": "Horn & Hoof products (HS 0506/0507) are NOT covered by EUDR regulation"
+        }
 
     status = get_shipment_eudr_status(shipment, db)
     return status
@@ -149,6 +164,8 @@ async def validate_shipment_eudr(
     - Risk assessment
 
     Returns detailed validation results with actionable feedback.
+
+    Note: Horn & Hoof products (HS 0506/0507) are NOT covered by EUDR.
     """
     shipment = db.query(Shipment).filter(
         Shipment.id == shipment_id,
@@ -156,6 +173,25 @@ async def validate_shipment_eudr(
     ).first()
     if not shipment:
         raise HTTPException(status_code=404, detail="Shipment not found")
+
+    # Horn & Hoof products are NOT covered by EUDR
+    if shipment.product_type == ProductType.HORN_HOOF:
+        return {
+            "shipment_id": str(shipment_id),
+            "validation_result": {
+                "is_compliant": True,
+                "overall_status": "NOT_APPLICABLE",
+                "overall_risk_level": "not_applicable",
+                "checklist": [],
+                "origin_validations": [],
+                "compliance_percentage": 100,
+                "message": "Horn & Hoof products (HS 0506/0507) are NOT covered by EUDR regulation"
+            },
+            "action_items": [],
+            "validated_at": datetime.utcnow().isoformat(),
+            "validated_by": current_user.username,
+            "eudr_applicable": False
+        }
 
     # Run full validation
     status = get_shipment_eudr_status(shipment, db)
@@ -213,6 +249,8 @@ async def get_eudr_report(
 
     Query Parameters:
         format: Output format - 'json' or 'pdf' (default: json)
+
+    Note: Horn & Hoof products (HS 0506/0507) are NOT covered by EUDR.
     """
     shipment = db.query(Shipment).filter(
         Shipment.id == shipment_id,
@@ -220,6 +258,30 @@ async def get_eudr_report(
     ).first()
     if not shipment:
         raise HTTPException(status_code=404, detail="Shipment not found")
+
+    # Horn & Hoof products are NOT covered by EUDR
+    if shipment.product_type == ProductType.HORN_HOOF:
+        return {
+            "report_type": "EUDR Exemption Notice",
+            "generated_at": datetime.utcnow().isoformat(),
+            "generated_by": current_user.username,
+            "shipment": {
+                "id": str(shipment.id),
+                "reference": shipment.reference,
+                "container_number": shipment.container_number,
+                "bl_number": shipment.bl_number,
+                "destination": shipment.pod_name or shipment.pod_code,
+                "product_type": shipment.product_type.value if shipment.product_type else None
+            },
+            "eudr_applicable": False,
+            "exemption_reason": "Horn & Hoof products (HS codes 0506/0507) are NOT covered by EU Deforestation Regulation (EUDR)",
+            "legal_basis": {
+                "regulation": "Regulation (EU) 2023/1115",
+                "title": "EU Deforestation Regulation (EUDR)",
+                "exemption": "Products of animal origin not listed in Annex I (cattle, cocoa, coffee, oil palm, rubber, soya, wood)"
+            },
+            "compliance_note": "Standard export documentation (EU TRACES, Veterinary Health Certificate, Certificate of Origin) required instead"
+        }
 
     # Generate due diligence statement
     dds = generate_due_diligence_statement(shipment, db)
@@ -340,10 +402,35 @@ async def verify_origin(
 
     If verification data is provided, updates the origin record first.
     Then runs full EUDR validation on the origin.
+
+    Note: Horn & Hoof products (HS 0506/0507) are NOT covered by EUDR.
+    Geolocation and deforestation fields will be rejected for these products.
     """
+    # Multi-tenancy: Get origin and verify organization access via shipment
     origin = db.query(Origin).filter(Origin.id == origin_id).first()
     if not origin:
         raise HTTPException(status_code=404, detail="Origin not found")
+
+    # Get shipment to verify access and check product type
+    shipment = db.query(Shipment).filter(
+        Shipment.id == origin.shipment_id,
+        Shipment.organization_id == current_user.organization_id
+    ).first()
+    if not shipment:
+        raise HTTPException(status_code=404, detail="Origin not found")
+
+    # EUDR validation for Horn & Hoof - these products are NOT covered by EUDR
+    if verification and shipment.product_type == ProductType.HORN_HOOF:
+        if verification.geolocation_lat is not None or verification.geolocation_lng is not None:
+            raise HTTPException(
+                status_code=400,
+                detail="Horn & Hoof products (HS 0506/0507) do NOT require geolocation - not covered by EUDR"
+            )
+        if verification.deforestation_free_statement is not None:
+            raise HTTPException(
+                status_code=400,
+                detail="Horn & Hoof products (HS 0506/0507) do NOT require deforestation statements - not covered by EUDR"
+            )
 
     # Update origin if verification data provided
     if verification:
@@ -428,10 +515,45 @@ async def get_origin_risk(
     db: Session = Depends(get_db),
     current_user: CurrentUser = Depends(get_current_active_user)
 ):
-    """Get deforestation risk assessment for an origin."""
+    """
+    Get deforestation risk assessment for an origin.
+
+    Note: Risk assessment is only applicable for EUDR-covered products.
+    Horn & Hoof products (HS 0506/0507) are NOT covered by EUDR.
+    """
+    # Multi-tenancy: Get origin and verify organization access via shipment
     origin = db.query(Origin).filter(Origin.id == origin_id).first()
     if not origin:
         raise HTTPException(status_code=404, detail="Origin not found")
+
+    # Verify user has access to this origin's shipment
+    shipment = db.query(Shipment).filter(
+        Shipment.id == origin.shipment_id,
+        Shipment.organization_id == current_user.organization_id
+    ).first()
+    if not shipment:
+        raise HTTPException(status_code=404, detail="Origin not found")
+
+    # Horn & Hoof products don't have EUDR risk assessment
+    if shipment.product_type == ProductType.HORN_HOOF:
+        return {
+            "risk_level": "not_applicable",
+            "country_risk": "not_applicable",
+            "coordinates": {
+                "lat": float(origin.geolocation_lat) if origin.geolocation_lat else None,
+                "lng": float(origin.geolocation_lng) if origin.geolocation_lng else None
+            },
+            "satellite_check": {
+                "available": False,
+                "provider": None,
+                "last_checked": None,
+                "forest_loss_detected": None,
+                "message": "Horn & Hoof products (HS 0506/0507) are NOT covered by EUDR - no risk assessment required"
+            },
+            "recommendations": [],
+            "eudr_article": "N/A - Product exempt from EUDR",
+            "assessed_at": datetime.utcnow().isoformat()
+        }
 
     risk = check_deforestation_risk(
         origin.geolocation_lat,

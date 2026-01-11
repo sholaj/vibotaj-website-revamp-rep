@@ -1,6 +1,6 @@
 """Database models for TraceHub."""
 
-from .party import Party, PartyType
+# Note: Party model removed in Sprint 10 - shipments use exporter_name/importer_name strings
 from .shipment import Shipment, ShipmentStatus
 from .product import Product
 from .origin import Origin, RiskLevel
@@ -15,8 +15,6 @@ from .user import User, UserRole
 from .audit_log import AuditLog
 
 __all__ = [
-    "Party",
-    "PartyType",
     "Shipment",
     "ShipmentStatus",
     "Product",
