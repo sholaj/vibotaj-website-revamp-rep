@@ -3,8 +3,84 @@
 All notable changes to the TraceHub platform are documented in this file.
 
 ## [Unreleased]
-- Sprint 9: AI-Powered Compliance
-- Sprint 10: Multi-Tenant & SaaS Foundation
+- Sprint 12: DateTime timezone standardization, shipment status transitions
+
+---
+
+## [1.4.0] - 2026-01-11
+
+### Sprint 10-11: Platform Stabilization & Security Hardening
+
+**Security Fixes (P0):**
+- **SEC-001:** Fixed audit router - now filters logs by `organization_id`
+- **SEC-002:** Fixed document duplicate check - validates shipment org ownership
+
+**EUDR Compliance - Horn & Hoof Exemption (CRITICAL):**
+- Added validation to reject EUDR fields for Horn & Hoof products (HS 0506/0507)
+- `POST /api/eudr/origin/{id}/verify` - Rejects geolocation/deforestation for Horn & Hoof
+- `GET /api/eudr/origin/{id}/risk` - Returns "not_applicable" for Horn & Hoof
+- `GET /api/eudr/shipment/{id}/status` - Returns NOT_APPLICABLE with 100% compliance
+- `POST /api/eudr/shipment/{id}/validate` - Returns exempt status, no action items
+- `GET /api/eudr/shipment/{id}/report` - Generates EUDR Exemption Notice
+- Per `docs/COMPLIANCE_MATRIX.md`: Horn & Hoof (HS 0506/0507) is NOT covered by EUDR
+
+**Schema Migrations:**
+- **SCHEMA-001:** Changed `notifications.user_id` from String(100) to UUID FK with CASCADE delete
+- **SCHEMA-002:** Changed `document_contents.validated_by` from String(100) to UUID FK
+- **SCHEMA-003:** Added FK constraint to `origins.verified_by` (was UUID without constraint)
+- Added `timezone=True` to notification datetime columns (read_at, created_at)
+
+**Architecture Cleanup:**
+- **ARCH-001:** Deprecated legacy `User` schema and `GET /api/auth/me` endpoint
+  - Added deprecation headers: `Deprecation: true`, `Sunset: 2026-06-01`
+  - Migration path: Use `CurrentUser` and `GET /api/auth/me/full`
+- **ARCH-002:** Documented DocumentStatus enum workflow
+  - Active states: DRAFT, UPLOADED, VALIDATED, COMPLIANCE_OK, COMPLIANCE_FAILED, LINKED, ARCHIVED
+  - Deprecated states marked for backward compatibility
+- **ARCH-003:** Removed unused `Party` model and `parties` table
+
+**Buyer Organization Access Control (FEAT-001):**
+- Created `services/access_control.py` with helper functions:
+  - `can_access_shipment()` - Check owner OR buyer access
+  - `get_accessible_shipments_filter()` - SQLAlchemy filter for accessible shipments
+  - `get_accessible_shipment()` - Get shipment by ID with access check
+  - `user_is_shipment_owner()` - Check owner-only access for edit/delete
+  - `user_is_shipment_buyer()` - Check buyer relationship
+- Updated `GET /api/shipments` to show shipments where user is owner OR buyer
+
+**Multi-Tenancy Tests:**
+- Created comprehensive test suite in `tests/test_multi_tenancy.py`
+- `TestShipmentIsolation` - Verifies org-based shipment filtering
+- `TestDocumentIsolation` - Verifies document access control
+- `TestAuditLogIsolation` - Verifies SEC-001 fix
+- `TestDuplicateCheckIsolation` - Verifies SEC-002 fix
+- `TestEUDRIsolation` - Verifies EUDR endpoint org filtering
+
+**Database Migrations:**
+- `20260111_0001_drop_parties_table.py` - Removes unused parties table
+- `20260111_0002_add_origin_verified_by_fk.py` - Adds FK to origins.verified_by
+- `20260111_0003_fix_document_content_validated_by.py` - Changes validated_by to UUID FK
+- `20260111_0004_notification_user_id_to_uuid.py` - Migrates notification user_id
+
+**Documentation:**
+- Created `docs/DATABASE_SCHEMA.md` - Comprehensive database documentation
+- Created `docs/API_REFERENCE.md` - Grouped API endpoint documentation
+- Created `docs/KNOWN_ISSUES.md` - Tracking of issues and resolutions
+
+**Files Modified:**
+- `backend/app/routers/eudr.py` - Horn & Hoof EUDR exemption
+- `backend/app/routers/auth.py` - Deprecation warnings and headers
+- `backend/app/routers/shipments.py` - Buyer access control
+- `backend/app/routers/notifications.py` - UUID user_id handling
+- `backend/app/models/document.py` - DocumentStatus documentation
+- `backend/app/models/notification.py` - UUID user_id FK, relationship
+- `backend/app/models/document_content.py` - UUID validated_by FK
+- `backend/app/models/origin.py` - verified_by FK constraint
+- `backend/app/models/user.py` - notifications relationship
+- `backend/app/models/party.py` - DELETED
+- `backend/app/services/access_control.py` - NEW
+- `backend/app/services/notifications.py` - UUID conversion
+- `backend/tests/test_multi_tenancy.py` - NEW
 
 ---
 
