@@ -57,11 +57,11 @@ class Shipment(Base):
     carrier_code = Column(String(10))  # e.g., MAEU, MSCU
     carrier_name = Column(String(100))  # e.g., Maersk, MSC
 
-    # Dates
-    etd = Column(DateTime)  # Estimated time of departure
-    eta = Column(DateTime)  # Estimated time of arrival
-    atd = Column(DateTime)  # Actual time of departure
-    ata = Column(DateTime)  # Actual time of arrival
+    # Dates (timezone-aware - Sprint 12)
+    etd = Column(DateTime(timezone=True))  # Estimated time of departure
+    eta = Column(DateTime(timezone=True))  # Estimated time of arrival
+    atd = Column(DateTime(timezone=True))  # Actual time of departure
+    ata = Column(DateTime(timezone=True))  # Actual time of arrival
 
     # Ports
     pol_code = Column(String(5))  # Port of Loading UN/LOCODE
@@ -106,9 +106,9 @@ class Shipment(Base):
         index=True  # For efficient buyer queries
     )
 
-    # Timestamps
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    # Timestamps (timezone-aware - Sprint 12)
+    created_at = Column(DateTime(timezone=True), default=datetime.utcnow)
+    updated_at = Column(DateTime(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow)
 
     # Relationships
     organization = relationship(

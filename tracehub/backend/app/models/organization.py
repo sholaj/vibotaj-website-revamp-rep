@@ -59,9 +59,9 @@ class Organization(Base):
     # Settings (stored as JSON for flexibility)
     settings = Column(JSON, default=dict)
 
-    # Timestamps
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    # Timestamps (timezone-aware - Sprint 12)
+    created_at = Column(DateTime(timezone=True), default=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow)
     created_by = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
 
     # Relationships
@@ -150,9 +150,9 @@ class OrganizationMembership(Base):
     status = Column(Enum(MembershipStatus), default=MembershipStatus.ACTIVE, nullable=False)
     is_primary = Column(Boolean, default=False, nullable=False)
 
-    # Timestamps
-    joined_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-    last_active_at = Column(DateTime, default=datetime.utcnow)
+    # Timestamps (timezone-aware - Sprint 12)
+    joined_at = Column(DateTime(timezone=True), default=datetime.utcnow, nullable=False)
+    last_active_at = Column(DateTime(timezone=True), default=datetime.utcnow)
 
     # Invitation tracking
     invited_by = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
@@ -214,12 +214,12 @@ class Invitation(Base):
 
     # Status
     status = Column(Enum(InvitationStatus), default=InvitationStatus.PENDING, nullable=False)
-    expires_at = Column(DateTime, nullable=False)
+    expires_at = Column(DateTime(timezone=True), nullable=False)
 
-    # Timestamps
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    # Timestamps (timezone-aware - Sprint 12)
+    created_at = Column(DateTime(timezone=True), default=datetime.utcnow, nullable=False)
     created_by = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
-    accepted_at = Column(DateTime, nullable=True)
+    accepted_at = Column(DateTime(timezone=True), nullable=True)
     accepted_by = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
 
     # Additional data (named to avoid SQLAlchemy reserved 'metadata')

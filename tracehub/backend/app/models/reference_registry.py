@@ -29,8 +29,8 @@ class ReferenceRegistry(Base):
     document_content_id = Column(UUID(as_uuid=True), ForeignKey("document_contents.id", ondelete="SET NULL"))
     document_id = Column(UUID(as_uuid=True), ForeignKey("documents.id", ondelete="SET NULL"))
 
-    # Timestamps
-    first_seen_at = Column(DateTime, default=datetime.utcnow)
+    # Timestamps (timezone-aware - Sprint 12)
+    first_seen_at = Column(DateTime(timezone=True), default=datetime.utcnow)
 
     # Relationships
     shipment = relationship("Shipment")

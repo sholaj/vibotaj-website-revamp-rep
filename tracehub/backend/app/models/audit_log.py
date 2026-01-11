@@ -46,9 +46,9 @@ class AuditLog(Base):
     details = Column(JSONB, default={})  # Flexible JSON for action-specific data
     error_message = Column(Text)  # Error details if action failed
 
-    # Timing
+    # Timing (timezone-aware - Sprint 12)
     duration_ms = Column(String(20))  # Request duration
-    timestamp = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
+    timestamp = Column(DateTime(timezone=True), default=datetime.utcnow, nullable=False, index=True)
 
     # Indexes for efficient querying
     __table_args__ = (

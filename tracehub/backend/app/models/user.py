@@ -48,10 +48,10 @@ class User(Base):
         index=True
     )
 
-    # Timestamps
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-    last_login = Column(DateTime, nullable=True)
+    # Timestamps (timezone-aware - Sprint 12)
+    created_at = Column(DateTime(timezone=True), default=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow)
+    last_login = Column(DateTime(timezone=True), nullable=True)
 
     # Relationships
     organization = relationship("Organization", back_populates="users", foreign_keys=[organization_id])

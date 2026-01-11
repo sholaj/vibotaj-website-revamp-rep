@@ -19,6 +19,7 @@ from ..services.compliance import get_required_documents, check_document_complet
 from ..services.audit_pack import generate_audit_pack
 from ..services.permissions import Permission, has_permission
 from ..services.access_control import get_accessible_shipments_filter, get_accessible_shipment, user_is_shipment_owner
+from ..services.shipment_state_machine import validate_transition, get_transition_error_message
 
 router = APIRouter()
 
@@ -384,6 +385,16 @@ async def update_shipment(
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"A shipment with reference '{update_data['reference']}' already exists"
+            )
+
+    # Sprint 12: Validate status transitions
+    if "status" in update_data:
+        new_status = ShipmentStatus(update_data["status"])
+        if not validate_transition(shipment.status, new_status):
+            error_msg = get_transition_error_message(shipment.status, new_status)
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=error_msg
             )
 
     for field, value in update_data.items():

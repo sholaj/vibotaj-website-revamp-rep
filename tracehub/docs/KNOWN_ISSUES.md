@@ -200,7 +200,7 @@ DRAFT -> UPLOADED -> VALIDATED -> COMPLIANCE_OK -> LINKED -> ARCHIVED
 
 ### SCHEMA-004: Inconsistent DateTime Timezone Handling
 
-**Status:** 🟢 Low Priority
+**Status:** ✅ FIXED (January 2026)
 
 **Location:** Multiple models
 
@@ -208,9 +208,13 @@ DRAFT -> UPLOADED -> VALIDATED -> COMPLIANCE_OK -> LINKED -> ARCHIVED
 - With timezone: documents, products, origins, container_events
 - Without timezone: shipments, users, organizations
 
-**Impact:** Potential timezone confusion when querying across tables.
-
-**Fix:** Standardize all DateTime columns to include timezone.
+**Fix Applied:**
+- Updated all DateTime columns in shipment.py (6 columns)
+- Updated all DateTime columns in user.py (3 columns)
+- Updated all DateTime columns in audit_log.py (1 column)
+- Updated all DateTime columns in organization.py (8 columns)
+- Updated all DateTime columns in reference_registry.py (1 column)
+- Created migration: `20260111_0005_standardize_datetime_timezone.py`
 
 ---
 
@@ -273,15 +277,18 @@ DRAFT -> UPLOADED -> VALIDATED -> COMPLIANCE_OK -> LINKED -> ARCHIVED
 
 ### FEAT-003: Shipment Status Transition Validation
 
-**Status:** 🟢 Low Priority
+**Status:** ✅ FIXED (January 2026)
 
-**Location:** `backend/app/routers/tracking.py`
+**Location:** `backend/app/routers/shipments.py`, `backend/app/services/shipment_state_machine.py`
 
 **Issue:** Shipment status can be updated to any value without validating allowed transitions.
 
-**Impact:** Invalid state transitions possible (e.g., DELIVERED → DRAFT).
-
-**Fix:** Implement state machine for shipment status transitions.
+**Fix Applied:**
+- Created `services/shipment_state_machine.py` with valid transitions map
+- Added `validate_transition()` and `get_transition_error_message()` functions
+- Updated shipments PATCH endpoint to validate status changes
+- Invalid transitions return 400 with clear error message
+- ARCHIVED is terminal state (no transitions allowed)
 
 ---
 
@@ -338,11 +345,15 @@ Created `backend/tests/test_multi_tenancy.py` with comprehensive test coverage:
 
 ### TEST-002: Missing EUDR Compliance Tests
 
-**Status:** 🟢 Low Priority
+**Status:** ✅ FIXED (January 2026)
 
 **Issue:** No automated tests for EUDR validation logic, especially Horn & Hoof exemptions.
 
-**Fix:** Add unit tests for compliance service.
+**Fix Applied:**
+Created `backend/tests/test_eudr_compliance.py` with comprehensive test coverage:
+- `TestHornHoofEUDRExemption` - Verifies Horn & Hoof products return exempt status
+- `TestCocoaEUDRCompliance` - Verifies Cocoa products require EUDR data
+- `TestShipmentStatusTransitions` - Verifies status transition validation
 
 ---
 
@@ -360,11 +371,11 @@ Created `backend/tests/test_multi_tenancy.py` with comprehensive test coverage:
 | SCHEMA-001 | ✅ Fixed | 11 | - |
 | SCHEMA-002 | ✅ Fixed | 11 | - |
 | SCHEMA-003 | ✅ Fixed | 11 | - |
-| SCHEMA-004 | Backlog | 12 | - |
+| SCHEMA-004 | ✅ Fixed | 12 | - |
 | FEAT-001 | ✅ Fixed | 11 | - |
 | FEAT-002 | ✅ Fixed | 10 | - |
-| FEAT-003 | Backlog | 12 | - |
+| FEAT-003 | ✅ Fixed | 12 | - |
 | FE-001 | Backlog | - | - |
 | FE-002 | Backlog | - | - |
 | TEST-001 | ✅ Fixed | 10 | - |
-| TEST-002 | Backlog | 12 | - |
+| TEST-002 | ✅ Fixed | 12 | - |
