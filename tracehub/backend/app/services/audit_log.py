@@ -152,6 +152,7 @@ class AuditLogger:
         self,
         *,
         db: Session,
+        organization_id: Optional[str] = None,
         username: Optional[str] = None,
         action: Optional[str] = None,
         resource_type: Optional[str] = None,
@@ -167,6 +168,7 @@ class AuditLogger:
 
         Args:
             db: Database session
+            organization_id: Filter by organization (REQUIRED for multi-tenancy)
             username: Filter by username
             action: Filter by action (supports prefix matching)
             resource_type: Filter by resource type
@@ -183,6 +185,10 @@ class AuditLogger:
         query = db.query(AuditLog)
 
         filters = []
+
+        # Multi-tenancy: ALWAYS filter by organization_id for security
+        if organization_id:
+            filters.append(AuditLog.organization_id == organization_id)
 
         if username:
             filters.append(AuditLog.username == username)
@@ -224,6 +230,7 @@ class AuditLogger:
         self,
         *,
         db: Session,
+        organization_id: Optional[str] = None,
         username: Optional[str] = None,
         action: Optional[str] = None,
         start_date: Optional[datetime] = None,
@@ -233,6 +240,10 @@ class AuditLogger:
         query = db.query(AuditLog)
 
         filters = []
+
+        # Multi-tenancy: ALWAYS filter by organization_id for security
+        if organization_id:
+            filters.append(AuditLog.organization_id == organization_id)
 
         if username:
             filters.append(AuditLog.username == username)
@@ -257,16 +268,27 @@ class AuditLogger:
     def get_recent_activity(
         self,
         db: Session,
+        organization_id: Optional[str] = None,
         limit: int = 20,
     ) -> List[Dict[str, Any]]:
         """
         Get recent activity feed for dashboard.
 
         Returns simplified activity items suitable for display.
+
+        Args:
+            db: Database session
+            organization_id: Filter by organization (REQUIRED for multi-tenancy)
+            limit: Maximum number of activities to return
         """
+        query = db.query(AuditLog).filter(AuditLog.success == "true")
+
+        # Multi-tenancy: ALWAYS filter by organization_id for security
+        if organization_id:
+            query = query.filter(AuditLog.organization_id == organization_id)
+
         logs = (
-            db.query(AuditLog)
-            .filter(AuditLog.success == "true")
+            query
             .filter(AuditLog.action.notin_([
                 AuditAction.SHIPMENT_LIST,
                 AuditAction.ANALYTICS_VIEW,

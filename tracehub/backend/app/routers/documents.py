@@ -1075,7 +1075,11 @@ async def get_shipment_duplicates(
 
     Returns reference numbers that appear in multiple documents.
     """
-    shipment = db.query(Shipment).filter(Shipment.id == shipment_id).first()
+    # Multi-tenancy: verify shipment belongs to user's organization
+    shipment = db.query(Shipment).filter(
+        Shipment.id == shipment_id,
+        Shipment.organization_id == current_user.organization_id
+    ).first()
     if not shipment:
         raise HTTPException(status_code=404, detail="Shipment not found")
 
@@ -1124,6 +1128,14 @@ async def check_duplicate_reference(
     current_user: CurrentUser = Depends(get_current_active_user)
 ):
     """Check if a reference number already exists for a shipment."""
+    # Multi-tenancy: verify shipment belongs to user's organization
+    shipment = db.query(Shipment).filter(
+        Shipment.id == shipment_id,
+        Shipment.organization_id == current_user.organization_id
+    ).first()
+    if not shipment:
+        raise HTTPException(status_code=404, detail="Shipment not found")
+
     existing = db.query(ReferenceRegistry).filter(
         ReferenceRegistry.shipment_id == shipment_id,
         ReferenceRegistry.reference_number == reference_number,

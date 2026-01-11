@@ -69,8 +69,12 @@ async def get_audit_logs(
 
     start_date = datetime.utcnow() - timedelta(days=days)
 
+    # Multi-tenancy: filter by current user's organization
+    org_id = str(current_user.organization_id) if current_user.organization_id else None
+
     logs = audit_logger.query(
         db=db,
+        organization_id=org_id,
         username=username,
         action=action,
         resource_type=resource_type,
@@ -83,6 +87,7 @@ async def get_audit_logs(
 
     total = audit_logger.count(
         db=db,
+        organization_id=org_id,
         username=username,
         action=action,
         start_date=start_date,
@@ -140,7 +145,11 @@ async def get_recent_activity(
     in an activity feed widget.
     """
     audit_logger = get_audit_logger()
-    activities = audit_logger.get_recent_activity(db, limit=limit)
+
+    # Multi-tenancy: filter by current user's organization
+    org_id = str(current_user.organization_id) if current_user.organization_id else None
+
+    activities = audit_logger.get_recent_activity(db, organization_id=org_id, limit=limit)
 
     return {"activities": activities}
 
@@ -159,19 +168,22 @@ async def get_audit_summary(
     audit_logger = get_audit_logger()
     start_date = datetime.utcnow() - timedelta(days=days)
 
+    # Multi-tenancy: filter by current user's organization
+    org_id = str(current_user.organization_id) if current_user.organization_id else None
+
     # Get counts for key action categories
     summary = {
         "period_days": days,
         "start_date": start_date.isoformat(),
         "end_date": datetime.utcnow().isoformat(),
         "counts": {
-            "logins": audit_logger.count(db=db, action=AuditAction.LOGIN_SUCCESS, start_date=start_date),
-            "failed_logins": audit_logger.count(db=db, action=AuditAction.LOGIN_FAILURE, start_date=start_date),
-            "shipment_views": audit_logger.count(db=db, action="shipment.*", start_date=start_date),
-            "document_uploads": audit_logger.count(db=db, action=AuditAction.DOCUMENT_UPLOAD, start_date=start_date),
-            "document_downloads": audit_logger.count(db=db, action=AuditAction.DOCUMENT_DOWNLOAD, start_date=start_date),
-            "tracking_refreshes": audit_logger.count(db=db, action=AuditAction.TRACKING_REFRESH, start_date=start_date),
-            "audit_pack_downloads": audit_logger.count(db=db, action=AuditAction.AUDIT_PACK_DOWNLOAD, start_date=start_date),
+            "logins": audit_logger.count(db=db, organization_id=org_id, action=AuditAction.LOGIN_SUCCESS, start_date=start_date),
+            "failed_logins": audit_logger.count(db=db, organization_id=org_id, action=AuditAction.LOGIN_FAILURE, start_date=start_date),
+            "shipment_views": audit_logger.count(db=db, organization_id=org_id, action="shipment.*", start_date=start_date),
+            "document_uploads": audit_logger.count(db=db, organization_id=org_id, action=AuditAction.DOCUMENT_UPLOAD, start_date=start_date),
+            "document_downloads": audit_logger.count(db=db, organization_id=org_id, action=AuditAction.DOCUMENT_DOWNLOAD, start_date=start_date),
+            "tracking_refreshes": audit_logger.count(db=db, organization_id=org_id, action=AuditAction.TRACKING_REFRESH, start_date=start_date),
+            "audit_pack_downloads": audit_logger.count(db=db, organization_id=org_id, action=AuditAction.AUDIT_PACK_DOWNLOAD, start_date=start_date),
         }
     }
 
