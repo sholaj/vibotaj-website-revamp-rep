@@ -40,8 +40,8 @@ class DocumentContent(Base):
 
     # Validation
     validation_notes = Column(String(1000))
-    validated_at = Column(DateTime)
-    validated_by = Column(String(100))
+    validated_at = Column(DateTime(timezone=True))  # Added timezone - Sprint 11
+    validated_by = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"))  # Changed from String to UUID FK - Sprint 11
 
     # Timestamps
     created_at = Column(DateTime, default=datetime.utcnow)

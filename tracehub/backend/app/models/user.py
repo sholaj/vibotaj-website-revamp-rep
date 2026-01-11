@@ -56,6 +56,7 @@ class User(Base):
     # Relationships
     organization = relationship("Organization", back_populates="users", foreign_keys=[organization_id])
     memberships = relationship("OrganizationMembership", back_populates="user", foreign_keys="OrganizationMembership.user_id")
+    notifications = relationship("Notification", back_populates="user", cascade="all, delete-orphan")  # Sprint 11
 
     def __repr__(self):
         return f"<User {self.email} ({self.role.value})>"

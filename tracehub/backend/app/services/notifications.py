@@ -18,7 +18,7 @@ class NotificationService:
 
     def create_notification(
         self,
-        user_id: str,
+        user_id: str,  # UUID string - Sprint 11: changed from email to user UUID
         notification_type: str,
         title: str,
         message: str,
@@ -28,7 +28,7 @@ class NotificationService:
         Create a new notification for a user.
 
         Args:
-            user_id: Username or user ID to notify
+            user_id: User UUID as string (str(user.id))
             notification_type: Type of notification (from NotificationType enum)
             title: Short notification title
             message: Full notification message
@@ -38,7 +38,7 @@ class NotificationService:
             Created Notification object
         """
         notification = Notification(
-            user_id=user_id,
+            user_id=UUID(user_id),  # Convert string to UUID
             type=notification_type,
             title=title,
             message=message,
@@ -52,7 +52,7 @@ class NotificationService:
 
     def get_user_notifications(
         self,
-        user_id: str,
+        user_id: str,  # UUID string
         unread_only: bool = False,
         limit: int = 50,
         offset: int = 0
@@ -61,7 +61,7 @@ class NotificationService:
         Get notifications for a user.
 
         Args:
-            user_id: Username or user ID
+            user_id: User UUID as string (str(user.id))
             unread_only: If True, only return unread notifications
             limit: Maximum number of notifications to return
             offset: Number of notifications to skip
@@ -70,7 +70,7 @@ class NotificationService:
             List of Notification objects
         """
         query = self.db.query(Notification).filter(
-            Notification.user_id == user_id
+            Notification.user_id == UUID(user_id)
         )
 
         if unread_only:
@@ -85,13 +85,13 @@ class NotificationService:
         Get count of unread notifications for a user.
 
         Args:
-            user_id: Username or user ID
+            user_id: User UUID as string (str(user.id))
 
         Returns:
             Count of unread notifications
         """
         return self.db.query(Notification).filter(
-            Notification.user_id == user_id,
+            Notification.user_id == UUID(user_id),
             Notification.read == False
         ).count()
 
@@ -101,14 +101,14 @@ class NotificationService:
 
         Args:
             notification_id: UUID of the notification
-            user_id: Username or user ID (for authorization)
+            user_id: User UUID as string (str(user.id)) for authorization
 
         Returns:
             Updated Notification or None if not found
         """
         notification = self.db.query(Notification).filter(
             Notification.id == notification_id,
-            Notification.user_id == user_id
+            Notification.user_id == UUID(user_id)
         ).first()
 
         if notification and not notification.read:
@@ -123,13 +123,13 @@ class NotificationService:
         Mark all notifications as read for a user.
 
         Args:
-            user_id: Username or user ID
+            user_id: User UUID as string (str(user.id))
 
         Returns:
             Number of notifications marked as read
         """
         count = self.db.query(Notification).filter(
-            Notification.user_id == user_id,
+            Notification.user_id == UUID(user_id),
             Notification.read == False
         ).update({
             "read": True,
@@ -144,14 +144,14 @@ class NotificationService:
 
         Args:
             notification_id: UUID of the notification
-            user_id: Username or user ID (for authorization)
+            user_id: User UUID as string (str(user.id)) for authorization
 
         Returns:
             True if deleted, False if not found
         """
         notification = self.db.query(Notification).filter(
             Notification.id == notification_id,
-            Notification.user_id == user_id
+            Notification.user_id == UUID(user_id)
         ).first()
 
         if notification:

@@ -56,7 +56,7 @@ class Origin(Base):
 
     # Verification workflow
     verified = Column(Boolean, nullable=False, default=False)
-    verified_by = Column(UUID(as_uuid=True))
+    verified_by = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"))  # FK added Sprint 11
     verified_at = Column(DateTime(timezone=True))
     verification_notes = Column(Text)
 
