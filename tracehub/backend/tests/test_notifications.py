@@ -125,7 +125,7 @@ def user_notifications(db_session, admin_user):
     """Create sample notifications for admin user."""
     notifications = [
         Notification(
-            user_id=admin_user.email,  # Using email as user_id
+            user_id=admin_user.id,  # Sprint 11: Changed to UUID FK
             type=NotificationType.DOCUMENT_UPLOADED.value if hasattr(NotificationType, 'DOCUMENT_UPLOADED') else "document_uploaded",
             title="Document Uploaded",
             message="A new bill of lading has been uploaded.",
@@ -134,7 +134,7 @@ def user_notifications(db_session, admin_user):
             created_at=datetime.utcnow()
         ),
         Notification(
-            user_id=admin_user.email,
+            user_id=admin_user.id,  # Sprint 11: Changed to UUID FK
             type=NotificationType.SHIPMENT_STATUS_CHANGED.value if hasattr(NotificationType, 'SHIPMENT_STATUS_CHANGED') else "shipment_status_changed",
             title="Shipment Status Changed",
             message="Shipment VIBO-2024-001 is now in transit.",
@@ -143,7 +143,7 @@ def user_notifications(db_session, admin_user):
             created_at=datetime.utcnow()
         ),
         Notification(
-            user_id=admin_user.email,
+            user_id=admin_user.id,  # Sprint 11: Changed to UUID FK
             type=NotificationType.DOCUMENT_APPROVED.value if hasattr(NotificationType, 'DOCUMENT_APPROVED') else "document_approved",
             title="Document Approved",
             message="Certificate of Origin has been approved.",
@@ -166,7 +166,7 @@ def other_user_notifications(db_session, other_user):
     """Create notifications for other user."""
     notifications = [
         Notification(
-            user_id=other_user.email,
+            user_id=other_user.id,  # Sprint 11: Changed to UUID FK
             type="info",
             title="Other User Notification",
             message="This belongs to another user.",
@@ -259,7 +259,7 @@ class TestMarkAsRead:
         """Should mark specific notification as read."""
         # Create a fresh unread notification
         notif = Notification(
-            user_id=admin_user.email,
+            user_id=admin_user.id,  # Sprint 11: UUID FK
             type="test",
             title="Test Notification",
             message="This is a test.",
@@ -301,7 +301,7 @@ class TestMarkAsRead:
         # Create multiple unread notifications
         notifs = [
             Notification(
-                user_id=admin_user.email,
+                user_id=admin_user.id,  # Sprint 11: UUID FK
                 type="test",
                 title=f"Bulk Test {i}",
                 message="Test message",
@@ -361,7 +361,7 @@ class TestUserIsolation:
         """User should not be able to mark other user's notifications."""
         # Create notification for other user
         notif = Notification(
-            user_id=other_user.email,
+            user_id=other_user.id,  # Sprint 11: UUID FK
             type="test",
             title="Private Notification",
             message="This belongs to other user.",

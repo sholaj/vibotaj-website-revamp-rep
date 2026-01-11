@@ -75,7 +75,7 @@ async def get_notifications(
     service = NotificationService(db)
 
     notifications = service.get_user_notifications(
-        user_id=current_user.username,
+        user_id=str(current_user.id),
         unread_only=unread_only,
         limit=limit,
         offset=offset
@@ -83,20 +83,20 @@ async def get_notifications(
 
     # Get total count for pagination
     total_query = db.query(Notification).filter(
-        Notification.user_id == current_user.username
+        Notification.user_id == current_user.id  # Compare UUID directly
     )
     if unread_only:
         total_query = total_query.filter(Notification.read == False)
     total = total_query.count()
 
     # Get unread count
-    unread_count = service.get_unread_count(current_user.username)
+    unread_count = service.get_unread_count(str(current_user.id))
 
     return NotificationListResponse(
         notifications=[
             NotificationResponse(
                 id=str(n.id),
-                user_id=n.user_id,
+                user_id=str(n.user_id),  # Convert UUID to string
                 type=n.type,
                 title=n.title,
                 message=n.message,
@@ -123,7 +123,7 @@ async def get_unread_count(
     Lightweight endpoint for updating notification badges.
     """
     service = NotificationService(db)
-    count = service.get_unread_count(current_user.username)
+    count = service.get_unread_count(str(current_user.id))
 
     return UnreadCountResponse(unread_count=count)
 
@@ -141,7 +141,7 @@ async def mark_notification_read(
 
     notification = service.mark_as_read(
         notification_id=notification_id,
-        user_id=current_user.username
+        user_id=str(current_user.id)
     )
 
     if not notification:
@@ -167,7 +167,7 @@ async def mark_all_notifications_read(
     Mark all notifications as read for current user.
     """
     service = NotificationService(db)
-    count = service.mark_all_read(user_id=current_user.username)
+    count = service.mark_all_read(user_id=str(current_user.id))
     db.commit()
 
     return MarkReadResponse(
@@ -189,7 +189,7 @@ async def delete_notification(
 
     deleted = service.delete_notification(
         notification_id=notification_id,
-        user_id=current_user.username
+        user_id=str(current_user.id)
     )
 
     if not deleted:

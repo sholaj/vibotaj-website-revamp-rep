@@ -3,7 +3,7 @@
 import uuid
 import enum
 from datetime import datetime
-from sqlalchemy import Column, String, DateTime, Boolean, Text, Index
+from sqlalchemy import Column, String, DateTime, Boolean, Text, Index, ForeignKey
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import relationship
 from ..database import Base
@@ -30,8 +30,8 @@ class Notification(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
 
-    # User targeting - for POC using username, can be enhanced to user_id FK later
-    user_id = Column(String(100), nullable=False, index=True)
+    # User targeting - Sprint 11: Changed from String(100) to UUID FK
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
 
     # Notification content
     type = Column(String(50), nullable=False)
@@ -43,10 +43,13 @@ class Notification(Base):
 
     # Status
     read = Column(Boolean, default=False, nullable=False)
-    read_at = Column(DateTime, nullable=True)
+    read_at = Column(DateTime(timezone=True), nullable=True)  # Added timezone - Sprint 11
 
     # Timestamps
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime(timezone=True), default=datetime.utcnow, nullable=False)  # Added timezone - Sprint 11
+
+    # Relationship to user
+    user = relationship("User", back_populates="notifications")
 
     # Indexes for efficient querying
     __table_args__ = (
@@ -61,7 +64,7 @@ class Notification(Base):
         """Convert notification to dictionary."""
         return {
             "id": str(self.id),
-            "user_id": self.user_id,
+            "user_id": str(self.user_id),  # Convert UUID to string
             "type": self.type,
             "title": self.title,
             "message": self.message,

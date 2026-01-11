@@ -167,9 +167,18 @@ feature branch -> test locally -> develop -> staging -> main -> production
 | Path | Purpose |
 |------|---------|
 | `sprint-7/` | OCR & AI document detection |
-| `sprint-8/` | Multi-tenancy migration (complete) |
-| `sprint-9/` | Compliance matrix updates |
-| `SPRINT_BACKLOG.md` | Current sprint tasks |
+| `sprint-8/` | Multi-tenancy migration (✅ complete) |
+| `sprint-9/` | Compliance matrix updates (✅ complete) |
+| `sprint-10/` | Architecture cleanup (✅ complete) |
+| `sprint-11/` | Schema fixes, buyer access (✅ complete) |
+| `SPRINT_BACKLOG_ARCHIVE.md` | Historical sprint tasks (archived) |
+
+### Current Sprint (12)
+| Item | Status |
+|------|--------|
+| DateTime timezone standardization | Planned |
+| Shipment status state machine | Planned |
+| EUDR compliance tests | Planned |
 
 ### Project-Wide Docs (docs/)
 | Document | Purpose |
@@ -177,6 +186,7 @@ feature branch -> test locally -> develop -> staging -> main -> production
 | `COMPLIANCE_MATRIX.md` | HS codes & required documents |
 | `decisions/` | Architecture decision records |
 | `architecture/` | High-level system design |
+| `KNOWN_ISSUES.md` | Tech debt tracker |
 
 ---
 
@@ -228,17 +238,18 @@ current_user: User = Depends(get_current_user)
 
 | Router | Endpoints | Data Filtering |
 |--------|-----------|----------------|
-| `shipments.py` | 12 | organization_id |
+| `shipments.py` | 12 | organization_id (owner OR buyer) |
 | `documents.py` | 15 | organization_id |
 | `tracking.py` | 5 | organization_id |
 | `eudr.py` | 9 | organization_id |
-| `notifications.py` | 6 | user_id |
-| `audit.py` | 3 | admin access |
+| `notifications.py` | 6 | user_id (UUID FK) |
+| `audit.py` | 3 | organization_id (SEC-001 fixed) |
 
 ### Multi-Tenancy Principles
 - **Data Isolation:** Users only see their organization's data
 - **Security:** Prevents cross-tenant data leakage
 - **Compliance:** Required for multi-buyer support
+- **Buyer Access:** Shipments with `buyer_organization_id` are visible to buyer orgs (read-only)
 
 ---
 

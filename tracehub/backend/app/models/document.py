@@ -31,24 +31,43 @@ class DocumentType(str, enum.Enum):
 
 
 class DocumentStatus(str, enum.Enum):
-    """Document lifecycle states.
-
-    Note: DB has (UPLOADED, PENDING_VALIDATION, VALIDATED, REJECTED, EXPIRED)
-    but code also uses (DRAFT, COMPLIANCE_OK, COMPLIANCE_FAILED, LINKED, ARCHIVED)
-    Keeping both sets for compatibility until refactor.
     """
-    # DB values
-    UPLOADED = "UPLOADED"
-    PENDING_VALIDATION = "PENDING_VALIDATION"
-    VALIDATED = "VALIDATED"
-    REJECTED = "REJECTED"
-    EXPIRED = "EXPIRED"
-    # Legacy/code values (TODO: migrate these)
+    Document lifecycle states.
+
+    Active Workflow States (used by services/workflow.py):
+    - DRAFT: Initial state when document is created but not yet uploaded
+    - UPLOADED: File uploaded, awaiting validation
+    - VALIDATED: Document content verified
+    - COMPLIANCE_OK: Passed compliance checks
+    - COMPLIANCE_FAILED: Failed compliance checks, needs correction
+    - LINKED: Successfully linked to shipment/origin
+    - ARCHIVED: Document archived (terminal state)
+
+    Deprecated States (kept for database compatibility):
+    - PENDING_VALIDATION: @deprecated - use UPLOADED instead
+    - REJECTED: @deprecated - use DRAFT with validation_notes explaining rejection
+    - EXPIRED: @deprecated - handled by expiry_date field, not status
+
+    Workflow Transitions (see services/workflow.py):
+      DRAFT -> UPLOADED -> VALIDATED -> COMPLIANCE_OK -> LINKED -> ARCHIVED
+                                     -> COMPLIANCE_FAILED -> UPLOADED (retry)
+    """
+    # ===== Active Workflow States =====
     DRAFT = "DRAFT"
+    UPLOADED = "UPLOADED"
+    VALIDATED = "VALIDATED"
     COMPLIANCE_OK = "COMPLIANCE_OK"
     COMPLIANCE_FAILED = "COMPLIANCE_FAILED"
     LINKED = "LINKED"
     ARCHIVED = "ARCHIVED"
+
+    # ===== Deprecated States (kept for DB compatibility) =====
+    # @deprecated: Use UPLOADED instead. Document is awaiting validation.
+    PENDING_VALIDATION = "PENDING_VALIDATION"
+    # @deprecated: Use DRAFT with validation_notes explaining rejection reason.
+    REJECTED = "REJECTED"
+    # @deprecated: Expiry is tracked via expiry_date field, not status.
+    EXPIRED = "EXPIRED"
 
 
 class Document(Base):
