@@ -1,23 +1,33 @@
 """Organization-scoped permission system for multi-tenancy.
 
 Sprint 8: Multi-Tenancy Feature
+Sprint 13.4: Role-Based Organization Permissions
 
 This module extends the existing permission system to support:
 - Organization-scoped permissions
 - Cross-organization access for VIBOTAJ users
 - Role-based access within organizations
+- Organization admin member management
 """
 
 from enum import Enum
-from typing import List, Set, Optional, Dict, Any
+from typing import List, Set, Optional, Dict, Any, TYPE_CHECKING
 from uuid import UUID
+
+from fastapi import HTTPException, status
+from sqlalchemy.orm import Session
 
 from ..models.organization import (
     OrganizationType,
     OrgRole,
+    OrganizationMembership,
+    MembershipStatus,
     ORG_ROLE_HIERARCHY,
     can_manage_org_role
 )
+
+if TYPE_CHECKING:
+    from ..schemas.user import CurrentUser
 
 
 class OrgPermission(str, Enum):
@@ -383,3 +393,222 @@ def build_shipment_filter(context: OrgContext) -> Optional[Dict[str, Any]]:
             {"supplier_org_id": context.org_id},
         ]
     }
+
+
+# ============ Organization Member Management Permissions (Sprint 13.4) ============
+
+
+def get_user_org_membership(
+    db: Session,
+    user_id: UUID,
+    org_id: UUID
+) -> Optional[OrganizationMembership]:
+    """Get user's membership in a specific organization.
+
+    Args:
+        db: Database session
+        user_id: The user's UUID
+        org_id: The organization's UUID
+
+    Returns:
+        OrganizationMembership if found, None otherwise
+    """
+    return db.query(OrganizationMembership).filter(
+        OrganizationMembership.user_id == user_id,
+        OrganizationMembership.organization_id == org_id,
+        OrganizationMembership.status == MembershipStatus.ACTIVE
+    ).first()
+
+
+def is_system_admin(user: "CurrentUser") -> bool:
+    """Check if user is a system admin.
+
+    Args:
+        user: The current user from authentication
+
+    Returns:
+        True if user has system admin role
+    """
+    from ..models.user import UserRole
+    return user.role == UserRole.ADMIN
+
+
+def can_manage_org_members(
+    db: Session,
+    user: "CurrentUser",
+    org_id: UUID
+) -> bool:
+    """Check if user can manage members of an organization.
+
+    Returns True if:
+    - User is system admin OR
+    - User is org admin of the specified organization
+
+    Args:
+        db: Database session
+        user: The current authenticated user
+        org_id: The organization ID to check
+
+    Returns:
+        True if user can manage members, False otherwise
+    """
+    # System admins can manage any organization's members
+    if is_system_admin(user):
+        return True
+
+    # Check if user is an org admin of this organization
+    membership = get_user_org_membership(db, user.id, org_id)
+    if membership is None:
+        return False
+
+    return membership.org_role == OrgRole.ADMIN
+
+
+def can_view_org_members(
+    db: Session,
+    user: "CurrentUser",
+    org_id: UUID
+) -> bool:
+    """Check if user can view members of an organization.
+
+    Returns True if:
+    - User is system admin OR
+    - User is a member of the organization (any role)
+
+    Args:
+        db: Database session
+        user: The current authenticated user
+        org_id: The organization ID to check
+
+    Returns:
+        True if user can view members, False otherwise
+    """
+    # System admins can view any organization's members
+    if is_system_admin(user):
+        return True
+
+    # Check if user is a member of this organization (any role)
+    membership = get_user_org_membership(db, user.id, org_id)
+    return membership is not None
+
+
+def can_modify_member(
+    db: Session,
+    user: "CurrentUser",
+    org_id: UUID,
+    target_membership: OrganizationMembership
+) -> tuple[bool, str]:
+    """Check if user can modify a specific member.
+
+    Rules:
+    - System admins can modify anyone
+    - Org admins cannot modify other admins
+    - Nobody can modify themselves
+
+    Args:
+        db: Database session
+        user: The current authenticated user
+        org_id: The organization ID
+        target_membership: The membership being modified
+
+    Returns:
+        Tuple of (can_modify: bool, reason: str)
+        reason is empty string if can_modify is True
+    """
+    # Nobody can modify themselves
+    if target_membership.user_id == user.id:
+        return False, "You cannot modify your own membership"
+
+    # System admins can modify anyone else
+    if is_system_admin(user):
+        return True, ""
+
+    # Check if user is an org admin
+    user_membership = get_user_org_membership(db, user.id, org_id)
+    if user_membership is None or user_membership.org_role != OrgRole.ADMIN:
+        return False, "Only organization admins can modify members"
+
+    # Org admins cannot modify other admins
+    if target_membership.org_role == OrgRole.ADMIN:
+        return False, "Organization admins cannot modify other admins. Contact a system administrator."
+
+    return True, ""
+
+
+def check_org_admin_permission(
+    db: Session,
+    user: "CurrentUser",
+    org_id: UUID
+) -> None:
+    """Raise HTTPException 403 if user cannot manage org members.
+
+    Args:
+        db: Database session
+        user: The current authenticated user
+        org_id: The organization ID to check
+
+    Raises:
+        HTTPException: 403 Forbidden if user cannot manage members
+    """
+    if not can_manage_org_members(db, user, org_id):
+        # Provide more specific error message
+        if is_system_admin(user):
+            detail = "Access denied"
+        else:
+            membership = get_user_org_membership(db, user.id, org_id)
+            if membership is None:
+                detail = "You are not a member of this organization"
+            else:
+                detail = "Only organization admins can manage members"
+
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=detail
+        )
+
+
+def check_org_view_permission(
+    db: Session,
+    user: "CurrentUser",
+    org_id: UUID
+) -> None:
+    """Raise HTTPException 403 if user cannot view org members.
+
+    Args:
+        db: Database session
+        user: The current authenticated user
+        org_id: The organization ID to check
+
+    Raises:
+        HTTPException: 403 Forbidden if user cannot view members
+    """
+    if not can_view_org_members(db, user, org_id):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You must be a member of this organization to view its members"
+        )
+
+
+def check_member_modification_permission(
+    db: Session,
+    user: "CurrentUser",
+    org_id: UUID,
+    target_membership: OrganizationMembership
+) -> None:
+    """Raise HTTPException 403 if user cannot modify the target member.
+
+    Args:
+        db: Database session
+        user: The current authenticated user
+        org_id: The organization ID
+        target_membership: The membership being modified
+
+    Raises:
+        HTTPException: 403 Forbidden if user cannot modify the member
+    """
+    can_modify, reason = can_modify_member(db, user, org_id, target_membership)
+    if not can_modify:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=reason
+        )

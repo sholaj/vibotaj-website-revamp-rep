@@ -7,6 +7,106 @@ All notable changes to the TraceHub platform are documented in this file.
 
 ---
 
+## [1.5.0] - 2026-01-11
+
+### Sprint 13: Organization Member Management
+
+**New Features:**
+
+**Backend - Invitation System (13.1):**
+- Created `services/invitation.py` - Core invitation business logic
+  - Secure token generation (256-bit entropy via `secrets.token_hex(32)`)
+  - Token hashing with SHA-256 (never store plaintext)
+  - 7-day invitation expiration
+  - Resend with new token and reset expiration
+- Created `routers/invitations.py` - Invitation API endpoints
+  - `POST /api/invitations/organizations/{org_id}/invitations` - Create invitation
+  - `GET /api/invitations/organizations/{org_id}/invitations` - List invitations (paginated)
+  - `DELETE /api/invitations/organizations/{org_id}/invitations/{id}` - Revoke invitation
+  - `POST /api/invitations/organizations/{org_id}/invitations/{id}/resend` - Resend invitation
+  - `GET /api/invitations/accept/{token}` - Get invitation details (public)
+  - `POST /api/invitations/accept/{token}` - Accept invitation (public)
+- Created `schemas/invitation.py` - Request/response validation
+  - Strong password validation (8+ chars, uppercase, lowercase, digit)
+  - Email validation via Pydantic EmailStr
+
+**Backend - Organization Permissions (13.4):**
+- Created `services/org_permissions.py` - Organization-scoped permission system
+  - `OrgPermission` enum with 24 granular permissions
+  - Role-based permission matrix (Admin > Manager > Member > Viewer)
+  - Organization type bonus permissions (VIBOTAJ, BUYER, SUPPLIER)
+  - `can_manage_org_members()` - Check if user can manage members
+  - `can_modify_member()` - Check with role hierarchy enforcement
+  - Org admins cannot modify other admins (system admin required)
+  - Nobody can modify their own membership
+
+**Frontend - Member Management UI (13.2):**
+- Created `InviteMemberModal.tsx` - Invite form component
+  - Email validation (client-side)
+  - Role selection with descriptions
+  - Optional custom message (1000 char limit)
+  - Copy invitation link feature
+  - Success/error state handling
+- Created `MemberManagementPanel.tsx` - Full member management
+  - Member list with role badges
+  - Role change dropdown for admins
+  - Remove member with confirmation dialog
+  - Pending invitations list
+  - Resend/revoke invitation actions
+  - Loading states per action
+- Added invitation types in `types/invitation.ts`
+- Added API methods in `api/client.ts`:
+  - `createInvitation()`, `getInvitations()`, `revokeInvitation()`, `resendInvitation()`
+  - `getInvitationByToken()`, `acceptInvitation()` (public endpoints)
+
+**Frontend - Invitation Acceptance Workflow (13.3):**
+- Created `AcceptInvitation.tsx` - Public acceptance page at `/accept-invitation/:token`
+  - New user registration with password strength indicator
+  - Existing user login redirect with return URL preservation
+  - Auto-accept for logged-in users with matching email
+  - Email mismatch handling with logout option
+  - Clear error states (expired, revoked, invalid)
+- Updated `Login.tsx` - Added returnUrl parameter support
+- Updated `App.tsx` - Added public route for invitation acceptance
+
+**Security:**
+- Tokens generated with cryptographically secure random bytes
+- Tokens hashed before database storage (SHA-256)
+- Permission checks on all management endpoints
+- Public acceptance endpoints require valid token (no auth bypass)
+- Password requirements enforced on registration
+
+**Tests:**
+- Created `tests/test_invitations.py` - Comprehensive invitation tests
+  - `TestCreateInvitation` - Permission and validation tests
+  - `TestListInvitations` - Pagination and filtering tests
+  - `TestRevokeInvitation` - Status validation tests
+  - `TestResendInvitation` - Token regeneration tests
+  - `TestPublicAcceptEndpoints` - New/existing user flows
+  - `TestTokenSecurity` - Hash verification tests
+
+**Files Created:**
+- `backend/app/services/invitation.py`
+- `backend/app/routers/invitations.py`
+- `backend/app/schemas/invitation.py`
+- `backend/app/services/org_permissions.py`
+- `backend/tests/test_invitations.py`
+- `frontend/src/types/invitation.ts`
+- `frontend/src/components/organizations/InviteMemberModal.tsx`
+- `frontend/src/components/organizations/MemberManagementPanel.tsx`
+- `frontend/src/pages/AcceptInvitation.tsx`
+- `tracehub/docs/sprints/sprint-13/SPRINT13_PLAN.md`
+
+**Files Modified:**
+- `backend/app/main.py` - Router registration
+- `backend/app/config.py` - Added frontend_url setting
+- `frontend/src/api/client.ts` - Invitation API methods
+- `frontend/src/pages/Organizations.tsx` - Member panel integration
+- `frontend/src/pages/Login.tsx` - Return URL support
+- `frontend/src/App.tsx` - Public route for acceptance
+
+---
+
 ## [1.4.0] - 2026-01-11
 
 ### Sprint 10-11: Platform Stabilization & Security Hardening

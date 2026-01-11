@@ -42,6 +42,11 @@ from ..schemas.shipment import OrganizationInfo
 from ..schemas.user import CurrentUser
 from .auth import get_current_active_user
 from ..services.permissions import Permission, has_permission
+from ..services.org_permissions import (
+    check_org_view_permission,
+    check_org_admin_permission,
+    check_member_modification_permission,
+)
 
 router = APIRouter()
 
@@ -310,8 +315,11 @@ async def list_organization_members(
     current_user: CurrentUser = Depends(get_current_active_user),
     db: Session = Depends(get_db)
 ):
-    """List members of an organization. Admin only."""
-    check_admin_permission(current_user)
+    """List members of an organization.
+
+    Access: System admins OR any member of the organization can view members.
+    """
+    check_org_view_permission(db, current_user, org_id)
 
     # Verify org exists
     org = db.query(Organization).filter(Organization.id == org_id).first()
@@ -402,11 +410,12 @@ async def add_organization_member(
     current_user: CurrentUser = Depends(get_current_active_user),
     db: Session = Depends(get_db)
 ):
-    """Add a user to an organization. Admin only.
+    """Add a user to an organization.
 
+    Access: System admins OR organization admins can add members.
     Creates a new membership linking the user to the organization with the specified role.
     """
-    check_admin_permission(current_user)
+    check_org_admin_permission(db, current_user, org_id)
 
     # Verify org exists
     org = db.query(Organization).filter(Organization.id == org_id).first()
@@ -480,8 +489,14 @@ async def update_organization_member(
     current_user: CurrentUser = Depends(get_current_active_user),
     db: Session = Depends(get_db)
 ):
-    """Update a member's role or status. Admin only."""
-    check_admin_permission(current_user)
+    """Update a member's role or status.
+
+    Access: System admins OR organization admins can update members.
+    - Organization admins cannot modify other admins
+    - Nobody can modify themselves
+    """
+    # First check basic org admin permission
+    check_org_admin_permission(db, current_user, org_id)
 
     # Find membership
     membership = db.query(OrganizationMembership).filter(
@@ -494,6 +509,9 @@ async def update_organization_member(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Membership not found"
         )
+
+    # Check if user can modify this specific member
+    check_member_modification_permission(db, current_user, org_id, membership)
 
     # Update fields
     if member_data.org_role is not None:
@@ -529,11 +547,15 @@ async def remove_organization_member(
     current_user: CurrentUser = Depends(get_current_active_user),
     db: Session = Depends(get_db)
 ):
-    """Remove a user from an organization. Admin only.
+    """Remove a user from an organization.
 
-    Cannot remove the last admin from an organization.
+    Access: System admins OR organization admins can remove members.
+    - Organization admins cannot remove other admins
+    - Cannot remove yourself
+    - Cannot remove the last admin from an organization
     """
-    check_admin_permission(current_user)
+    # First check basic org admin permission
+    check_org_admin_permission(db, current_user, org_id)
 
     # Find membership
     membership = db.query(OrganizationMembership).filter(
@@ -546,6 +568,9 @@ async def remove_organization_member(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Membership not found"
         )
+
+    # Check if user can modify this specific member (same rules for update/delete)
+    check_member_modification_permission(db, current_user, org_id, membership)
 
     # Check if this is the last admin
     if membership.org_role == OrgRoleModel.ADMIN:

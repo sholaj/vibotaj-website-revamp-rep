@@ -8,8 +8,8 @@
  * - Secure credential handling
  */
 
-import { useState, useCallback } from 'react'
-import { useLocation, useNavigate } from 'react-router-dom'
+import { useState, useCallback, useMemo } from 'react'
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { Package, Eye, EyeOff, AlertCircle } from 'lucide-react'
 import api, { ApiClientError, NetworkError, AuthenticationError } from '../api/client'
 
@@ -30,9 +30,25 @@ export default function Login({ onLogin }: LoginProps) {
 
   const location = useLocation()
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
 
-  // Get the intended destination if redirected from protected route
-  const from = (location.state as LocationState)?.from?.pathname || '/dashboard'
+  // Get the intended destination - check for returnUrl query param first (for invitation acceptance)
+  // then fall back to location state from protected route redirect
+  const from = useMemo(() => {
+    const returnUrl = searchParams.get('returnUrl')
+    if (returnUrl) {
+      // Validate returnUrl is a relative path (security check)
+      try {
+        const url = new URL(returnUrl, window.location.origin)
+        if (url.origin === window.location.origin) {
+          return returnUrl
+        }
+      } catch {
+        // Invalid URL, ignore
+      }
+    }
+    return (location.state as LocationState)?.from?.pathname || '/dashboard'
+  }, [searchParams, location.state])
 
   const handleSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault()
@@ -95,6 +111,14 @@ export default function Login({ onLogin }: LoginProps) {
         {/* Login Card */}
         <div className="card p-8 shadow-xl">
           <form onSubmit={handleSubmit} className="space-y-6">
+            {/* Invitation acceptance notice */}
+            {from.startsWith('/accept-invitation/') && (
+              <div className="bg-primary-50 border border-primary-200 text-primary-700 px-4 py-3 rounded-md text-sm">
+                <p className="font-medium">Sign in to accept your invitation</p>
+                <p className="text-primary-600 mt-1">You will be redirected after logging in.</p>
+              </div>
+            )}
+
             {/* Error Alert */}
             {error && (
               <div className="bg-danger-50 border border-danger-200 text-danger-700 px-4 py-3 rounded-md text-sm flex items-start">

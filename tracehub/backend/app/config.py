@@ -50,6 +50,9 @@ class Settings(BaseSettings):
     # CORS
     cors_origins: list[str] = ["http://localhost:3000", "http://localhost:5173", "http://localhost:5174"]
 
+    # Frontend URL (for invitation links)
+    frontend_url: str = "https://tracehub.vibotaj.com"
+
     class Config:
         env_file = ".env"
         env_file_encoding = "utf-8"

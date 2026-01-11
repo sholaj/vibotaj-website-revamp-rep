@@ -15,6 +15,7 @@ import Dashboard from './pages/Dashboard'
 import Analytics from './pages/Analytics'
 import Users from './pages/Users'
 import Organizations from './pages/Organizations'
+import AcceptInvitation from './pages/AcceptInvitation'
 import Layout from './components/Layout'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
 
@@ -112,6 +113,9 @@ function AppRoutes() {
           )
         }
       />
+
+      {/* Public invitation acceptance route */}
+      <Route path="/accept-invitation/:token" element={<AcceptInvitation />} />
 
       {/* Protected routes wrapped in Layout */}
       <Route

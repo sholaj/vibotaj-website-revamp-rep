@@ -77,6 +77,17 @@ import type {
   MembershipCreate,
   MembershipUpdate,
   MemberListResponse,
+  OrgRole,
+  // Invitation types
+  InvitationStatus,
+  InvitationCreateRequest,
+  InvitationCreateResponse,
+  InvitationListResponse,
+  ResendInvitationResponse,
+  // Invitation acceptance types (public endpoints)
+  InvitationAcceptInfo,
+  AcceptInvitationRequest,
+  AcceptedInvitationResponse,
 } from '../types'
 
 // ============================================
@@ -1264,6 +1275,136 @@ class ApiClient {
    */
   async adminResetPassword(userId: string, newPassword: string): Promise<{ message: string }> {
     const response = await this.client.post(`users/${userId}/reset-password?new_password=${encodeURIComponent(newPassword)}`)
+    return response.data
+  }
+
+  // ============================================
+  // Invitation Management Methods
+  // ============================================
+
+  /**
+   * Create an invitation to join an organization
+   */
+  async createInvitation(
+    orgId: string,
+    data: InvitationCreateRequest
+  ): Promise<InvitationCreateResponse> {
+    const response = await this.client.post<InvitationCreateResponse>(
+      `invitations/organizations/${orgId}/invitations`,
+      data
+    )
+    this.cache.invalidate(`/invitations/organizations/${orgId}`)
+    return response.data
+  }
+
+  /**
+   * Get paginated list of invitations for an organization
+   */
+  async getInvitations(
+    orgId: string,
+    params?: { status?: InvitationStatus; limit?: number; offset?: number }
+  ): Promise<InvitationListResponse> {
+    const queryParams = new URLSearchParams()
+    if (params?.status) queryParams.append('status', params.status)
+    if (params?.limit) queryParams.append('limit', params.limit.toString())
+    if (params?.offset) queryParams.append('offset', params.offset.toString())
+
+    const queryString = queryParams.toString()
+    const url = queryString
+      ? `invitations/organizations/${orgId}/invitations?${queryString}`
+      : `invitations/organizations/${orgId}/invitations`
+
+    const response = await this.client.get<InvitationListResponse>(url)
+    return response.data
+  }
+
+  /**
+   * Revoke a pending invitation
+   */
+  async revokeInvitation(orgId: string, invitationId: string): Promise<void> {
+    await this.client.delete(
+      `invitations/organizations/${orgId}/invitations/${invitationId}`
+    )
+    this.cache.invalidate(`/invitations/organizations/${orgId}`)
+  }
+
+  /**
+   * Resend an invitation with a new token
+   */
+  async resendInvitation(
+    orgId: string,
+    invitationId: string
+  ): Promise<ResendInvitationResponse> {
+    const response = await this.client.post<ResendInvitationResponse>(
+      `invitations/organizations/${orgId}/invitations/${invitationId}/resend`
+    )
+    this.cache.invalidate(`/invitations/organizations/${orgId}`)
+    return response.data
+  }
+
+  /**
+   * Update a member's role in an organization
+   */
+  async updateMemberRole(
+    orgId: string,
+    userId: string,
+    data: { org_role: OrgRole }
+  ): Promise<OrganizationMember> {
+    const response = await this.client.patch<OrganizationMember>(
+      `organizations/${orgId}/members/${userId}`,
+      data
+    )
+    this.cache.invalidate(`/organizations/${orgId}`)
+    return response.data
+  }
+
+  /**
+   * Remove a member from an organization
+   */
+  async removeMember(orgId: string, userId: string): Promise<void> {
+    await this.client.delete(`organizations/${orgId}/members/${userId}`)
+    this.cache.invalidate(`/organizations/${orgId}`)
+  }
+
+  // ============================================
+  // Invitation Acceptance Methods (Public - No Auth Required)
+  // ============================================
+
+  /**
+   * Get invitation details by token (public endpoint - no auth required)
+   * Used to display invitation info on the acceptance page.
+   */
+  async getInvitationByToken(token: string): Promise<InvitationAcceptInfo> {
+    const response = await axios.get<InvitationAcceptInfo>(
+      `${API_BASE_URL}/invitations/accept/${token}`
+    )
+    return response.data
+  }
+
+  /**
+   * Accept an invitation (public endpoint - no auth required)
+   * For new users: full_name and password are required.
+   * For existing users: no additional data needed.
+   * Returns an access_token for new users to auto-login.
+   */
+  async acceptInvitation(
+    token: string,
+    data?: AcceptInvitationRequest
+  ): Promise<AcceptedInvitationResponse> {
+    const response = await axios.post<AcceptedInvitationResponse>(
+      `${API_BASE_URL}/invitations/accept/${token}`,
+      data || {},
+      {
+        headers: { 'Content-Type': 'application/json' },
+      }
+    )
+
+    // If new user with access token, store it for auto-login
+    if (response.data.access_token) {
+      setStoredToken(response.data.access_token, 24)
+      this.cache.invalidate()
+    }
+
     return response.data
   }
 

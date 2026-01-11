@@ -2,6 +2,8 @@
  * Organization Management Page
  *
  * Admin-only page to manage organizations (buyers, suppliers, logistics agents).
+ *
+ * Sprint 13.2: Updated with MemberManagementPanel for full member/invitation management.
  */
 
 import { useState, useEffect, useCallback } from 'react'
@@ -12,16 +14,17 @@ import {
   RefreshCw,
   Users as UsersIcon,
   ChevronRight,
+  Loader2,
 } from 'lucide-react'
 import api, { ApiClientError } from '../api/client'
 import { useAuth, Permission } from '../contexts/AuthContext'
+import { MemberManagementPanel } from '../components/organizations'
 import type {
   OrganizationListItem,
   OrganizationType,
   OrganizationStatus,
   OrganizationCreate,
   Organization,
-  OrganizationMember,
 } from '../types'
 
 // Organization type badge styling
@@ -225,9 +228,12 @@ function OrganizationDetailPanel({
   organization: OrganizationListItem | null
   onClose: () => void
 }) {
+  const { hasPermission } = useAuth()
   const [orgDetails, setOrgDetails] = useState<Organization | null>(null)
-  const [members, setMembers] = useState<OrganizationMember[]>([])
   const [loading, setLoading] = useState(false)
+
+  // System admins can always manage members
+  const canManageMembers = hasPermission(Permission.SYSTEM_ADMIN)
 
   useEffect(() => {
     if (organization) {
@@ -239,12 +245,8 @@ function OrganizationDetailPanel({
     if (!organization) return
     setLoading(true)
     try {
-      const [details, memberList] = await Promise.all([
-        api.getOrganization(organization.id),
-        api.getOrganizationMembers(organization.id),
-      ])
+      const details = await api.getOrganization(organization.id)
       setOrgDetails(details)
-      setMembers(memberList.items)
     } catch (err) {
       console.error('Failed to load organization details:', err)
     } finally {
@@ -257,17 +259,20 @@ function OrganizationDetailPanel({
   return (
     <div className="fixed inset-0 z-50 overflow-hidden">
       <div className="fixed inset-0 bg-black bg-opacity-50" onClick={onClose} />
-      <div className="absolute inset-y-0 right-0 max-w-lg w-full bg-white shadow-xl">
-        <div className="flex items-center justify-between p-4 border-b">
+      <div className="absolute inset-y-0 right-0 max-w-lg w-full bg-white shadow-xl flex flex-col">
+        <div className="flex items-center justify-between p-4 border-b flex-shrink-0">
           <h3 className="text-lg font-semibold">{organization.name}</h3>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
-            ×
+            x
           </button>
         </div>
 
-        <div className="p-4 overflow-y-auto h-full pb-20">
+        <div className="p-4 overflow-y-auto flex-1">
           {loading ? (
-            <div className="text-center py-8 text-gray-500">Loading...</div>
+            <div className="text-center py-8 text-gray-500">
+              <Loader2 className="h-6 w-6 animate-spin mx-auto mb-2" />
+              Loading...
+            </div>
           ) : (
             <>
               {/* Organization Info */}
@@ -317,32 +322,12 @@ function OrganizationDetailPanel({
                 </dl>
               </div>
 
-              {/* Members */}
-              <div>
-                <h4 className="font-medium text-gray-900 mb-3">
-                  Members ({members.length})
-                </h4>
-                {members.length === 0 ? (
-                  <p className="text-sm text-gray-500">No members yet</p>
-                ) : (
-                  <ul className="space-y-2">
-                    {members.map((member) => (
-                      <li
-                        key={member.id}
-                        className="flex items-center justify-between p-2 bg-gray-50 rounded-lg"
-                      >
-                        <div>
-                          <div className="font-medium text-sm">{member.full_name}</div>
-                          <div className="text-xs text-gray-500">{member.email}</div>
-                        </div>
-                        <span className="text-xs bg-gray-200 text-gray-700 px-2 py-1 rounded">
-                          {member.org_role}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
+              {/* Member Management Panel */}
+              <MemberManagementPanel
+                organizationId={organization.id}
+                organizationName={organization.name}
+                canManageMembers={canManageMembers}
+              />
             </>
           )}
         </div>

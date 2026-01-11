@@ -26,6 +26,16 @@ from .eudr import (
     EUDRValidationStatus,
     VerificationMethod,
 )
+from .invitation import (
+    InvitationCreate,
+    InvitationResponse,
+    InvitationCreateResponse,
+    InvitationListResponse,
+    InvitationAcceptInfo,
+    AcceptInvitation,
+    AcceptedInvitationResponse,
+    ResendInvitationResponse,
+)
 
 __all__ = [
     "ShipmentResponse",
@@ -54,4 +64,13 @@ __all__ = [
     "RiskLevel",
     "EUDRValidationStatus",
     "VerificationMethod",
+    # Invitation schemas
+    "InvitationCreate",
+    "InvitationResponse",
+    "InvitationCreateResponse",
+    "InvitationListResponse",
+    "InvitationAcceptInfo",
+    "AcceptInvitation",
+    "AcceptedInvitationResponse",
+    "ResendInvitationResponse",
 ]
