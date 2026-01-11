@@ -134,13 +134,19 @@ async def get_eudr_status(
     # Horn & Hoof products are NOT covered by EUDR
     if shipment.product_type == ProductType.HORN_HOOF:
         return {
+            "shipment_id": str(shipment.id),
+            "shipment_reference": shipment.reference,
             "is_compliant": True,
             "overall_status": "NOT_APPLICABLE",
             "overall_risk_level": "not_applicable",
             "checklist": [],
+            "summary": {
+                "message": "Horn & Hoof products (HS 0506/0507) are NOT covered by EUDR regulation",
+                "eudr_applicable": False
+            },
             "origin_validations": [],
-            "compliance_percentage": 100,
-            "message": "Horn & Hoof products (HS 0506/0507) are NOT covered by EUDR regulation"
+            "cutoff_date": "2020-12-31",
+            "assessed_at": datetime.utcnow().isoformat()
         }
 
     status = get_shipment_eudr_status(shipment, db)

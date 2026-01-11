@@ -346,7 +346,7 @@ class TestAuditLogIsolation:
         """VIBOTAJ user should only see VIBOTAJ audit logs."""
         app.dependency_overrides[get_current_active_user] = lambda: create_mock_current_user(vibotaj_user)
 
-        response = client.get("/api/audit")
+        response = client.get("/api/audit-log")
         assert response.status_code == 200
 
         data = response.json()
@@ -364,7 +364,7 @@ class TestAuditLogIsolation:
         """HAGES user should only see HAGES audit logs."""
         app.dependency_overrides[get_current_active_user] = lambda: create_mock_current_user(hages_user)
 
-        response = client.get("/api/audit")
+        response = client.get("/api/audit-log")
         assert response.status_code == 200
 
         data = response.json()

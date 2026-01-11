@@ -192,7 +192,10 @@ class TestHornHoofEUDRExemption:
 
         # Should indicate EUDR is not applicable
         # API returns overall_status for status endpoint
-        assert data.get("eudr_applicable") is False or data.get("overall_status") == "NOT_APPLICABLE"
+        # eudr_applicable can be in summary or at top level
+        summary = data.get("summary", {})
+        eudr_applicable = summary.get("eudr_applicable", data.get("eudr_applicable"))
+        assert eudr_applicable is False or data.get("overall_status") == "NOT_APPLICABLE"
 
     def test_horn_hoof_eudr_validation_returns_exempt(
         self, client, admin_user, horn_hoof_shipment
@@ -256,13 +259,15 @@ class TestCocoaEUDRCompliance:
         # Should indicate incomplete compliance (missing geolocation, etc.)
         # validation_result contains the compliance data for non-exempt products
         validation_result = data.get("validation_result", data)
-        compliance = validation_result.get("compliance_percentage", validation_result.get("compliance_score", 100))
-        # Cocoa without origin data should not be 100% compliant
-        # (unless default is 100% for no origins, in which case check action_items)
         action_items = data.get("action_items", [])
-        if compliance == 100:
-            # If 100%, there should be no action items or EUDR is marked non-applicable
-            assert len(action_items) == 0 or data.get("eudr_applicable") is False
+
+        # For EUDR-covered products without complete origin data:
+        # Either compliance < 100% OR there should be action items
+        compliance = validation_result.get("compliance_percentage", validation_result.get("compliance_score", 0))
+        # Cocoa without origin data should have action items indicating missing requirements
+        # The API returns action items for missing data, which is the expected behavior
+        assert compliance < 100 or len(action_items) > 0, \
+            "EUDR-covered product without origin data should not be fully compliant"
 
 
 class TestShipmentStatusTransitions:

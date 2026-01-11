@@ -258,3 +258,4 @@ local-config.php
 # Sensitive business documents
 BILL OF LADING*.pdf
 *.B_L.pdf
+tracehub/test-results/
