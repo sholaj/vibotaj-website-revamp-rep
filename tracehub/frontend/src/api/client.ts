@@ -304,10 +304,21 @@ class ApiClient {
           )
         }
 
-        // Format error message
-        const errorMessage = error.response.data?.detail || error.message || 'An unexpected error occurred'
+        // Format error message - handle both string and array/object detail
+        const detail = error.response.data?.detail as unknown
+        let errorMessage: string
+        if (typeof detail === 'string') {
+          errorMessage = detail
+        } else if (Array.isArray(detail)) {
+          // FastAPI validation errors return an array of {loc, msg, type}
+          errorMessage = detail.map((e: { msg?: string }) => e.msg || String(e)).join(', ')
+        } else if (detail && typeof detail === 'object') {
+          errorMessage = JSON.stringify(detail)
+        } else {
+          errorMessage = error.message || 'An unexpected error occurred'
+        }
         return Promise.reject(
-          new ApiClientError(errorMessage, error.response.status, error.response.data?.detail)
+          new ApiClientError(errorMessage, error.response.status, typeof detail === 'string' ? detail : errorMessage)
         )
       }
     )
