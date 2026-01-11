@@ -188,7 +188,9 @@ class AuditLogger:
 
         # Multi-tenancy: ALWAYS filter by organization_id for security
         if organization_id:
-            filters.append(AuditLog.organization_id == organization_id)
+            # Convert string to UUID if needed for proper comparison
+            org_uuid = uuid.UUID(organization_id) if isinstance(organization_id, str) else organization_id
+            filters.append(AuditLog.organization_id == org_uuid)
 
         if username:
             filters.append(AuditLog.username == username)
@@ -243,7 +245,9 @@ class AuditLogger:
 
         # Multi-tenancy: ALWAYS filter by organization_id for security
         if organization_id:
-            filters.append(AuditLog.organization_id == organization_id)
+            # Convert string to UUID if needed for proper comparison
+            org_uuid = uuid.UUID(organization_id) if isinstance(organization_id, str) else organization_id
+            filters.append(AuditLog.organization_id == org_uuid)
 
         if username:
             filters.append(AuditLog.username == username)
@@ -285,7 +289,9 @@ class AuditLogger:
 
         # Multi-tenancy: ALWAYS filter by organization_id for security
         if organization_id:
-            query = query.filter(AuditLog.organization_id == organization_id)
+            # Convert string to UUID if needed for proper comparison
+            org_uuid = uuid.UUID(organization_id) if isinstance(organization_id, str) else organization_id
+            query = query.filter(AuditLog.organization_id == org_uuid)
 
         logs = (
             query

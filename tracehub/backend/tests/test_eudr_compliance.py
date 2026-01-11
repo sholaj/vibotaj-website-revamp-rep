@@ -191,7 +191,8 @@ class TestHornHoofEUDRExemption:
         data = response.json()
 
         # Should indicate EUDR is not applicable
-        assert data.get("eudr_applicable") is False or data.get("status") == "NOT_APPLICABLE"
+        # API returns overall_status for status endpoint
+        assert data.get("eudr_applicable") is False or data.get("overall_status") == "NOT_APPLICABLE"
 
     def test_horn_hoof_eudr_validation_returns_exempt(
         self, client, admin_user, horn_hoof_shipment
@@ -237,7 +238,8 @@ class TestCocoaEUDRCompliance:
         data = response.json()
 
         # Should indicate EUDR is applicable and not complete
-        assert data.get("eudr_applicable") is True or data.get("status") != "NOT_APPLICABLE"
+        # API returns overall_status for status endpoint
+        assert data.get("eudr_applicable") is True or data.get("overall_status") != "NOT_APPLICABLE"
 
     def test_cocoa_validation_shows_missing_requirements(
         self, client, admin_user, cocoa_shipment
@@ -252,12 +254,14 @@ class TestCocoaEUDRCompliance:
         data = response.json()
 
         # Should indicate incomplete compliance (missing geolocation, etc.)
-        compliance = data.get("compliance_percentage", data.get("compliance_score", 100))
+        # validation_result contains the compliance data for non-exempt products
+        validation_result = data.get("validation_result", data)
+        compliance = validation_result.get("compliance_percentage", validation_result.get("compliance_score", 100))
         # Cocoa without origin data should not be 100% compliant
         # (unless default is 100% for no origins, in which case check action_items)
         action_items = data.get("action_items", [])
         if compliance == 100:
-            # If 100%, there should be no action items
+            # If 100%, there should be no action items or EUDR is marked non-applicable
             assert len(action_items) == 0 or data.get("eudr_applicable") is False
 
 
