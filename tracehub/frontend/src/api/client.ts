@@ -1102,7 +1102,7 @@ class ApiClient {
     )
 
     // Invalidate status cache after validation
-    this.cache.invalidate(`/eudr/shipment/${shipmentId}`)
+    this.cache.invalidate(`eudr/shipment/${shipmentId}`)
 
     return response.data
   }
@@ -1293,7 +1293,7 @@ class ApiClient {
       `invitations/organizations/${orgId}/invitations`,
       data
     )
-    this.cache.invalidate(`/invitations/organizations/${orgId}`)
+    this.cache.invalidate(`invitations/organizations/${orgId}`)
     return response.data
   }
 
@@ -1325,7 +1325,7 @@ class ApiClient {
     await this.client.delete(
       `invitations/organizations/${orgId}/invitations/${invitationId}`
     )
-    this.cache.invalidate(`/invitations/organizations/${orgId}`)
+    this.cache.invalidate(`invitations/organizations/${orgId}`)
   }
 
   /**
@@ -1338,7 +1338,7 @@ class ApiClient {
     const response = await this.client.post<ResendInvitationResponse>(
       `invitations/organizations/${orgId}/invitations/${invitationId}/resend`
     )
-    this.cache.invalidate(`/invitations/organizations/${orgId}`)
+    this.cache.invalidate(`invitations/organizations/${orgId}`)
     return response.data
   }
 

@@ -11,16 +11,18 @@ All notable changes to the TraceHub platform are documented in this file.
 
 ### Bug Fixes
 
-**Frontend - Cache Invalidation Fix:**
+**Frontend - Cache Invalidation Fix (Phase 1 + 2):**
 - Fixed bug where newly created shipments were not visible after creation
 - **Root Cause:** Cache key mismatch between get operations (`'GET:shipments'`) and invalidation patterns (`'/shipments'`)
 - **Fix:** Standardized all cache invalidation patterns to use consistent format without leading slash
 - Files Modified:
   - `frontend/src/api/client.ts` - Fixed all `this.cache.invalidate()` patterns
+    - Phase 1: shipments, documents, organizations, tracking, analytics, audit-log
+    - Phase 2: eudr, invitations (additional patterns found and fixed)
   - `frontend/src/pages/Dashboard.tsx` - Fixed `api.invalidateCache()` calls
   - `frontend/src/pages/Analytics.tsx` - Fixed `api.invalidateCache()` calls
 - Added unit tests documenting the bug pattern in `frontend/src/test/ApiClientCache.test.ts`
-- **Result:** Shipment list now correctly refreshes after creating/updating/deleting shipments
+- **Result:** Shipment list and EUDR status now correctly refresh after mutations
 
 ---
 

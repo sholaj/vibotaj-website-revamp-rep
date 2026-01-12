@@ -3,6 +3,13 @@
  *
  * Bug: VIBO-2026-560 not viewable after creation
  * Root cause: Cache key mismatch between get ('GET:shipments') and invalidate ('/shipments')
+ *
+ * Fix applied in two phases:
+ * 1. Fixed shipments, documents, organizations patterns (initial fix)
+ * 2. Fixed eudr, invitations patterns (follow-up fix)
+ *
+ * All cache invalidation patterns should NOT have leading slashes since
+ * cache keys are formatted as 'GET:path' (e.g., 'GET:shipments', 'GET:eudr/shipment/123')
  */
 
 import { describe, it, expect, beforeEach } from 'vitest';
