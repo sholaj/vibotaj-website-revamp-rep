@@ -455,7 +455,7 @@ class ApiClient {
    */
   async createShipment(data: ShipmentCreateRequest): Promise<Shipment> {
     const response = await this.client.post<Shipment>('shipments', data)
-    this.cache.invalidate('/shipments')
+    this.cache.invalidate('shipments')
     return response.data
   }
 
@@ -464,8 +464,8 @@ class ApiClient {
    */
   async updateShipment(id: string, data: Partial<ShipmentCreateRequest>): Promise<Shipment> {
     const response = await this.client.patch<Shipment>(`shipments/${id}`, data)
-    this.cache.invalidate('/shipments')
-    this.cache.invalidate(`/shipments/${id}`)
+    this.cache.invalidate('shipments')
+    this.cache.invalidate(`shipments/${id}`)
     return response.data
   }
 
@@ -474,7 +474,7 @@ class ApiClient {
    */
   async deleteShipment(id: string): Promise<void> {
     await this.client.delete(`shipments/${id}`)
-    this.cache.invalidate('/shipments')
+    this.cache.invalidate('shipments')
   }
 
   // ============================================
@@ -525,8 +525,8 @@ class ApiClient {
    */
   async createOrganization(data: OrganizationCreate): Promise<Organization> {
     const response = await this.client.post<Organization>('organizations', data)
-    this.cache.invalidate('/organizations')
-    this.cache.invalidate('/organizations/buyers')
+    this.cache.invalidate('organizations')
+    this.cache.invalidate('organizations/buyers')
     return response.data
   }
 
@@ -535,8 +535,8 @@ class ApiClient {
    */
   async updateOrganization(id: string, data: OrganizationUpdate): Promise<Organization> {
     const response = await this.client.patch<Organization>(`organizations/${id}`, data)
-    this.cache.invalidate('/organizations')
-    this.cache.invalidate(`/organizations/${id}`)
+    this.cache.invalidate('organizations')
+    this.cache.invalidate(`organizations/${id}`)
     return response.data
   }
 
@@ -563,7 +563,7 @@ class ApiClient {
    */
   async addOrganizationMember(orgId: string, data: MembershipCreate): Promise<OrganizationMember> {
     const response = await this.client.post<OrganizationMember>(`organizations/${orgId}/members`, data)
-    this.cache.invalidate(`/organizations/${orgId}`)
+    this.cache.invalidate(`organizations/${orgId}`)
     return response.data
   }
 
@@ -587,7 +587,7 @@ class ApiClient {
    */
   async removeOrganizationMember(orgId: string, userId: string): Promise<void> {
     await this.client.delete(`organizations/${orgId}/members/${userId}`)
-    this.cache.invalidate(`/organizations/${orgId}`)
+    this.cache.invalidate(`organizations/${orgId}`)
   }
 
   // ============================================
@@ -637,7 +637,7 @@ class ApiClient {
     })
 
     // Invalidate shipment document cache
-    this.cache.invalidate(`/shipments/${shipmentId}`)
+    this.cache.invalidate(`shipments/${shipmentId}`)
 
     return response.data
   }
@@ -653,7 +653,7 @@ class ApiClient {
     const response = await this.client.patch(`documents/${documentId}/validate`, { notes })
 
     // Invalidate related caches
-    this.cache.invalidate('/shipments/')
+    this.cache.invalidate('shipments')
 
     return response.data
   }
@@ -662,7 +662,7 @@ class ApiClient {
     const response = await this.client.delete(`documents/${documentId}`)
 
     // Invalidate related caches
-    this.cache.invalidate('/shipments/')
+    this.cache.invalidate('shipments')
 
     return response.data
   }
@@ -675,7 +675,7 @@ class ApiClient {
     )
 
     // Invalidate related caches
-    this.cache.invalidate('/shipments/')
+    this.cache.invalidate('shipments')
 
     return response.data
   }
@@ -709,8 +709,8 @@ class ApiClient {
     })
 
     // Invalidate related caches
-    this.cache.invalidate('/shipments/')
-    this.cache.invalidate('/documents/')
+    this.cache.invalidate('shipments')
+    this.cache.invalidate('documents')
 
     return response.data
   }
@@ -718,8 +718,8 @@ class ApiClient {
   async approveDocument(documentId: string, notes?: string): Promise<TransitionResponse> {
     const response = await this.client.post(`documents/${documentId}/approve`, { notes })
 
-    this.cache.invalidate('/shipments/')
-    this.cache.invalidate('/documents/')
+    this.cache.invalidate('shipments')
+    this.cache.invalidate('documents')
 
     return response.data
   }
@@ -727,8 +727,8 @@ class ApiClient {
   async rejectDocument(documentId: string, notes: string): Promise<TransitionResponse> {
     const response = await this.client.post(`documents/${documentId}/reject`, { notes })
 
-    this.cache.invalidate('/shipments/')
-    this.cache.invalidate('/documents/')
+    this.cache.invalidate('shipments')
+    this.cache.invalidate('documents')
 
     return response.data
   }
@@ -745,8 +745,8 @@ class ApiClient {
   ): Promise<{ message: string; document_id: string }> {
     const response = await this.client.patch(`documents/${documentId}/metadata`, metadata)
 
-    this.cache.invalidate('/shipments/')
-    this.cache.invalidate('/documents/')
+    this.cache.invalidate('shipments')
+    this.cache.invalidate('documents')
 
     return response.data
   }
@@ -820,8 +820,8 @@ class ApiClient {
     notes?: string
   ): Promise<{ message: string; content_id: string; status: string; all_contents_validated: boolean }> {
     const response = await this.client.post(`documents/${documentId}/contents/${contentId}/validate`, notes)
-    this.cache.invalidate('/documents/')
-    this.cache.invalidate('/shipments/')
+    this.cache.invalidate('documents')
+    this.cache.invalidate('shipments')
     return response.data
   }
 
@@ -834,8 +834,8 @@ class ApiClient {
     notes: string
   ): Promise<{ message: string; content_id: string; status: string }> {
     const response = await this.client.post(`documents/${documentId}/contents/${contentId}/reject`, { notes })
-    this.cache.invalidate('/documents/')
-    this.cache.invalidate('/shipments/')
+    this.cache.invalidate('documents')
+    this.cache.invalidate('shipments')
     return response.data
   }
 
@@ -953,8 +953,8 @@ class ApiClient {
     )
 
     // Invalidate tracking caches
-    this.cache.invalidate('/tracking/')
-    this.cache.invalidate(`/shipments/${shipmentId}`)
+    this.cache.invalidate('tracking')
+    this.cache.invalidate(`shipments/${shipmentId}`)
 
     return response.data
   }
@@ -1147,7 +1147,7 @@ class ApiClient {
     )
 
     // Invalidate related caches
-    this.cache.invalidate('/eudr/')
+    this.cache.invalidate('eudr')
 
     return response.data
   }
@@ -1232,7 +1232,7 @@ class ApiClient {
    */
   async createUser(user: UserCreate): Promise<UserResponse> {
     const response = await this.client.post<UserResponse>('users', user)
-    this.cache.invalidate('/users')
+    this.cache.invalidate('users')
     return response.data
   }
 
@@ -1241,7 +1241,7 @@ class ApiClient {
    */
   async updateUser(userId: string, update: UserUpdate): Promise<UserResponse> {
     const response = await this.client.patch<UserResponse>(`users/${userId}`, update)
-    this.cache.invalidate('/users')
+    this.cache.invalidate('users')
     return response.data
   }
 
@@ -1250,7 +1250,7 @@ class ApiClient {
    */
   async deactivateUser(userId: string): Promise<{ message: string }> {
     const response = await this.client.delete(`users/${userId}`)
-    this.cache.invalidate('/users')
+    this.cache.invalidate('users')
     return response.data
   }
 
@@ -1259,7 +1259,7 @@ class ApiClient {
    */
   async activateUser(userId: string): Promise<{ message: string }> {
     const response = await this.client.post(`users/${userId}/activate`)
-    this.cache.invalidate('/users')
+    this.cache.invalidate('users')
     return response.data
   }
 
@@ -1354,7 +1354,7 @@ class ApiClient {
       `organizations/${orgId}/members/${userId}`,
       data
     )
-    this.cache.invalidate(`/organizations/${orgId}`)
+    this.cache.invalidate(`organizations/${orgId}`)
     return response.data
   }
 
@@ -1363,7 +1363,7 @@ class ApiClient {
    */
   async removeMember(orgId: string, userId: string): Promise<void> {
     await this.client.delete(`organizations/${orgId}/members/${userId}`)
-    this.cache.invalidate(`/organizations/${orgId}`)
+    this.cache.invalidate(`organizations/${orgId}`)
   }
 
   // ============================================

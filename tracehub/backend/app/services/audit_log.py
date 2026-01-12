@@ -51,6 +51,17 @@ class AuditAction:
     # Admin
     AUDIT_LOG_VIEW = "admin.auditlog.view"
 
+    # EUDR Compliance (Sprint 14)
+    EUDR_STATUS_CHECK = "eudr.status.check"
+    EUDR_REPORT_GENERATE = "eudr.report.generate"
+    EUDR_ORIGIN_VERIFY = "eudr.origin.verify"
+    EUDR_ORIGIN_VERIFY_SUCCESS = "eudr.origin.verify.success"
+    EUDR_ORIGIN_VERIFY_FAILURE = "eudr.origin.verify.failure"
+    EUDR_RISK_ASSESSMENT = "eudr.risk.assessment"
+    EUDR_DEFORESTATION_CHECK = "eudr.deforestation.check"
+    EUDR_COMPLIANCE_PASS = "eudr.compliance.pass"
+    EUDR_COMPLIANCE_FAIL = "eudr.compliance.fail"
+
 
 class AuditLogger:
     """Service for logging and querying audit events."""

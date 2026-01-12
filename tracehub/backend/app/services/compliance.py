@@ -521,3 +521,132 @@ def check_document_completeness(
         pending_validation=pending_count,
         is_complete=len(missing_types) == 0 and pending_count == 0
     )
+
+
+# ============================================================================
+# DOCUMENT CONTENT VALIDATION - Sprint 14
+# ============================================================================
+
+class DocumentValidationResult:
+    """Result of document content validation."""
+
+    def __init__(self):
+        self.is_valid = True
+        self.errors: List[str] = []
+        self.warnings: List[str] = []
+
+    def add_error(self, message: str):
+        self.is_valid = False
+        self.errors.append(message)
+
+    def add_warning(self, message: str):
+        self.warnings.append(message)
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "is_valid": self.is_valid,
+            "errors": self.errors,
+            "warnings": self.warnings
+        }
+
+
+def validate_document_content(
+    document: Document,
+    shipment: Optional[Shipment] = None
+) -> DocumentValidationResult:
+    """Validate document content against compliance rules.
+
+    Sprint 14: Implements enforcement of HORN_HOOF_VALIDATION_RULES.
+
+    Args:
+        document: The document to validate
+        shipment: Optional shipment for context (to determine product type)
+
+    Returns:
+        DocumentValidationResult with validation status and any errors/warnings
+
+    Examples:
+        >>> result = validate_document_content(eu_traces_doc, shipment)
+        >>> if not result.is_valid:
+        ...     raise HTTPException(400, result.errors[0])
+    """
+    result = DocumentValidationResult()
+
+    # Determine if this is a Horn & Hoof shipment
+    is_horn_hoof = False
+    if shipment:
+        is_horn_hoof = shipment.product_type == ProductType.HORN_HOOF
+
+    # Get document type as string for lookup
+    doc_type_str = _get_doc_type_value(document.document_type)
+
+    # Check Horn & Hoof validation rules
+    if is_horn_hoof and document.document_type in HORN_HOOF_VALIDATION_RULES:
+        rule = HORN_HOOF_VALIDATION_RULES[document.document_type]
+
+        # EU TRACES must have RC1479592
+        if document.document_type == DocumentType.EU_TRACES_CERTIFICATE:
+            ref_num = getattr(document, 'reference_number', None)
+            if not ref_num:
+                # Check extra_data if available
+                if document.extra_data:
+                    ref_num = document.extra_data.get('reference_number')
+
+            expected = rule.get("expected_value", "RC1479592")
+            if ref_num and expected not in ref_num:
+                result.add_error(
+                    f"EU TRACES Certificate must reference {expected}. "
+                    f"VIBOTAJ Global Nigeria Ltd registration is required for Horn & Hoof exports."
+                )
+            elif not ref_num:
+                result.add_warning(
+                    f"EU TRACES Certificate should show reference {expected}. "
+                    "Please verify the document includes VIBOTAJ registration."
+                )
+
+        # Veterinary Health Certificate must be from Nigerian authority
+        elif document.document_type == DocumentType.VETERINARY_HEALTH_CERTIFICATE:
+            issuing_auth = None
+            if document.extra_data:
+                issuing_auth = document.extra_data.get('issuing_authority', '')
+
+            expected_contains = rule.get("expected_contains", [])
+            if issuing_auth:
+                if not any(term.lower() in issuing_auth.lower() for term in expected_contains):
+                    result.add_warning(
+                        f"Veterinary Health Certificate should be from Nigerian authority. "
+                        f"Found: {issuing_auth}"
+                    )
+
+        # Certificate of Origin must specify Nigeria
+        elif document.document_type == DocumentType.CERTIFICATE_OF_ORIGIN:
+            country_origin = None
+            if document.extra_data:
+                country_origin = document.extra_data.get('country_of_origin', '')
+
+            expected = rule.get("expected_value", "Nigeria")
+            if country_origin and expected.lower() not in country_origin.lower():
+                result.add_warning(
+                    f"Certificate of Origin should specify {expected} as country of origin. "
+                    f"Found: {country_origin}"
+                )
+
+    return result
+
+
+def validate_traces_reference(reference_number: str) -> bool:
+    """Validate that a TRACES reference includes VIBOTAJ registration.
+
+    Args:
+        reference_number: The TRACES certificate reference number
+
+    Returns:
+        True if the reference includes RC1479592
+
+    Example:
+        >>> validate_traces_reference("TRACES-EU/RC1479592/2026/001")
+        True
+        >>> validate_traces_reference("TRACES-EU/XX999999/2026/001")
+        False
+    """
+    return "RC1479592" in reference_number if reference_number else False

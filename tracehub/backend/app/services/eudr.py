@@ -159,7 +159,8 @@ def validate_origin_data(origin: Origin) -> EUDRValidationResult:
     result = EUDRValidationResult()
 
     # Check farm/plot identifier
-    if not origin.farm_plot_identifier:
+    farm_plot_id = origin.farm_name or origin.plot_identifier
+    if not farm_plot_id:
         result.add_missing_field("farm_plot_identifier")
         result.add_check(
             "farm_plot_id",
@@ -171,14 +172,14 @@ def validate_origin_data(origin: Origin) -> EUDRValidationResult:
         result.add_check(
             "farm_plot_id",
             True,
-            f"Farm/plot identifier present: {origin.farm_plot_identifier}",
+            f"Farm/plot identifier present: {farm_plot_id}",
             "info"
         )
 
     # Check geolocation
     has_coordinates = (
-        origin.geolocation_lat is not None and
-        origin.geolocation_lng is not None
+        origin.latitude is not None and
+        origin.longitude is not None
     )
     has_polygon = origin.geolocation_polygon is not None
 
@@ -195,7 +196,7 @@ def validate_origin_data(origin: Origin) -> EUDRValidationResult:
             result.add_check(
                 "geolocation",
                 True,
-                f"Coordinates present: ({origin.geolocation_lat}, {origin.geolocation_lng})",
+                f"Coordinates present: ({origin.latitude}, {origin.longitude})",
                 "info"
             )
         if has_polygon:
@@ -224,7 +225,7 @@ def validate_origin_data(origin: Origin) -> EUDRValidationResult:
         )
 
     # Check production dates
-    if not origin.production_start_date and not origin.production_end_date:
+    if not origin.production_date and not origin.harvest_date:
         result.add_missing_field("production_date")
         result.add_check(
             "production_date",
@@ -233,7 +234,7 @@ def validate_origin_data(origin: Origin) -> EUDRValidationResult:
             "error"
         )
     else:
-        prod_date = origin.production_end_date or origin.production_start_date
+        prod_date = origin.harvest_date or origin.production_date
         result.add_check(
             "production_date",
             True,
@@ -411,8 +412,8 @@ def check_deforestation_risk(
     """
     Check deforestation risk for given coordinates.
 
-    This is a placeholder for future satellite API integration (e.g., Global Forest Watch).
-    Currently returns risk level based on country-level assessment.
+    Sprint 14: Now uses satellite service for AI-powered detection.
+    Falls back to country-level assessment when satellite data unavailable.
 
     Args:
         lat: Latitude coordinate
@@ -420,32 +421,56 @@ def check_deforestation_risk(
         country: ISO 2-letter country code
 
     Returns:
-        Dictionary with risk assessment results
+        Dictionary with risk assessment results including:
+        - risk_level: LOW/MEDIUM/HIGH/CRITICAL
+        - source: satellite or country_baseline
+        - forest_loss_detected: bool (if satellite data available)
+        - recommendations: list of actions
     """
-    # Get country risk level
-    country_risk = COUNTRY_RISK_LEVELS.get(country.upper(), RiskLevel.UNKNOWN)
+    from .satellite import check_deforestation_sync
 
-    # Placeholder for satellite API integration
-    satellite_check = {
-        "available": False,
-        "provider": None,
-        "last_checked": None,
-        "forest_loss_detected": None,
-        "message": "Satellite verification not yet integrated. Country-level risk used."
+    # Use satellite service (sync wrapper)
+    result = check_deforestation_sync(
+        latitude=float(lat) if lat else None,
+        longitude=float(lng) if lng else None,
+        country=country
+    )
+
+    # Map satellite risk levels to EUDR RiskLevel enum
+    risk_map = {
+        "LOW": RiskLevel.LOW,
+        "MEDIUM": RiskLevel.MEDIUM,
+        "HIGH": RiskLevel.HIGH,
+        "CRITICAL": RiskLevel.HIGH,  # Map CRITICAL to HIGH for compatibility
     }
 
-    return {
-        "risk_level": country_risk.value,
-        "country_risk": country_risk.value,
-        "coordinates": {
-            "lat": float(lat) if lat else None,
-            "lng": float(lng) if lng else None
-        },
-        "satellite_check": satellite_check,
-        "recommendations": _get_risk_recommendations(country_risk),
-        "eudr_article": "Article 9 - Risk Assessment",
-        "assessed_at": datetime.utcnow().isoformat()
-    }
+    risk_level_str = result.get("risk_level", "MEDIUM").upper()
+    eudr_risk = risk_map.get(risk_level_str, RiskLevel.MEDIUM)
+
+    # Add EUDR-specific fields
+    result["country_risk"] = result.get("risk_level", "medium")
+    result["recommendations"] = result.get("recommendations", _get_risk_recommendations(eudr_risk))
+
+    # Build satellite_check for backward compatibility
+    if result.get("source") == "satellite":
+        result["satellite_check"] = {
+            "available": True,
+            "provider": result.get("provider", "Global Forest Watch"),
+            "last_checked": result.get("checked_at"),
+            "forest_loss_detected": result.get("forest_loss_detected"),
+            "forest_loss_hectares": result.get("forest_loss_hectares"),
+            "message": "Satellite data analysis complete"
+        }
+    else:
+        result["satellite_check"] = {
+            "available": False,
+            "provider": None,
+            "last_checked": result.get("checked_at"),
+            "forest_loss_detected": None,
+            "message": result.get("fallback_reason", "Using country-level risk assessment")
+        }
+
+    return result
 
 
 def _get_risk_recommendations(risk_level: RiskLevel) -> List[str]:
@@ -506,7 +531,7 @@ def generate_due_diligence_statement(
             validation = validate_origin_data(origin)
 
             # Check production date
-            prod_date = origin.production_end_date or origin.production_start_date
+            prod_date = origin.harvest_date or origin.production_date
             date_valid = True
             date_message = ""
             if prod_date:
@@ -517,8 +542,8 @@ def generate_due_diligence_statement(
 
             # Check deforestation risk
             risk_assessment = check_deforestation_risk(
-                origin.geolocation_lat,
-                origin.geolocation_lng,
+                origin.latitude,
+                origin.longitude,
                 origin.country
             )
 
@@ -534,19 +559,19 @@ def generate_due_diligence_statement(
 
             origins_data.append({
                 "origin_id": str(origin.id),
-                "farm_plot_id": origin.farm_plot_identifier,
+                "farm_plot_id": origin.farm_name or origin.plot_identifier,
                 "country": origin.country,
                 "region": origin.region,
                 "geolocation": {
-                    "lat": float(origin.geolocation_lat) if origin.geolocation_lat else None,
-                    "lng": float(origin.geolocation_lng) if origin.geolocation_lng else None,
+                    "lat": float(origin.latitude) if origin.latitude else None,
+                    "lng": float(origin.longitude) if origin.longitude else None,
                     "polygon": origin.geolocation_polygon
                 },
                 "production_date": {
-                    "start": origin.production_start_date.isoformat() if origin.production_start_date else None,
-                    "end": origin.production_end_date.isoformat() if origin.production_end_date else None
+                    "start": origin.production_date.isoformat() if origin.production_date else None,
+                    "end": origin.harvest_date.isoformat() if origin.harvest_date else None
                 },
-                "cutoff_compliant": origin.deforestation_cutoff_compliant,
+                "cutoff_compliant": origin.eudr_cutoff_compliant,
                 "production_date_valid": date_valid,
                 "production_date_message": date_message,
                 "risk_assessment": risk_assessment,
@@ -662,16 +687,16 @@ def get_shipment_eudr_status(
             validation = validate_origin_data(origin)
 
             # Validate production date
-            prod_date = origin.production_end_date or origin.production_start_date
+            prod_date = origin.harvest_date or origin.production_date
             if prod_date:
                 date_valid, date_msg = validate_production_date(prod_date)
                 validation.add_check("production_date_cutoff", date_valid, date_msg, "error" if not date_valid else "info")
 
             # Validate geolocation
-            if origin.geolocation_lat and origin.geolocation_lng:
+            if origin.latitude and origin.longitude:
                 geo_validation = validate_geolocation(
-                    origin.geolocation_lat,
-                    origin.geolocation_lng,
+                    origin.latitude,
+                    origin.longitude,
                     origin.country
                 )
                 validation.checks.extend(geo_validation.checks)
@@ -680,8 +705,8 @@ def get_shipment_eudr_status(
 
             # Risk assessment
             risk = check_deforestation_risk(
-                origin.geolocation_lat,
-                origin.geolocation_lng,
+                origin.latitude,
+                origin.longitude,
                 origin.country
             )
             validation.risk_level = RiskLevel(risk["risk_level"])
@@ -698,7 +723,7 @@ def get_shipment_eudr_status(
 
             origin_validations.append({
                 "origin_id": str(origin.id),
-                "farm_plot_id": origin.farm_plot_identifier,
+                "farm_plot_id": origin.farm_name or origin.plot_identifier,
                 "country": origin.country,
                 "validation": validation.to_dict(),
                 "risk": risk
@@ -816,7 +841,7 @@ def calculate_risk_score(
         score -= 15
 
     # Deduct for production date issues
-    prod_date = origin.production_end_date or origin.production_start_date
+    prod_date = origin.harvest_date or origin.production_date
     if prod_date:
         valid, _ = validate_production_date(prod_date)
         if not valid:

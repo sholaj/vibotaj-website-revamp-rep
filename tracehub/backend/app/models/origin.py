@@ -50,6 +50,10 @@ class Origin(Base):
     # EUDR compliance
     deforestation_free = Column(Boolean)
     eudr_cutoff_compliant = Column(Boolean)
+    deforestation_free_statement = Column(Boolean)  # Sprint 14: Explicit statement flag
+    due_diligence_statement_ref = Column(String(255))  # Sprint 14: DDS reference number
+    geolocation_polygon = Column(Text)  # Sprint 14: GeoJSON polygon for plot boundaries
+    supplier_attestation_date = Column(DateTime(timezone=True))  # Sprint 14: When supplier attested
 
     # Risk assessment
     risk_level = Column(Enum(RiskLevel, name="risklevel", create_type=False))

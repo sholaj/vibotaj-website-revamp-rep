@@ -314,8 +314,8 @@ export default function Analytics() {
   }, [fetchAnalytics])
 
   const handleRefresh = useCallback(() => {
-    api.invalidateCache('/analytics')
-    api.invalidateCache('/audit-log')
+    api.invalidateCache('analytics')
+    api.invalidateCache('audit-log')
     fetchAnalytics(false)
   }, [fetchAnalytics])
 

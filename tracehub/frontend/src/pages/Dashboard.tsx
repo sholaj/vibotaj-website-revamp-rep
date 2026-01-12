@@ -231,13 +231,13 @@ export default function Dashboard() {
 
   const handleRefresh = useCallback(() => {
     // Clear cache before refreshing
-    api.invalidateCache('/shipments')
+    api.invalidateCache('shipments')
     fetchShipments(false)
   }, [fetchShipments])
 
   // Handle successful shipment creation
   const handleShipmentCreated = useCallback(() => {
-    api.invalidateCache('/shipments')
+    api.invalidateCache('shipments')
     fetchShipments(false)
   }, [fetchShipments])
 
@@ -255,7 +255,7 @@ export default function Dashboard() {
 
   // Handle successful shipment update
   const handleShipmentUpdated = useCallback(() => {
-    api.invalidateCache('/shipments')
+    api.invalidateCache('shipments')
     fetchShipments(false)
     setSelectedShipment(null)
   }, [fetchShipments])
@@ -265,7 +265,7 @@ export default function Dashboard() {
     if (!selectedShipment) return
 
     await api.deleteShipment(selectedShipment.id)
-    api.invalidateCache('/shipments')
+    api.invalidateCache('shipments')
     fetchShipments(false)
     setSelectedShipment(null)
   }, [selectedShipment, fetchShipments])

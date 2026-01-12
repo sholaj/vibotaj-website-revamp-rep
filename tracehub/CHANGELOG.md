@@ -7,6 +7,99 @@ All notable changes to the TraceHub platform are documented in this file.
 
 ---
 
+## [1.6.1] - 2026-01-12
+
+### Bug Fixes
+
+**Frontend - Cache Invalidation Fix:**
+- Fixed bug where newly created shipments were not visible after creation
+- **Root Cause:** Cache key mismatch between get operations (`'GET:shipments'`) and invalidation patterns (`'/shipments'`)
+- **Fix:** Standardized all cache invalidation patterns to use consistent format without leading slash
+- Files Modified:
+  - `frontend/src/api/client.ts` - Fixed all `this.cache.invalidate()` patterns
+  - `frontend/src/pages/Dashboard.tsx` - Fixed `api.invalidateCache()` calls
+  - `frontend/src/pages/Analytics.tsx` - Fixed `api.invalidateCache()` calls
+- Added unit tests documenting the bug pattern in `frontend/src/test/ApiClientCache.test.ts`
+- **Result:** Shipment list now correctly refreshes after creating/updating/deleting shipments
+
+---
+
+## [1.6.0] - 2026-01-12
+
+### Sprint 14: Compliance Feature Hardening
+
+**CRITICAL Bug Fixes:**
+
+**Backend - Origin Model Field Alignment (14.1):**
+- Fixed field name mismatches between Origin model and EUDR service
+  - `geolocation_lat` → `latitude`, `geolocation_lng` → `longitude`
+  - `farm_plot_identifier` → `farm_name or plot_identifier`
+  - `production_start_date/end_date` → `production_date/harvest_date`
+- Added missing EUDR fields to Origin model:
+  - `deforestation_free_statement` (Boolean)
+  - `due_diligence_statement_ref` (String)
+  - `geolocation_polygon` (Text - GeoJSON)
+  - `supplier_attestation_date` (DateTime)
+- Created Alembic migration `20260112_0001_add_eudr_origin_fields.py`
+- **Result:** EUDR verification no longer crashes with AttributeError
+
+**Backend - Document Validation Enforcement (14.2):**
+- Created `validate_document_content()` in `services/compliance.py`
+- Enforced RC1479592 TRACES certificate validation for Horn & Hoof
+- Validation now blocks document approval if requirements not met
+- Added validation call to `PATCH /documents/{id}/validate` endpoint
+- Warnings returned in response for soft validation issues
+
+**New Features:**
+
+**Backend - AI Satellite Deforestation Detection (14.3):**
+- Created `services/satellite.py` - Satellite detection service
+  - Global Forest Watch API integration (when `GFW_API_KEY` configured)
+  - 24-hour result caching to prevent rate limiting
+  - Country-level fallback when API unavailable
+  - Risk levels: LOW, MEDIUM, HIGH, CRITICAL
+- Updated `check_deforestation_risk()` in `services/eudr.py`
+  - Now uses satellite service for AI-powered detection
+  - Returns `source: satellite|country_baseline` to indicate data source
+  - Includes `forest_loss_detected` and `forest_loss_hectares` when available
+
+**Backend - Professional PDF Reports (14.4):**
+- Created `services/pdf_generator.py` using ReportLab
+- Features:
+  - VIBOTAJ branding with company colors
+  - Professional table formatting
+  - Compliance status color coding (green/red)
+  - Detailed checklist with PASS/FAIL indicators
+  - Origin verification sections
+  - Legal basis and due diligence statements
+- Updated `_generate_pdf_report()` in `routers/eudr.py`
+- **Result:** `/api/eudr/shipment/{id}/report?format=pdf` now returns real PDF
+
+**Backend - EUDR Audit Trail (14.5):**
+- Added EUDR audit actions to `AuditAction` class:
+  - `EUDR_STATUS_CHECK`, `EUDR_REPORT_GENERATE`
+  - `EUDR_ORIGIN_VERIFY`, `EUDR_ORIGIN_VERIFY_SUCCESS/FAILURE`
+  - `EUDR_RISK_ASSESSMENT`, `EUDR_DEFORESTATION_CHECK`
+  - `EUDR_COMPLIANCE_PASS`, `EUDR_COMPLIANCE_FAIL`
+- Added audit logging to EUDR validation and risk endpoints
+- **Result:** Full audit trail for compliance officer review
+
+**Testing:**
+- All 56 compliance tests passing
+- No breaking changes to existing API contracts
+
+**Files Modified:**
+- `backend/app/models/origin.py` - Added EUDR fields
+- `backend/app/services/eudr.py` - Fixed field references
+- `backend/app/routers/eudr.py` - Fixed field mappings, added audit logging
+- `backend/app/services/compliance.py` - Added validation enforcement
+- `backend/app/routers/documents.py` - Integrated validation
+- `backend/app/services/satellite.py` - NEW
+- `backend/app/services/pdf_generator.py` - NEW
+- `backend/app/services/audit_log.py` - Added EUDR actions
+
+---
+
 ## [1.5.0] - 2026-01-11
 
 ### Sprint 13: Organization Member Management

@@ -38,6 +38,7 @@ from ..services.permissions import Permission, has_permission
 from ..services.pdf_processor import pdf_processor
 from ..services.document_classifier import document_classifier
 from ..services.shipment_enrichment import shipment_enrichment_service
+from ..services.compliance import validate_document_content as validate_compliance
 
 router = APIRouter()
 settings = get_settings()
@@ -362,6 +363,11 @@ async def validate_document(
 ):
     """Mark document as validated.
 
+    Sprint 14: Now includes compliance validation for Horn & Hoof documents.
+    - EU TRACES must reference RC1479592
+    - Veterinary Health Certificate must be from Nigerian authority
+    - Certificate of Origin must specify Nigeria
+
     Requires: documents:validate permission (admin, compliance roles)
     """
     # Check permission
@@ -374,6 +380,25 @@ async def validate_document(
     if not document:
         raise HTTPException(status_code=404, detail="Document not found")
 
+    # Get shipment for compliance context
+    shipment = db.query(Shipment).filter(
+        Shipment.id == document.shipment_id
+    ).first() if document.shipment_id else None
+
+    # Sprint 14: Run compliance validation
+    compliance_result = validate_compliance(document, shipment)
+
+    # If validation fails (errors), reject the validation
+    if not compliance_result.is_valid:
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "message": "Document validation failed - compliance errors",
+                "errors": compliance_result.errors,
+                "warnings": compliance_result.warnings
+            }
+        )
+
     document.status = DocumentStatus.VALIDATED
     document.validated_at = datetime.utcnow()
     document.validated_by = current_user.email
@@ -383,7 +408,15 @@ async def validate_document(
     db.commit()
     db.refresh(document)
 
-    return {"message": "Document validated", "status": document.status}
+    # Include warnings in response even if validation passed
+    response = {
+        "message": "Document validated",
+        "status": document.status.value if hasattr(document.status, 'value') else str(document.status)
+    }
+    if compliance_result.warnings:
+        response["compliance_warnings"] = compliance_result.warnings
+
+    return response
 
 
 @router.delete("/{document_id}")
