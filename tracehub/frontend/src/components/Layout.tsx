@@ -1,5 +1,5 @@
 import { Outlet, Link, useLocation } from 'react-router-dom'
-import { Package, LogOut, Home, BarChart3, Users, Shield, Building2 } from 'lucide-react'
+import { Package, LogOut, BarChart3, Users, Shield, Building2 } from 'lucide-react'
 import NotificationBell from './NotificationBell'
 import { useAuth } from '../contexts/AuthContext'
 import type { UserRole } from '../types'

@@ -444,10 +444,10 @@ export default function DocumentReviewPanel({
 
           {/* Audit Trail */}
           <div className="text-sm text-gray-500 space-y-1">
-            {document.uploaded_by && document.uploaded_at && (
+            {document.uploaded_by && document.created_at && (
               <p>
                 Uploaded by {document.uploaded_by} on{' '}
-                {new Date(document.uploaded_at).toLocaleString()}
+                {new Date(document.created_at).toLocaleString()}
               </p>
             )}
             {document.validated_by && document.validated_at && (

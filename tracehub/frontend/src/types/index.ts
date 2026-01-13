@@ -204,6 +204,7 @@ export interface Document {
   id: string
   shipment_id: string
   document_type: DocumentType
+  document_types?: string[]   // Multiple document types in combined PDF
   name: string
   file_name?: string
   file_path?: string
@@ -221,6 +222,10 @@ export interface Document {
   validation_notes?: string
   created_at?: string
   updated_at?: string
+  // Combined PDF properties (populated from DocumentUploadResponse)
+  is_combined?: boolean
+  page_count?: number
+  content_count?: number
 }
 
 // Document content within a combined PDF
