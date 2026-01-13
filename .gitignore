@@ -259,3 +259,20 @@ local-config.php
 BILL OF LADING*.pdf
 *.B_L.pdf
 tracehub/test-results/
+
+# ===========================================
+# RALPH AUTONOMOUS DEVELOPMENT
+# ===========================================
+# Ralph state files (session-specific, not shared)
+.call_count
+.last_reset
+.ralph_session
+.ralph_session_history
+.circuit_breaker_state
+.circuit_breaker_history
+.exit_signals
+.response_analysis
+.claude_session_id
+status.json
+progress.json
+logs/ralph_*.log
