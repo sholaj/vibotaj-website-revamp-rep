@@ -83,17 +83,15 @@ def vibotaj_shipment(db_session, org_vibotaj):
 
 @pytest.fixture(scope="module")
 def vibotaj_document(db_session, vibotaj_shipment, org_vibotaj):
-    # Mimic the upload behavior (without explicit organization_id if that is what the code does, 
-    # BUT wait, the test setup in multi_tenancy.py didn't set it. I should verify if setting it or not affects visibility).
-    # I'll try to create it exactly as the upload endpoint might (which seemingly omits it).
+    # SEC-001 fix: Documents MUST have organization_id set for proper multi-tenancy isolation.
+    # The upload endpoint now sets organization_id from current_user.organization_id.
     doc = Document(
         shipment_id=vibotaj_shipment.id,
         name="Positive Test Doc",
         document_type=DocumentType.BILL_OF_LADING,
         status=DocumentStatus.UPLOADED,
         file_name="pos.pdf",
-        # Intentionally NOT setting organization_id to test if it fails
-        # organization_id=org_vibotaj.id 
+        organization_id=org_vibotaj.id  # SEC-001: Required for document visibility
     )
     db_session.add(doc)
     db_session.commit()
