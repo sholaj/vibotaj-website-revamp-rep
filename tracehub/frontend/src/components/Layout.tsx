@@ -31,10 +31,10 @@ export default function Layout({ onLogout }: LayoutProps) {
   const location = useLocation()
   const { user, isAdmin, canManageUsers } = useAuth()
 
-  // Base navigation items
+  // TICKET-005/006: Fixed navigation labels to match page content
   const navigation = [
-    { name: 'Dashboard', href: '/dashboard', icon: Home, show: true },
-    { name: 'Analytics', href: '/analytics', icon: BarChart3, show: true },
+    { name: 'Shipments', href: '/dashboard', icon: Package, show: true },  // Was 'Dashboard' - shows shipment list
+    { name: 'Dashboard', href: '/analytics', icon: BarChart3, show: true },  // Was 'Analytics' - shows overview stats
     // Admin-only items
     { name: 'Users', href: '/users', icon: Users, show: canManageUsers },
     { name: 'Organizations', href: '/organizations', icon: Building2, show: isAdmin },

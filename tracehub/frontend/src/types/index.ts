@@ -199,32 +199,28 @@ export type DocumentStatus =
   | 'linked'
   | 'archived'
 
+// TICKET-002: Field names aligned with backend Document model (tracehub/backend/app/models/document.py)
 export interface Document {
   id: string
   shipment_id: string
   document_type: DocumentType
-  document_types?: string[]  // Multiple document types when PDF contains several docs
   name: string
   file_name?: string
   file_path?: string
-  file_size_bytes?: number
+  file_size?: number          // Was file_size_bytes - aligned with backend
   mime_type?: string
   status: DocumentStatus
   required?: boolean
   reference_number?: string
-  issue_date?: string
+  document_date?: string      // Was issue_date - aligned with backend
   expiry_date?: string
-  issuing_authority?: string
+  issuer?: string             // Was issuing_authority - aligned with backend
   uploaded_by?: string
-  uploaded_at?: string
   validated_at?: string
   validated_by?: string
+  validation_notes?: string
   created_at?: string
   updated_at?: string
-  // Multi-document PDF fields
-  is_combined?: boolean
-  content_count?: number
-  page_count?: number
 }
 
 // Document content within a combined PDF
@@ -323,14 +319,16 @@ export interface ContainerEvent {
 // Aligned with backend ShipmentStatus enum
 // ============================================
 
+// TICKET-001: Aligned with backend ShipmentStatus enum (tracehub/backend/app/models/shipment.py)
 export type ShipmentStatus =
-  | 'created'
+  | 'draft'           // Was 'created' - initial state
   | 'docs_pending'
   | 'docs_complete'
   | 'in_transit'
   | 'arrived'
+  | 'customs'         // Added - missing from frontend
   | 'delivered'
-  | 'closed'
+  | 'archived'        // Was 'closed' - terminal state
 
 export interface Shipment {
   id: string
@@ -535,15 +533,15 @@ export interface PaginatedResponse<T> {
 // Form/Request Types
 // ============================================
 
+// TICKET-002: Field names aligned with backend
 export interface DocumentUploadRequest {
   shipment_id: string
   document_type: DocumentType
-  document_types?: string[]  // Additional types if PDF contains multiple docs
   file: File
   reference_number?: string
-  issue_date?: string
+  document_date?: string      // Was issue_date - aligned with backend
   expiry_date?: string
-  issuing_authority?: string
+  issuer?: string             // Was issuing_authority - aligned with backend
 }
 
 // ============================================

@@ -11,6 +11,9 @@ import io
 from ..database import get_db
 from ..models import Shipment, Document, ContainerEvent, Product, Organization
 from ..models.shipment import ShipmentStatus
+from ..models.origin import Origin
+from ..models.document_content import DocumentContent
+from ..models.reference_registry import ReferenceRegistry
 from ..models.organization import OrganizationType
 from ..schemas.shipment import ShipmentResponse, ShipmentDetailResponse, ShipmentListResponse, ShipmentCreate, ShipmentUpdate
 from ..schemas.user import CurrentUser
@@ -433,12 +436,36 @@ async def delete_shipment(
             detail="Only shipment owners can delete shipments. Buyers have read-only access."
         )
 
-    # Delete associated records (cascade should handle this, but being explicit)
-    db.query(Document).filter(Document.shipment_id == shipment_id).delete()
-    db.query(ContainerEvent).filter(ContainerEvent.shipment_id == shipment_id).delete()
-    db.query(Product).filter(Product.shipment_id == shipment_id).delete()
+    # SEC-002 FIX: Delete associated records in correct order to avoid FK constraint errors
+    # Order matters: delete records that have FKs to other tables first
 
-    # Delete the shipment
+    # 1. Get all document IDs for this shipment
+    document_ids = [d.id for d in db.query(Document.id).filter(Document.shipment_id == shipment_id).all()]
+
+    if document_ids:
+        # 2. Delete ReferenceRegistry entries (FK to documents and shipment)
+        db.query(ReferenceRegistry).filter(
+            ReferenceRegistry.shipment_id == shipment_id
+        ).delete(synchronize_session=False)
+
+        # 3. Delete DocumentContent entries (FK to documents)
+        db.query(DocumentContent).filter(
+            DocumentContent.document_id.in_(document_ids)
+        ).delete(synchronize_session=False)
+
+    # 4. Delete Documents (FK to shipment)
+    db.query(Document).filter(Document.shipment_id == shipment_id).delete(synchronize_session=False)
+
+    # 5. Delete Origins (FK to shipment)
+    db.query(Origin).filter(Origin.shipment_id == shipment_id).delete(synchronize_session=False)
+
+    # 6. Delete ContainerEvents (FK to shipment)
+    db.query(ContainerEvent).filter(ContainerEvent.shipment_id == shipment_id).delete(synchronize_session=False)
+
+    # 7. Delete Products (FK to shipment)
+    db.query(Product).filter(Product.shipment_id == shipment_id).delete(synchronize_session=False)
+
+    # 8. Finally, delete the shipment itself
     db.delete(shipment)
     db.commit()
 

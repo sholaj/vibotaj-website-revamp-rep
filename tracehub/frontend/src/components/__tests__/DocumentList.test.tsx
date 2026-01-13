@@ -22,7 +22,7 @@ describe('DocumentList Component', () => {
       reference_number: 'BOL-001',
       status: 'validated',
       page_count: 2,
-      issue_date: '2026-01-15',
+      document_date: '2026-01-15',  // TICKET-002: Renamed from issue_date
       file_path: '/uploads/bol-001.pdf'
     },
     {

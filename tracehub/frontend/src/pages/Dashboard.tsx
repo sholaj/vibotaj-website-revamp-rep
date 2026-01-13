@@ -20,15 +20,16 @@ import CreateShipmentModal from '../components/CreateShipmentModal'
 import EditShipmentModal from '../components/EditShipmentModal'
 import DeleteConfirmationModal from '../components/DeleteConfirmationModal'
 
-// Status badge styles and labels
+// TICKET-001: Status badge styles and labels (aligned with backend ShipmentStatus enum)
 const STATUS_CONFIG: Record<ShipmentStatus, { style: string; label: string }> = {
-  created: { style: 'badge-info', label: 'Created' },
+  draft: { style: 'badge-info', label: 'Draft' },  // Was 'created'
   docs_pending: { style: 'badge-warning', label: 'Docs Pending' },
   docs_complete: { style: 'badge-success', label: 'Docs Complete' },
   in_transit: { style: 'badge-info', label: 'In Transit' },
   arrived: { style: 'badge-success', label: 'Arrived' },
+  customs: { style: 'badge-warning', label: 'At Customs' },  // Added - was missing
   delivered: { style: 'badge-success', label: 'Delivered' },
-  closed: { style: 'bg-gray-100 text-gray-600', label: 'Closed' },
+  archived: { style: 'bg-gray-100 text-gray-600', label: 'Archived' },  // Was 'closed'
 }
 
 function getStatusBadge(status: ShipmentStatus) {

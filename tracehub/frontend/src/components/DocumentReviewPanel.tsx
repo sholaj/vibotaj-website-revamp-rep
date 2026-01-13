@@ -199,10 +199,10 @@ export default function DocumentReviewPanel({
                   <p className="font-medium">{document.reference_number}</p>
                 </div>
               )}
-              {document.issue_date && (
+              {document.document_date && (
                 <div>
                   <span className="text-gray-500">Issue Date:</span>
-                  <p className="font-medium">{new Date(document.issue_date).toLocaleDateString()}</p>
+                  <p className="font-medium">{new Date(document.document_date).toLocaleDateString()}</p>
                 </div>
               )}
               {document.expiry_date && (
@@ -211,10 +211,10 @@ export default function DocumentReviewPanel({
                   <p className="font-medium">{new Date(document.expiry_date).toLocaleDateString()}</p>
                 </div>
               )}
-              {document.issuing_authority && (
+              {document.issuer && (
                 <div>
                   <span className="text-gray-500">Issuing Authority:</span>
-                  <p className="font-medium">{document.issuing_authority}</p>
+                  <p className="font-medium">{document.issuer}</p>
                 </div>
               )}
             </div>

@@ -27,15 +27,16 @@ const CONTAINER_PATTERN = /^[A-Z]{4}[0-9]{7}$/
 // Reference pattern: VIBO-YYYY-NNN
 const REFERENCE_PATTERN = /^VIBO-\d{4}-\d{3}$/
 
-// Available shipment statuses (aligned with backend ShipmentStatus enum)
+// TICKET-001: Available shipment statuses (aligned with backend ShipmentStatus enum)
 const STATUS_OPTIONS: { value: ShipmentStatus; label: string }[] = [
-  { value: 'created', label: 'Created' },
+  { value: 'draft', label: 'Draft' },
   { value: 'docs_pending', label: 'Documents Pending' },
   { value: 'docs_complete', label: 'Documents Complete' },
   { value: 'in_transit', label: 'In Transit' },
   { value: 'arrived', label: 'Arrived' },
+  { value: 'customs', label: 'At Customs' },
   { value: 'delivered', label: 'Delivered' },
-  { value: 'closed', label: 'Closed' },
+  { value: 'archived', label: 'Archived' },
 ]
 
 export default function EditShipmentModal({
@@ -49,7 +50,7 @@ export default function EditShipmentModal({
   const [containerNumber, setContainerNumber] = useState('')
   const [productType, setProductType] = useState<ProductType | ''>('')
   const [vesselName, setVesselName] = useState('')
-  const [status, setStatus] = useState<ShipmentStatus>('created')
+  const [status, setStatus] = useState<ShipmentStatus>('draft')
   const [buyerOrgId, setBuyerOrgId] = useState<string>('')
 
   // Buyers dropdown state

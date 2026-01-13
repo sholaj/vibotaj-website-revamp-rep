@@ -83,8 +83,8 @@ export default function DocumentList({ documents, missingDocuments = [], onUploa
                     {doc.page_count && doc.page_count > 1 && (
                       <span>{doc.page_count} pages</span>
                     )}
-                    {doc.issue_date && (
-                      <span>Issued: {format(new Date(doc.issue_date), 'MMM d, yyyy')}</span>
+                    {doc.document_date && (
+                      <span>Issued: {format(new Date(doc.document_date), 'MMM d, yyyy')}</span>
                     )}
                   </div>
                 </div>

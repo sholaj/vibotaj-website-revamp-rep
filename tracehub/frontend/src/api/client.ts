@@ -604,9 +604,9 @@ class ApiClient {
     documentType: DocumentType,
     metadata?: {
       reference_number?: string
-      issue_date?: string
+      document_date?: string  // TICKET-002: Renamed from issue_date
       expiry_date?: string
-      issuing_authority?: string
+      issuer?: string  // TICKET-002: Renamed from issuing_authority
       auto_detect?: boolean
     }
   ): Promise<Document> {
@@ -622,14 +622,14 @@ class ApiClient {
     if (metadata?.reference_number) {
       formData.append('reference_number', metadata.reference_number)
     }
-    if (metadata?.issue_date) {
-      formData.append('issue_date', metadata.issue_date)
+    if (metadata?.document_date) {
+      formData.append('document_date', metadata.document_date)
     }
     if (metadata?.expiry_date) {
       formData.append('expiry_date', metadata.expiry_date)
     }
-    if (metadata?.issuing_authority) {
-      formData.append('issuing_authority', metadata.issuing_authority)
+    if (metadata?.issuer) {
+      formData.append('issuer', metadata.issuer)
     }
 
     const response = await this.client.post<Document>('documents/upload', formData, {
@@ -737,9 +737,9 @@ class ApiClient {
     documentId: string,
     metadata: {
       reference_number?: string
-      issue_date?: string
+      document_date?: string  // TICKET-002: Renamed from issue_date
       expiry_date?: string
-      issuing_authority?: string
+      issuer?: string  // TICKET-002: Renamed from issuing_authority
       extra_data?: Record<string, unknown>
     }
   ): Promise<{ message: string; document_id: string }> {

@@ -22,6 +22,12 @@ from app.database import get_db
 from app.models.user import User, UserRole
 from app.models.organization import Organization, OrganizationType, OrganizationStatus
 from app.models.shipment import Shipment, ShipmentStatus, ProductType
+from app.models.document import Document, DocumentType, DocumentStatus
+from app.models.document_content import DocumentContent
+from app.models.origin import Origin
+from app.models.container_event import ContainerEvent
+from app.models.product import Product
+from app.models.reference_registry import ReferenceRegistry
 from app.routers.auth import get_password_hash, get_current_active_user
 from app.schemas.user import CurrentUser
 from app.services.permissions import get_role_permissions
@@ -581,10 +587,270 @@ class TestAuditPackGeneration:
     def test_generate_audit_pack(self, client, admin_user, vibotaj_shipment):
         """Should generate audit pack for shipment."""
         app.dependency_overrides[get_current_active_user] = lambda: mock_auth(admin_user)
-        
+
         response = client.get(f"/api/shipments/{vibotaj_shipment.id}/audit-pack")
-        
+
         # Might return PDF or error if no documents (500 indicates bug to fix)
         assert response.status_code in [200, 400, 404, 500]
-        
+
+        del app.dependency_overrides[get_current_active_user]
+
+
+class TestShipmentDeletion:
+    """Tests for SEC-002: Shipment deletion cascade.
+
+    These tests verify that shipment deletion works correctly
+    even when there are related records (documents, origins, etc.)
+    """
+
+    def test_delete_shipment_basic(self, client, db_session, admin_user, org_vibotaj):
+        """SEC-002: Basic shipment deletion should work."""
+        # Create a simple shipment
+        shipment = Shipment(
+            reference=f"VIBO-DEL-{uuid.uuid4().hex[:6]}",
+            container_number="DELT1234567",
+            status=ShipmentStatus.DRAFT,
+            organization_id=org_vibotaj.id
+        )
+        db_session.add(shipment)
+        db_session.commit()
+        db_session.refresh(shipment)
+        shipment_id = shipment.id
+
+        app.dependency_overrides[get_current_active_user] = lambda: mock_auth(admin_user)
+
+        response = client.delete(f"/api/shipments/{shipment_id}")
+
+        # Should succeed with 204 No Content
+        assert response.status_code == 204, f"Delete failed: {response.text}"
+
+        # Verify shipment is deleted
+        deleted_shipment = db_session.query(Shipment).filter(Shipment.id == shipment_id).first()
+        assert deleted_shipment is None, "Shipment should be deleted"
+
+        del app.dependency_overrides[get_current_active_user]
+
+    def test_delete_shipment_with_documents(self, client, db_session, admin_user, org_vibotaj):
+        """SEC-002: Should delete shipment with associated documents."""
+        # Create shipment with document
+        shipment = Shipment(
+            reference=f"VIBO-DELDOC-{uuid.uuid4().hex[:6]}",
+            container_number="DDOC1234567",
+            status=ShipmentStatus.DRAFT,
+            organization_id=org_vibotaj.id
+        )
+        db_session.add(shipment)
+        db_session.commit()
+        db_session.refresh(shipment)
+
+        # Create associated document
+        doc = Document(
+            shipment_id=shipment.id,
+            organization_id=org_vibotaj.id,
+            name="Test Document",
+            document_type=DocumentType.BILL_OF_LADING,
+            status=DocumentStatus.UPLOADED,
+            file_name="test.pdf"
+        )
+        db_session.add(doc)
+        db_session.commit()
+
+        shipment_id = shipment.id
+        doc_id = doc.id
+
+        app.dependency_overrides[get_current_active_user] = lambda: mock_auth(admin_user)
+
+        response = client.delete(f"/api/shipments/{shipment_id}")
+
+        # Should succeed without 500 error
+        assert response.status_code == 204, f"Delete failed with {response.status_code}: {response.text}"
+
+        # Verify both are deleted
+        assert db_session.query(Shipment).filter(Shipment.id == shipment_id).first() is None
+        assert db_session.query(Document).filter(Document.id == doc_id).first() is None
+
+        del app.dependency_overrides[get_current_active_user]
+
+    def test_delete_shipment_with_document_content(self, client, db_session, admin_user, org_vibotaj):
+        """SEC-002: Should delete shipment with document content records."""
+        # Create shipment
+        shipment = Shipment(
+            reference=f"VIBO-DELCNT-{uuid.uuid4().hex[:6]}",
+            container_number="DCNT1234567",
+            status=ShipmentStatus.DRAFT,
+            organization_id=org_vibotaj.id
+        )
+        db_session.add(shipment)
+        db_session.commit()
+
+        # Create document with content
+        doc = Document(
+            shipment_id=shipment.id,
+            organization_id=org_vibotaj.id,
+            name="Multi-page Document",
+            document_type=DocumentType.BILL_OF_LADING,
+            status=DocumentStatus.UPLOADED,
+            file_name="multipage.pdf"
+        )
+        db_session.add(doc)
+        db_session.commit()
+
+        # Create document content
+        content = DocumentContent(
+            document_id=doc.id,
+            document_type=DocumentType.COMMERCIAL_INVOICE,
+            status=DocumentStatus.UPLOADED,
+            page_start=1,
+            page_end=3,
+            confidence_score=0.95,
+            detection_method="ai"
+        )
+        db_session.add(content)
+        db_session.commit()
+
+        shipment_id = shipment.id
+
+        app.dependency_overrides[get_current_active_user] = lambda: mock_auth(admin_user)
+
+        response = client.delete(f"/api/shipments/{shipment_id}")
+
+        assert response.status_code == 204, f"Delete failed: {response.text}"
+
+        del app.dependency_overrides[get_current_active_user]
+
+    def test_delete_shipment_with_origins(self, client, db_session, admin_user, org_vibotaj):
+        """SEC-002: Should delete shipment with origin records."""
+        # Create shipment
+        shipment = Shipment(
+            reference=f"VIBO-DELOR-{uuid.uuid4().hex[:6]}",
+            container_number="DORI1234567",
+            status=ShipmentStatus.DRAFT,
+            organization_id=org_vibotaj.id,
+            product_type=ProductType.COCOA  # EUDR product with origins
+        )
+        db_session.add(shipment)
+        db_session.commit()
+
+        # Create origin record (matching Origin model field names)
+        origin = Origin(
+            shipment_id=shipment.id,
+            organization_id=org_vibotaj.id,  # Required field
+            plot_identifier="FARM-001",
+            country="NG",
+            latitude=6.5244,
+            longitude=3.3792
+        )
+        db_session.add(origin)
+        db_session.commit()
+
+        shipment_id = shipment.id
+
+        app.dependency_overrides[get_current_active_user] = lambda: mock_auth(admin_user)
+
+        response = client.delete(f"/api/shipments/{shipment_id}")
+
+        assert response.status_code == 204, f"Delete failed: {response.text}"
+
+        del app.dependency_overrides[get_current_active_user]
+
+    def test_delete_shipment_with_all_relations(self, client, db_session, admin_user, org_vibotaj):
+        """SEC-002: Should delete shipment with all possible related records."""
+        # Create shipment with all relations
+        shipment = Shipment(
+            reference=f"VIBO-DELALL-{uuid.uuid4().hex[:6]}",
+            container_number="DALL1234567",
+            status=ShipmentStatus.IN_TRANSIT,
+            organization_id=org_vibotaj.id,
+            product_type=ProductType.COCOA
+        )
+        db_session.add(shipment)
+        db_session.commit()
+
+        # Add document
+        doc = Document(
+            shipment_id=shipment.id,
+            organization_id=org_vibotaj.id,
+            name="Complete Doc",
+            document_type=DocumentType.BILL_OF_LADING,
+            status=DocumentStatus.VALIDATED,
+            file_name="complete.pdf"
+        )
+        db_session.add(doc)
+        db_session.commit()
+
+        # Add document content
+        content = DocumentContent(
+            document_id=doc.id,
+            document_type=DocumentType.BILL_OF_LADING,
+            status=DocumentStatus.VALIDATED,
+            page_start=1,
+            page_end=2,
+            confidence_score=0.99,
+            detection_method="keyword"
+        )
+        db_session.add(content)
+        db_session.commit()
+
+        # Add reference registry (if needed)
+        try:
+            registry = ReferenceRegistry(
+                shipment_id=shipment.id,
+                reference_number="BL-123456",
+                document_type=DocumentType.BILL_OF_LADING,
+                document_id=doc.id,
+                document_content_id=content.id,
+                first_seen_at=datetime.utcnow()
+            )
+            db_session.add(registry)
+            db_session.commit()
+        except Exception:
+            db_session.rollback()
+
+        # Add origin (matching Origin model field names)
+        origin = Origin(
+            shipment_id=shipment.id,
+            organization_id=org_vibotaj.id,  # Required field
+            plot_identifier="FARM-COMPLETE-001",
+            country="NG"
+        )
+        db_session.add(origin)
+        db_session.commit()
+
+        # Add container event (matching ContainerEvent model field names)
+        from app.models.container_event import EventStatus
+        event = ContainerEvent(
+            shipment_id=shipment.id,
+            organization_id=org_vibotaj.id,  # Required field
+            event_status=EventStatus.DEPARTED,
+            event_time=datetime.utcnow(),
+            location_name="Lagos Port"
+        )
+        db_session.add(event)
+        db_session.commit()
+
+        # Add product (matching Product model field names)
+        product = Product(
+            shipment_id=shipment.id,
+            organization_id=org_vibotaj.id,  # Required field
+            name="Cocoa Beans",  # Required field
+            hs_code="1801.00",
+            description="Raw cocoa beans",
+            quantity_net_kg=25000.0
+        )
+        db_session.add(product)
+        db_session.commit()
+
+        shipment_id = shipment.id
+
+        app.dependency_overrides[get_current_active_user] = lambda: mock_auth(admin_user)
+
+        # This is the key test - should NOT return 500
+        response = client.delete(f"/api/shipments/{shipment_id}")
+
+        assert response.status_code == 204, \
+            f"Delete with all relations failed with {response.status_code}: {response.text}"
+
+        # Verify complete cleanup
+        assert db_session.query(Shipment).filter(Shipment.id == shipment_id).first() is None
+
         del app.dependency_overrides[get_current_active_user]

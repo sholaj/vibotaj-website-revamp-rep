@@ -22,7 +22,7 @@ const mockShipment = {
   id: 'ship-123',
   reference: 'VIBO-2026-001',
   container_number: 'MSCU1234567',
-  status: 'created' as const,
+  status: 'draft' as const,  // TICKET-001: Changed from 'created' to 'draft'
 }
 
 describe('CreateShipmentModal Component', () => {

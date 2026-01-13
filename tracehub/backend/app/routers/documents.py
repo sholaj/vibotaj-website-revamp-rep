@@ -69,9 +69,9 @@ class ApprovalRequest(BaseModel):
 class DocumentMetadataUpdate(BaseModel):
     """Update document metadata fields."""
     reference_number: Optional[str] = None
-    issue_date: Optional[date] = None
+    document_date: Optional[date] = None  # TICKET-002: Renamed from issue_date
     expiry_date: Optional[date] = None
-    issuing_authority: Optional[str] = None
+    issuer: Optional[str] = None  # TICKET-002: Renamed from issuing_authority
     extra_data: Optional[dict] = None
 
 
@@ -198,22 +198,19 @@ async def upload_document(
                 pass  # Keep user's selection if AI type is invalid
 
     # Create document record
+    # SEC-001: Set organization_id from current user for multi-tenancy isolation
     document = Document(
         shipment_id=shipment_id,
+        organization_id=current_user.organization_id,  # SEC-001 FIX: Required for multi-tenancy
         document_type=final_document_type,
-        document_types=[dc["document_type"] for dc in detected_contents] if detected_contents else [final_document_type.value],
         name=file.filename,
         file_path=file_path,
         file_name=file.filename,
-        file_size_bytes=file_size,
+        file_size=file_size,  # Fixed: use correct column name
         mime_type=file.content_type,
         status=DocumentStatus.UPLOADED,
         reference_number=reference_number,
-        uploaded_by=current_user.email,
-        uploaded_at=datetime.utcnow(),
-        is_combined=is_combined,
-        content_count=len(detected_contents) if detected_contents else 1,
-        page_count=page_count
+        uploaded_by=current_user.id  # Fixed: use UUID, not email
     )
 
     db.add(document)
@@ -278,15 +275,18 @@ async def upload_document(
     db.commit()
     db.refresh(document)
 
+    # Calculate content_count from detected_contents
+    content_count = len(detected_contents) if detected_contents else 1
+
     response = {
-        "id": document.id,
+        "id": str(document.id),
         "name": document.name,
-        "type": document.document_type,
-        "status": document.status,
+        "type": document.document_type.value,
+        "status": document.status.value,
         "message": "Document uploaded successfully",
         "page_count": page_count,
         "is_combined": is_combined,
-        "content_count": document.content_count
+        "content_count": content_count
     }
 
     # Include detection results if auto-detect was used
@@ -746,12 +746,12 @@ async def update_document_metadata(
     # Update provided fields
     if update.reference_number is not None:
         document.reference_number = update.reference_number
-    if update.issue_date is not None:
-        document.issue_date = update.issue_date
+    if update.document_date is not None:
+        document.document_date = update.document_date
     if update.expiry_date is not None:
         document.expiry_date = update.expiry_date
-    if update.issuing_authority is not None:
-        document.issuing_authority = update.issuing_authority
+    if update.issuer is not None:
+        document.issuer = update.issuer
     if update.extra_data is not None:
         # Merge with existing extra_data
         existing = document.extra_data or {}
