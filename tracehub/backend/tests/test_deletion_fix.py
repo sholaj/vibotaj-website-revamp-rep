@@ -10,11 +10,13 @@ from app.database import get_db
 from app.models import (
     User, UserRole,
     Organization, OrganizationType, OrganizationStatus, OrgRole,
-    Shipment, ShipmentStatus, ProductType,
+    Shipment, ShipmentStatus,
     Document, DocumentType, DocumentStatus,
     Product,
-    ContainerEvent, EventType
+    ContainerEvent
 )
+from app.models.shipment import ProductType
+from app.models.container_event import EventStatus
 from app.routers.auth import get_password_hash, get_current_active_user
 from app.schemas.user import CurrentUser
 from app.services.permissions import get_role_permissions
@@ -112,6 +114,8 @@ def test_delete_shipment_with_dependencies(client, db_session, vibotaj_user, org
     # Add a product
     product = Product(
         shipment_id=shipment.id,
+        organization_id=org_vibotaj.id,
+        name="Crushed Hooves",
         hs_code="0506",
         description="Test Product",
         quantity_net_kg=1000,
@@ -132,7 +136,8 @@ def test_delete_shipment_with_dependencies(client, db_session, vibotaj_user, org
     # Add an event
     event = ContainerEvent(
         shipment_id=shipment.id,
-        event_type=EventType.LOADED,
+        organization_id=org_vibotaj.id,
+        event_status=EventStatus.LOADED,
         event_time=datetime.utcnow(),
         description="Loaded"
     )
