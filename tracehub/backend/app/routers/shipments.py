@@ -15,7 +15,7 @@ from ..models.origin import Origin
 from ..models.document_content import DocumentContent
 from ..models.reference_registry import ReferenceRegistry
 from ..models.organization import OrganizationType
-from ..schemas.shipment import ShipmentResponse, ShipmentDetailResponse, ShipmentListResponse, ShipmentCreate, ShipmentUpdate
+from ..schemas.shipment import ShipmentResponse, ShipmentDetailResponse, ShipmentListResponse, ShipmentCreate, ShipmentUpdate, ContainerUpdateRequest
 from ..schemas.user import CurrentUser
 from ..routers.auth import get_current_active_user
 from ..services.compliance import get_required_documents, check_document_completeness
@@ -406,6 +406,72 @@ async def update_shipment(
     shipment.updated_at = datetime.utcnow()
     db.commit()
     db.refresh(shipment)
+
+    return shipment
+
+
+@router.patch("/{shipment_id}/container", response_model=ShipmentResponse)
+async def update_shipment_container(
+    shipment_id: UUID,
+    request: ContainerUpdateRequest,
+    db: Session = Depends(get_db),
+    current_user: CurrentUser = Depends(get_current_active_user)
+):
+    """Update container number for a shipment.
+
+    This endpoint is specifically for updating container numbers, typically
+    when replacing placeholder containers (e.g., BECKMANN-CNT-001) with
+    real ISO 6346 container numbers extracted from Bills of Lading.
+
+    Validates container number against ISO 6346 format: 4 letters + 7 digits.
+
+    Requires: shipments:update permission (admin, logistics_agent roles)
+
+    Args:
+        shipment_id: UUID of the shipment to update
+        request: ContainerUpdateRequest with new container_number
+
+    Returns:
+        Updated ShipmentResponse
+
+    Raises:
+        HTTPException 403: If user lacks shipments:update permission
+        HTTPException 403: If user is buyer (read-only access)
+        HTTPException 404: If shipment not found or not accessible
+        HTTPException 422: If container number fails ISO 6346 validation
+    """
+    # Check permission - requires shipments:update
+    check_permission(current_user, Permission.SHIPMENTS_UPDATE)
+
+    # Find shipment - check if user can access it
+    shipment = get_accessible_shipment(db, shipment_id, current_user)
+    if not shipment:
+        raise HTTPException(status_code=404, detail="Shipment not found")
+
+    # Only owners can update, not buyers
+    if not user_is_shipment_owner(shipment, current_user):
+        raise HTTPException(
+            status_code=403,
+            detail="Only shipment owners can update container numbers. Buyers have read-only access."
+        )
+
+    # Store old value for potential audit trail
+    previous_container = shipment.container_number
+
+    # Update container number (already validated by Pydantic)
+    shipment.container_number = request.container_number
+    shipment.updated_at = datetime.utcnow()
+
+    db.commit()
+    db.refresh(shipment)
+
+    # Log the change for debugging/audit
+    import logging
+    logger = logging.getLogger(__name__)
+    logger.info(
+        f"Container updated for shipment {shipment.reference}: "
+        f"{previous_container} -> {request.container_number}"
+    )
 
     return shipment
 

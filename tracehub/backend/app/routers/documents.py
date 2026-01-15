@@ -39,6 +39,7 @@ from ..services.pdf_processor import pdf_processor
 from ..services.document_classifier import document_classifier
 from ..services.shipment_enrichment import shipment_enrichment_service
 from ..services.compliance import validate_document_content as validate_compliance
+from ..services.shipment_data_extractor import ShipmentDataExtractor
 
 router = APIRouter()
 settings = get_settings()
@@ -272,6 +273,38 @@ async def upload_document(
             import logging
             logging.getLogger(__name__).warning(f"Enrichment failed: {e}")
 
+    # Extract container number from Bill of Lading documents
+    # Store on document for later suggestion to user
+    extracted_container = None
+    if final_document_type == DocumentType.BILL_OF_LADING and is_pdf and pdf_processor.is_available():
+        try:
+            extractor = ShipmentDataExtractor()
+            # Extract text from the PDF
+            pages = pdf_processor.extract_text(file_path)
+            if pages:
+                full_text = "\n".join(page.text for page in pages)
+                result = extractor.extract_container_with_confidence(full_text)
+                if result:
+                    container_number, confidence = result
+                    extracted_container = {
+                        "container_number": container_number,
+                        "confidence": confidence
+                    }
+                    # Store extraction metadata in document extra_data for later use
+                    document.extra_data = document.extra_data or {}
+                    document.extra_data["extracted_container"] = {
+                        "container_number": container_number,
+                        "confidence": confidence,
+                        "extraction_method": "keyword"
+                    }
+                    logger.info(
+                        f"Extracted container {container_number} from BOL "
+                        f"(confidence: {confidence:.2f}) for shipment {shipment.reference}"
+                    )
+        except Exception as e:
+            # Log but don't fail the upload
+            logger.warning(f"Container extraction failed: {e}")
+
     db.commit()
     db.refresh(document)
 
@@ -309,6 +342,10 @@ async def upload_document(
             "warnings": enrichment_result.warnings,
             "extracted_data": enrichment_result.extracted_data
         }
+
+    # Include extracted container from BOL (for suggesting container update)
+    if extracted_container:
+        response["extracted_container"] = extracted_container
 
     return response
 

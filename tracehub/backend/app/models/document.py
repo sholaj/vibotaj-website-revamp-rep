@@ -3,7 +3,7 @@
 import uuid
 import enum
 from datetime import datetime
-from sqlalchemy import Column, String, DateTime, ForeignKey, Enum, Integer, Text
+from sqlalchemy import Column, String, DateTime, ForeignKey, Enum, Integer, Text, Float
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from ..database import Base
@@ -100,6 +100,10 @@ class Document(Base):
     validated_by = Column(UUID(as_uuid=True), ForeignKey("users.id"))
     validated_at = Column(DateTime(timezone=True))
     uploaded_by = Column(UUID(as_uuid=True), ForeignKey("users.id"))
+
+    # Container extraction fields (for BOL documents)
+    extracted_container_number = Column(String(20), nullable=True)  # ISO 6346 format
+    extraction_confidence = Column(Float, nullable=True)  # 0.0-1.0 score
 
     # Organization (multi-tenancy)
     organization_id = Column(

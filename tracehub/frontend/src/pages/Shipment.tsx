@@ -40,6 +40,7 @@ import ComplianceStatusComponent from '../components/ComplianceStatus'
 import DocumentUploadModal from '../components/DocumentUploadModal'
 import DocumentReviewPanel from '../components/DocumentReviewPanel'
 import EUDRStatusCard from '../components/EUDRStatusCard'
+import ContainerSuggestion from '../components/ContainerSuggestion'
 import { format, formatDistanceToNow } from 'date-fns'
 import { isHornHoofProduct } from '../utils/compliance'
 
@@ -128,6 +129,7 @@ export default function Shipment() {
   const [selectedDocument, setSelectedDocument] = useState<Document | null>(null)
   const [isReviewPanelOpen, setIsReviewPanelOpen] = useState(false)
   const [trackingError, setTrackingError] = useState<string | null>(null)
+  const [dismissedContainerSuggestion, setDismissedContainerSuggestion] = useState(false)
 
   // Fetch shipment data
   const fetchData = useCallback(async () => {
@@ -257,6 +259,26 @@ export default function Shipment() {
       }
     : null
 
+  // Find Bill of Lading with extracted container number for suggestion
+  const bolWithExtractedContainer = documents.find(
+    (doc) =>
+      doc.document_type === 'bill_of_lading' &&
+      doc.extracted_container_number &&
+      doc.extraction_confidence
+  )
+
+  // Handle accepting the container suggestion
+  const handleAcceptContainerSuggestion = useCallback(
+    async (containerNumber: string) => {
+      if (!id) return
+      await api.updateShipmentContainer(id, containerNumber)
+      // Refetch data to update the UI with the new container number
+      await fetchData()
+      setDismissedContainerSuggestion(false) // Reset dismiss state since we accepted
+    },
+    [id, fetchData]
+  )
+
   if (isLoading) {
     return <LoadingSkeleton />
   }
@@ -307,6 +329,18 @@ export default function Shipment() {
           </button>
         </div>
       </div>
+
+      {/* Container Number Suggestion Banner */}
+      {bolWithExtractedContainer && !dismissedContainerSuggestion && (
+        <ContainerSuggestion
+          extractedContainer={bolWithExtractedContainer.extracted_container_number!}
+          confidence={bolWithExtractedContainer.extraction_confidence || 0}
+          shipmentId={shipment.id}
+          currentContainer={shipment.container_number}
+          onAccept={handleAcceptContainerSuggestion}
+          onDismiss={() => setDismissedContainerSuggestion(true)}
+        />
+      )}
 
       {/* Main Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

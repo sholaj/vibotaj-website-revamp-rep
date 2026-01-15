@@ -226,6 +226,9 @@ export interface Document {
   is_combined?: boolean
   page_count?: number
   content_count?: number
+  // AI-extracted container number from Bill of Lading
+  extracted_container_number?: string
+  extraction_confidence?: number
 }
 
 // Document content within a combined PDF

@@ -263,3 +263,48 @@ class ShipmentDetailResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class ContainerUpdateRequest(BaseModel):
+    """Request to update shipment container number.
+
+    Used for PATCH /shipments/{id}/container endpoint to update
+    placeholder containers with real ISO 6346 container numbers.
+    """
+    container_number: str
+
+    @field_validator('container_number')
+    @classmethod
+    def validate_container(cls, v: str) -> str:
+        """Validate container number against ISO 6346 format.
+
+        Format: 4 uppercase letters + 7 digits (e.g., MRSU3452572)
+
+        Args:
+            v: Container number to validate
+
+        Returns:
+            Normalized (uppercase, trimmed) container number
+
+        Raises:
+            ValueError: If container number doesn't match ISO 6346 format
+        """
+        if not v or not v.strip():
+            raise ValueError('Container number is required')
+
+        # Normalize: strip whitespace and uppercase
+        normalized = v.strip().upper()
+
+        # Check length
+        if len(normalized) != 11:
+            raise ValueError(
+                'Container number must be 11 characters (ISO 6346 format: 4 letters + 7 digits)'
+            )
+
+        # Validate ISO 6346 format
+        if not ISO_6346_PATTERN.match(normalized):
+            raise ValueError(
+                'Invalid container format. Expected: 4 letters + 7 digits (e.g., MRSU3452572)'
+            )
+
+        return normalized

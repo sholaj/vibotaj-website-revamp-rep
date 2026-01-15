@@ -3,7 +3,7 @@
 import uuid
 import enum
 from datetime import datetime
-from sqlalchemy import Column, String, DateTime, Enum, ForeignKey, Boolean
+from sqlalchemy import Column, String, DateTime, Enum, ForeignKey, Boolean, UniqueConstraint
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from ..database import Base
@@ -42,9 +42,12 @@ class Shipment(Base):
     """
 
     __tablename__ = "shipments"
+    __table_args__ = (
+        UniqueConstraint('organization_id', 'reference', name='uq_shipment_org_reference'),
+    )
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    reference = Column(String(50), unique=True, nullable=False)  # e.g., VIBO-2026-001
+    reference = Column(String(50), nullable=False)  # e.g., VIBO-2026-001
 
     # Container and transport details
     container_number = Column(String(20), nullable=False)  # e.g., MSCU1234567

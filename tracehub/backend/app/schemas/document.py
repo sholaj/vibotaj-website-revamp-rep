@@ -30,6 +30,10 @@ class DocumentResponse(BaseModel):
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
 
+    # Container extraction fields (for BOL documents)
+    extracted_container_number: Optional[str] = None
+    extraction_confidence: Optional[float] = None
+
     class Config:
         from_attributes = True
 

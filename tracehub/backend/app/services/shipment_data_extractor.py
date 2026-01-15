@@ -19,6 +19,60 @@ from ..models.document import DocumentType
 logger = logging.getLogger(__name__)
 
 
+# ISO 6346 container number pattern: 4 uppercase letters + 7 digits
+ISO_6346_PATTERN = re.compile(r'^[A-Z]{4}[0-9]{7}$')
+
+# Placeholder detection patterns
+PLACEHOLDER_PATTERNS = [
+    r'-CNT-',           # BECKMANN-CNT-001 pattern
+    r'^TEST',           # Starts with TEST
+    r'PLACEHOLDER',     # Contains PLACEHOLDER
+    r'^XXXX',           # Placeholder prefix
+]
+
+
+def is_valid_iso6346_container(container: str) -> bool:
+    """Validate container number against ISO 6346 format.
+
+    Format: 4 uppercase letters + 7 digits (e.g., MRSU3452572)
+
+    Args:
+        container: Container number to validate
+
+    Returns:
+        True if valid ISO 6346 format, False otherwise
+    """
+    if not container:
+        return False
+    return bool(ISO_6346_PATTERN.match(container.upper().strip()))
+
+
+def is_placeholder_container(container: str) -> bool:
+    """Check if container number is a placeholder.
+
+    Placeholder patterns include:
+    - Contains '-CNT-' (e.g., BECKMANN-CNT-001)
+    - Starts with 'TEST'
+    - Contains 'PLACEHOLDER'
+
+    Args:
+        container: Container number to check
+
+    Returns:
+        True if placeholder, False if real container
+    """
+    if not container:
+        return True
+
+    container_upper = container.upper()
+
+    for pattern in PLACEHOLDER_PATTERNS:
+        if re.search(pattern, container_upper):
+            return True
+
+    return False
+
+
 # Common port codes and names (focus on VIBOTAJ routes: Nigeria -> EU)
 PORT_DATABASE = {
     # Nigerian Ports
@@ -348,6 +402,54 @@ class ShipmentDataExtractor:
         # Remove spaces and dashes
         clean = re.sub(r'[\s-]', '', container.upper())
         return clean
+
+    def extract_container_with_confidence(self, text: str) -> Optional[Tuple[str, float]]:
+        """Extract container number from text with confidence score.
+
+        Args:
+            text: Text to extract container from (e.g., BOL content)
+
+        Returns:
+            Tuple of (container_number, confidence) or None if not found
+        """
+        if not text:
+            return None
+
+        # Patterns with labels (high confidence)
+        labeled_patterns = [
+            (r'Container\s*No\.?\s*:?\s*([A-Z]{4}\s*\d{7})', 0.95),
+            (r'Equipment\s*No\.?\s*:?\s*([A-Z]{4}\s*\d{7})', 0.92),
+            (r'CNTR\s*#?\s*:?\s*([A-Z]{4}\s*\d{7})', 0.90),
+            (r'Unit\s*No\.?\s*:?\s*([A-Z]{4}\s*\d{7})', 0.88),
+            (r'Container\s*:?\s*([A-Z]{4}[-\s]?\d{3}[-\s]?\d{4})', 0.85),
+        ]
+
+        # Patterns without labels (medium confidence)
+        unlabeled_patterns = [
+            (r'\b([A-Z]{4}\s+\d{7})\b', 0.75),  # With space
+            (r'\b([A-Z]{4}-\d{3}-\d{4})\b', 0.70),  # With dashes
+            (r'\b([A-Z]{4}\d{7})\b', 0.65),  # Plain format
+        ]
+
+        text_upper = text.upper()
+
+        # Try labeled patterns first (higher confidence)
+        for pattern, confidence in labeled_patterns:
+            match = re.search(pattern, text_upper, re.IGNORECASE)
+            if match:
+                container = self._normalize_container_number(match.group(1))
+                if is_valid_iso6346_container(container) and not is_placeholder_container(container):
+                    return (container, confidence)
+
+        # Try unlabeled patterns
+        for pattern, confidence in unlabeled_patterns:
+            match = re.search(pattern, text_upper)
+            if match:
+                container = self._normalize_container_number(match.group(1))
+                if is_valid_iso6346_container(container) and not is_placeholder_container(container):
+                    return (container, confidence)
+
+        return None
 
     def _resolve_port_code(self, port_text: str) -> Optional[str]:
         """Resolve port name to UN/LOCODE."""

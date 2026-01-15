@@ -629,6 +629,80 @@ class TestDocumentMetadata:
         del app.dependency_overrides[get_current_active_user]
 
 
+class TestDocumentContainerExtraction:
+    """Tests for document container extraction fields.
+
+    TDD RED Phase: These tests verify that the Document model supports
+    AI-extracted container numbers and confidence scores from Bill of Lading
+    documents. These fields are used to auto-populate container data.
+
+    Fields being tested:
+    - extracted_container_number: Container number extracted by AI from BOL
+    - extraction_confidence: Confidence score (0.0-1.0) of the extraction
+    """
+
+    def test_document_stores_extracted_container(self, client, db_session, admin_user, test_shipment, org_vibotaj):
+        """Document should store extracted container number."""
+        doc = Document(
+            shipment_id=test_shipment.id,
+            organization_id=org_vibotaj.id,
+            name="Test BOL",
+            document_type=DocumentType.BILL_OF_LADING,
+            status=DocumentStatus.UPLOADED,
+            extracted_container_number="MRSU3452572",  # New field
+            extraction_confidence=0.95  # New field
+        )
+        db_session.add(doc)
+        db_session.commit()
+        db_session.refresh(doc)
+
+        assert doc.extracted_container_number == "MRSU3452572"
+        assert doc.extraction_confidence == 0.95
+
+        # Cleanup
+        db_session.delete(doc)
+        db_session.commit()
+
+    def test_document_stores_extraction_confidence(self, client, db_session, admin_user, test_shipment, org_vibotaj):
+        """Document should store extraction confidence score."""
+        doc = Document(
+            shipment_id=test_shipment.id,
+            organization_id=org_vibotaj.id,
+            name="Test BOL 2",
+            document_type=DocumentType.BILL_OF_LADING,
+            status=DocumentStatus.UPLOADED,
+            extracted_container_number="TCNU1234567",
+            extraction_confidence=0.75
+        )
+        db_session.add(doc)
+        db_session.commit()
+
+        assert doc.extraction_confidence == 0.75
+        assert 0.0 <= doc.extraction_confidence <= 1.0
+
+        db_session.delete(doc)
+        db_session.commit()
+
+    def test_extraction_fields_nullable(self, client, db_session, admin_user, test_shipment, org_vibotaj):
+        """Extraction fields should be nullable for non-BOL documents."""
+        doc = Document(
+            shipment_id=test_shipment.id,
+            organization_id=org_vibotaj.id,
+            name="Invoice",
+            document_type=DocumentType.COMMERCIAL_INVOICE,
+            status=DocumentStatus.UPLOADED,
+            # No extraction fields - should work
+        )
+        db_session.add(doc)
+        db_session.commit()
+
+        assert doc.extracted_container_number is None
+        assert doc.extraction_confidence is None
+
+        db_session.delete(doc)
+        db_session.commit()
+
+
 class TestDocumentOrganizationId:
     """Tests for SEC-001: Document organization_id assignment.
 

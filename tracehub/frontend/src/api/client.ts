@@ -470,6 +470,18 @@ class ApiClient {
   }
 
   /**
+   * Update shipment container number (typically from AI-extracted Bill of Lading data)
+   */
+  async updateShipmentContainer(shipmentId: string, containerNumber: string): Promise<Shipment> {
+    const response = await this.client.patch<Shipment>(`shipments/${shipmentId}/container`, {
+      container_number: containerNumber,
+    })
+    this.cache.invalidate('shipments')
+    this.cache.invalidate(`shipments/${shipmentId}`)
+    return response.data
+  }
+
+  /**
    * Delete a shipment (admin only)
    */
   async deleteShipment(id: string): Promise<void> {
@@ -634,6 +646,7 @@ class ApiClient {
 
     const response = await this.client.post<Document>('documents/upload', formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
+      timeout: 300000, // 5 minutes for large file uploads with OCR processing
     })
 
     // Invalidate shipment document cache
