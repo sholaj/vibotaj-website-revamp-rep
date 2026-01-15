@@ -133,8 +133,9 @@ def cleanup_overrides():
 class TestBOLUploadExtraction:
     """Test BOL upload triggers container extraction."""
 
+    @patch('app.routers.documents.pdf_processor')
     @patch('app.services.shipment_data_extractor.ShipmentDataExtractor.extract_container_with_confidence')
-    def test_upload_bol_extracts_container(self, mock_extract, client, db_session, admin_user, test_shipment):
+    def test_upload_bol_extracts_container(self, mock_extract, mock_pdf_processor, client, db_session, admin_user, test_shipment):
         """Uploading BOL PDF should extract container number.
 
         Expected behavior (RED phase - this will FAIL):
@@ -146,6 +147,13 @@ class TestBOLUploadExtraction:
         - Container extraction is not triggered specifically for BOL uploads
         """
         app.dependency_overrides[get_current_active_user] = lambda: create_mock_current_user(admin_user)
+
+        # Mock PDF processor
+        mock_pdf_processor.is_available.return_value = True
+        mock_page = MagicMock()
+        mock_page.text = "Container No.: MRSU3452572"
+        mock_pdf_processor.extract_text.return_value = [mock_page]
+        mock_pdf_processor.get_page_count.return_value = 1
 
         # Mock extraction result
         mock_extract.return_value = ("MRSU3452572", 0.95)
@@ -211,7 +219,8 @@ class TestBOLUploadExtraction:
         else:
             pytest.skip("No BOL document found - previous test may have failed")
 
-    def test_non_bol_upload_no_extraction(self, client, db_session, admin_user, test_shipment):
+    @patch('app.routers.documents.pdf_processor')
+    def test_non_bol_upload_no_extraction(self, mock_pdf_processor, client, db_session, admin_user, test_shipment):
         """Invoice upload should skip container extraction.
 
         Expected behavior (RED phase - this will FAIL):
@@ -223,6 +232,10 @@ class TestBOLUploadExtraction:
         - The response doesn't currently include extraction fields at all
         """
         app.dependency_overrides[get_current_active_user] = lambda: create_mock_current_user(admin_user)
+
+        # Mock PDF processor (for page count)
+        mock_pdf_processor.is_available.return_value = True
+        mock_pdf_processor.get_page_count.return_value = 1
 
         # Create a fake invoice file
         pdf_content = b"%PDF-1.4 COMMERCIAL INVOICE - no container"
@@ -250,9 +263,14 @@ class TestBOLUploadExtraction:
 class TestBOLUploadValidation:
     """Test BOL upload validation requirements."""
 
-    def test_bol_upload_requires_shipment_id(self, client, admin_user):
+    @patch('app.routers.documents.pdf_processor')
+    def test_bol_upload_requires_shipment_id(self, mock_pdf_processor, client, admin_user):
         """BOL upload without shipment_id should fail."""
         app.dependency_overrides[get_current_active_user] = lambda: create_mock_current_user(admin_user)
+
+        # Mock PDF processor
+        mock_pdf_processor.is_available.return_value = True
+        mock_pdf_processor.get_page_count.return_value = 1
 
         pdf_content = b"%PDF-1.4 fake BOL content"
         files = {"file": ("test_bol.pdf", io.BytesIO(pdf_content), "application/pdf")}
@@ -266,9 +284,14 @@ class TestBOLUploadValidation:
 
         assert response.status_code == 422, "Should fail validation without shipment_id"
 
-    def test_bol_upload_requires_file(self, client, admin_user, test_shipment):
+    @patch('app.routers.documents.pdf_processor')
+    def test_bol_upload_requires_file(self, mock_pdf_processor, client, admin_user, test_shipment):
         """BOL upload without file should fail."""
         app.dependency_overrides[get_current_active_user] = lambda: create_mock_current_user(admin_user)
+
+        # Mock PDF processor
+        mock_pdf_processor.is_available.return_value = True
+        mock_pdf_processor.get_page_count.return_value = 1
 
         response = client.post(
             "/api/documents/upload",
@@ -289,8 +312,9 @@ class TestContainerExtractionIntegration:
     1. Upload BOL -> Extract container -> Update shipment
     """
 
+    @patch('app.routers.documents.pdf_processor')
     @patch('app.services.shipment_data_extractor.ShipmentDataExtractor.extract_container_with_confidence')
-    def test_bol_upload_updates_shipment_container(self, mock_extract, client, db_session, admin_user, test_shipment):
+    def test_bol_upload_updates_shipment_container(self, mock_extract, mock_pdf_processor, client, db_session, admin_user, test_shipment):
         """Uploading BOL should offer to update shipment container number.
 
         Expected behavior (RED phase - this will FAIL):
@@ -303,6 +327,13 @@ class TestContainerExtractionIntegration:
         - Response doesn't include shipment update options
         """
         app.dependency_overrides[get_current_active_user] = lambda: create_mock_current_user(admin_user)
+
+        # Mock PDF processor
+        mock_pdf_processor.is_available.return_value = True
+        mock_page = MagicMock()
+        mock_page.text = "Container No.: TCNU7654321"
+        mock_pdf_processor.extract_text.return_value = [mock_page]
+        mock_pdf_processor.get_page_count.return_value = 1
 
         # Mock extraction result
         mock_extract.return_value = ("TCNU7654321", 0.98)
