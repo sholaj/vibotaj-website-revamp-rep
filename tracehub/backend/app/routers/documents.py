@@ -250,12 +250,28 @@ async def upload_document(
                 db.add(registry)
 
     # Notify compliance team/admins about new document
-    notify_document_uploaded(
-        db=db,
-        document=document,
-        uploader=current_user.email,
-        notify_users=[settings.demo_username]
-    )
+    # Note: notify_users expects user UUIDs, not emails
+    try:
+        # Get admins in the organization to notify
+        from ..models import User, UserRole
+        admins = db.query(User).filter(
+            User.organization_id == current_user.organization_id,
+            User.role.in_([UserRole.ADMIN, UserRole.SUPER_ADMIN]),
+            User.is_active == True,
+            User.id != current_user.id  # Don't notify uploader
+        ).all()
+        admin_ids = [str(admin.id) for admin in admins]
+
+        if admin_ids:
+            notify_document_uploaded(
+                db=db,
+                document=document,
+                uploader=current_user.email,
+                notify_users=admin_ids
+            )
+    except Exception as e:
+        # Don't fail upload if notification fails
+        logger.warning(f"Failed to send document upload notification: {e}")
 
     # Auto-enrich shipment with extracted data from document
     enrichment_result = None
