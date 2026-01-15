@@ -15,6 +15,42 @@ This plan implements a system to parse Bill of Lading documents into canonical J
 2. **BoL Parser Service** - Extract structured data from BoL text/PDF
 3. **Rules Engine** - Evaluate compliance rules against BoL data
 4. **Compliance Decisions** - APPROVE / HOLD / REJECT with explanations
+5. **Shipment Auto-Population** - Automatically update shipment details from parsed BoL
+
+---
+
+## CRITICAL: Bill of Lading as Source of Truth
+
+**When a Bill of Lading is present and parsed, it is the authoritative source of truth for shipment details.**
+
+### Auto-Population Rules
+When a BoL is uploaded and parsed, the following shipment fields MUST be automatically populated:
+
+| BoL Field | Shipment Field | Overwrite Existing? |
+|-----------|----------------|---------------------|
+| `bol_number` | `bl_number` | Yes |
+| `containers[0].number` | `container_number` | Yes (if placeholder) |
+| `vessel_name` | `vessel_name` | Yes |
+| `voyage_number` | `voyage_number` | Yes |
+| `port_of_loading` | `pol_code`, `pol_name` | Yes |
+| `port_of_discharge` | `pod_code`, `pod_name` | Yes |
+| `shipper.name` | Verify against organization | No (validation only) |
+| `consignee.name` | Verify against buyer | No (validation only) |
+| `shipped_on_board_date` | `actual_departure` | Yes |
+
+### Placeholder Detection
+Container numbers matching these patterns are considered placeholders and should be replaced:
+- `*-CNT-*` (e.g., BECKMANN-CNT-001, HAGES-CNT-002)
+- `TBD`, `TBC`, `PENDING`
+- Empty or null values
+
+### Historic Shipments
+**This applies to ALL existing shipments**, including historic ones. A batch process should:
+1. Find all shipments with placeholder container numbers
+2. Locate linked BoL documents
+3. Parse BoL documents to extract real container numbers
+4. Update shipment records with parsed data
+5. Log all changes for audit trail
 
 ---
 
@@ -289,6 +325,108 @@ This plan implements a system to parse Bill of Lading documents into canonical J
   - [ ] Add POST `/api/documents/{id}/compliance` - Run compliance check
   - [ ] Add GET `/api/documents/{id}/compliance` - Get compliance status
 - [ ] Run migration and tests - should PASS
+
+---
+
+## Phase 5B: Shipment Auto-Population from BoL (Backend)
+
+**Critical Feature**: BoL is the source of truth - parsed data must update shipments.
+
+### TEST-005B: Write Auto-Population Tests First
+- [ ] Create `tracehub/backend/tests/test_bol_shipment_sync.py` with:
+  - [ ] `test_bol_upload_updates_container_number()` - Container extracted from BoL updates shipment
+  - [ ] `test_bol_upload_updates_vessel_info()` - Vessel name and voyage number updated
+  - [ ] `test_bol_upload_updates_ports()` - POL/POD updated from BoL
+  - [ ] `test_placeholder_container_replaced()` - BUYER-CNT-XXX replaced with real ISO 6346
+  - [ ] `test_real_container_not_overwritten()` - Valid ISO 6346 container preserved
+  - [ ] `test_bl_number_updated()` - B/L number extracted and stored
+  - [ ] `test_shipped_date_updates_departure()` - Shipped on board date updates actual_departure
+- [ ] Run tests - expect FAIL (sync not implemented)
+
+### IMPL-005B: Implement Shipment Auto-Population
+- [ ] Create `tracehub/backend/app/services/bol_shipment_sync.py`:
+  ```python
+  class BolShipmentSync:
+      """Sync shipment details from parsed Bill of Lading."""
+
+      PLACEHOLDER_PATTERNS = [
+          r'.*-CNT-\d+',  # BUYER-CNT-001
+          r'^TBD$', r'^TBC$', r'^PENDING$',
+      ]
+
+      def is_placeholder_container(self, container: str) -> bool:
+          """Check if container number is a placeholder."""
+          pass
+
+      def sync_shipment_from_bol(
+          self,
+          shipment: Shipment,
+          bol: CanonicalBoL,
+          db: Session
+      ) -> dict:
+          """Update shipment fields from parsed BoL data.
+
+          Returns dict of changes made for audit logging.
+          """
+          changes = {}
+
+          # Always update B/L number
+          if bol.bol_number:
+              changes['bl_number'] = (shipment.bl_number, bol.bol_number)
+              shipment.bl_number = bol.bol_number
+
+          # Update container if current is placeholder
+          if bol.containers and self.is_placeholder_container(shipment.container_number):
+              new_container = bol.containers[0].number
+              changes['container_number'] = (shipment.container_number, new_container)
+              shipment.container_number = new_container
+
+          # Update vessel info
+          if bol.vessel_name:
+              changes['vessel_name'] = (shipment.vessel_name, bol.vessel_name)
+              shipment.vessel_name = bol.vessel_name
+          # ... more field updates
+
+          return changes
+  ```
+
+- [ ] Integrate into `tracehub/backend/app/routers/documents.py`:
+  - [ ] After BoL parsing on upload, call `bol_shipment_sync.sync_shipment_from_bol()`
+  - [ ] Log changes to audit trail
+  - [ ] Return sync results in upload response
+
+- [ ] Run tests - should PASS
+
+### IMPL-005B-BATCH: Historic Shipments Batch Processor
+- [ ] Create `tracehub/backend/scripts/sync_historic_shipments_from_bol.py`:
+  ```python
+  """
+  Batch process to sync historic shipments with their BoL documents.
+
+  Usage:
+    python sync_historic_shipments_from_bol.py --dry-run
+    python sync_historic_shipments_from_bol.py --apply
+  """
+
+  def find_shipments_with_placeholders():
+      """Find all shipments with placeholder container numbers."""
+      pass
+
+  def find_bol_for_shipment(shipment_id: UUID):
+      """Find Bill of Lading document linked to a shipment."""
+      pass
+
+  def process_shipment(shipment_id: UUID, dry_run: bool = True):
+      """Parse BoL and update shipment if needed."""
+      pass
+
+  def main():
+      # CLI with --dry-run and --apply flags
+      # Generate report of all changes
+      pass
+  ```
+- [ ] Test with historic BECKMANN, WITATRADE, HAGES shipments
+- [ ] Run in dry-run mode first, then apply
 
 ---
 
