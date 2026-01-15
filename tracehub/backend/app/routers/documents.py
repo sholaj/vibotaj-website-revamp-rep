@@ -149,34 +149,42 @@ async def upload_document(
 
     if should_auto_detect and is_pdf and pdf_processor.is_available():
         # Analyze PDF for multiple document types
-        sections = document_classifier.analyze_pdf(file_path, use_ai=True)
+        # Wrap in try-except to prevent auto-detect failures from breaking upload
+        try:
+            sections = document_classifier.analyze_pdf(file_path, use_ai=True)
 
-        for section in sections:
-            detected_contents.append({
-                "document_type": section.document_type.value if section.document_type else "other",
-                "page_start": section.page_start,
-                "page_end": section.page_end,
-                "reference_number": section.reference_number,
-                "confidence": section.confidence,
-                "detection_method": section.detection_method,
-                "detected_fields": section.detected_fields
-            })
+            for section in sections:
+                detected_contents.append({
+                    "document_type": section.document_type.value if section.document_type else "other",
+                    "page_start": section.page_start,
+                    "page_end": section.page_end,
+                    "reference_number": section.reference_number,
+                    "confidence": section.confidence,
+                    "detection_method": section.detection_method,
+                    "detected_fields": section.detected_fields
+                })
 
-            # Check for duplicates
-            if section.reference_number and section.document_type:
-                existing = db.query(ReferenceRegistry).filter(
-                    ReferenceRegistry.shipment_id == shipment_id,
-                    ReferenceRegistry.reference_number == section.reference_number,
-                    ReferenceRegistry.document_type == section.document_type
-                ).first()
+                # Check for duplicates
+                if section.reference_number and section.document_type:
+                    existing = db.query(ReferenceRegistry).filter(
+                        ReferenceRegistry.shipment_id == shipment_id,
+                        ReferenceRegistry.reference_number == section.reference_number,
+                        ReferenceRegistry.document_type == section.document_type
+                    ).first()
 
-                if existing:
-                    duplicates_found.append({
-                        "reference_number": section.reference_number,
-                        "document_type": section.document_type.value,
-                        "existing_document_id": str(existing.document_id),
-                        "first_seen_at": existing.first_seen_at.isoformat() if existing.first_seen_at else None
-                    })
+                    if existing:
+                        duplicates_found.append({
+                            "reference_number": section.reference_number,
+                            "document_type": section.document_type.value,
+                            "existing_document_id": str(existing.document_id),
+                            "first_seen_at": existing.first_seen_at.isoformat() if existing.first_seen_at else None
+                        })
+        except Exception as e:
+            # Log but don't fail upload if auto-detect fails
+            logger.warning(f"Auto-detection failed for {file.filename}: {e}")
+            # Reset detected contents to empty - upload will proceed without auto-detect results
+            detected_contents = []
+            duplicates_found = []
 
     # Determine if this is a combined document
     is_combined = len(detected_contents) > 1
