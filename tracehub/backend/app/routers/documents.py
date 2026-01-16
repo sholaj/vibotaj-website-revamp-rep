@@ -1555,7 +1555,26 @@ async def parse_bol_document(
     # Extract text from PDF
     pages = pdf_processor.extract_text(document.file_path)
     if not pages:
-        raise HTTPException(status_code=400, detail="Could not extract text from PDF")
+        # Check OCR status to provide better error message
+        ocr_status = pdf_processor.get_ocr_status()
+        if ocr_status.get("available"):
+            detail = "Could not extract text from PDF even with OCR. The PDF may be corrupted or in an unsupported format."
+        else:
+            detail = (
+                "Could not extract text from PDF. The document appears to be scanned/image-based. "
+                "OCR is not available on this server. Please upload a text-based PDF or contact support."
+            )
+        raise HTTPException(status_code=400, detail=detail)
+
+    # Check if we got meaningful text
+    total_chars = sum(len(page.text) for page in pages)
+    if total_chars < 50:
+        ocr_status = pdf_processor.get_ocr_status()
+        if not ocr_status.get("available"):
+            raise HTTPException(
+                status_code=400,
+                detail=f"PDF has minimal extractable text ({total_chars} chars). The document may be scanned. OCR is not available."
+            )
 
     full_text = "\n".join(page.text for page in pages)
 
@@ -1672,7 +1691,26 @@ async def check_bol_compliance(
 
         pages = pdf_processor.extract_text(document.file_path)
         if not pages:
-            raise HTTPException(status_code=400, detail="Could not extract text from PDF")
+            # Check OCR status to provide better error message
+            ocr_status = pdf_processor.get_ocr_status()
+            if ocr_status.get("available"):
+                detail = "Could not extract text from PDF even with OCR. The PDF may be corrupted or in an unsupported format."
+            else:
+                detail = (
+                    "Could not extract text from PDF. The document appears to be scanned/image-based. "
+                    "OCR is not available on this server. Please upload a text-based PDF or contact support."
+                )
+            raise HTTPException(status_code=400, detail=detail)
+
+        # Check if we got meaningful text
+        total_chars = sum(len(page.text) for page in pages)
+        if total_chars < 50:
+            ocr_status = pdf_processor.get_ocr_status()
+            if not ocr_status.get("available"):
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"PDF has minimal extractable text ({total_chars} chars). The document may be scanned. OCR is not available."
+                )
 
         full_text = "\n".join(page.text for page in pages)
         parsed_bol = bol_parser.parse(full_text)
