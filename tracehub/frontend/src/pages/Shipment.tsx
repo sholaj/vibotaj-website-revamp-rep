@@ -45,11 +45,21 @@ import { format, formatDistanceToNow } from 'date-fns'
 import { isHornHoofProduct } from '../utils/compliance'
 
 // Check if shipment contains Horn & Hoof products (exempt from EUDR)
+// Checks both product_type field (primary) and products array (fallback)
 function isHornHoofShipment(shipment: ShipmentType | null): boolean {
-  if (!shipment?.products || shipment.products.length === 0) {
-    return false
+  if (!shipment) return false
+
+  // Primary check: product_type field (set during shipment creation)
+  if (shipment.product_type === 'horn_hoof') {
+    return true
   }
-  return shipment.products.some(product => isHornHoofProduct(product.hs_code || ''))
+
+  // Fallback: check products array for HS codes 0506/0507
+  if (shipment.products && shipment.products.length > 0) {
+    return shipment.products.some(product => isHornHoofProduct(product.hs_code || ''))
+  }
+
+  return false
 }
 
 // TICKET-001: Status badge configuration (aligned with backend ShipmentStatus enum)
