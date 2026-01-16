@@ -1,6 +1,6 @@
 # TraceHub Roadmap
 
-**Last Updated:** 2026-01-11
+**Last Updated:** 2026-01-16
 **Status:** Phase 3 - Production Stabilization
 
 ---
@@ -27,32 +27,32 @@ TraceHub is a container tracking and documentation compliance platform for VIBOT
 | 9 | Compliance Matrix | EUDR exemptions, Horn & Hoof handling | ✅ Done |
 | 10 | Architecture Cleanup | Deprecate legacy schemas, Party table removal | ✅ Done |
 | 11 | Schema Fixes | UUID FK constraints, buyer access control | ✅ Done |
+| 12 | Final Stabilization | DateTime timezone, status machine, BoL compliance | ✅ Done |
+| 13 | Member Management | Invitations, role-based permissions, acceptance workflow | ✅ Done |
+| 14 | Compliance Hardening | EUDR fixes, origin model, PDF reports | ✅ Done |
 
 See [CHANGELOG.md](./CHANGELOG.md) for detailed feature list.
 
 ---
 
-## Current Sprint (12)
+## Current Sprint (15)
 
-### Sprint 12: Final Stabilization
-**Theme:** Production Hardening
-**Duration:** 1-2 weeks
+### Sprint 15: TBD
+**Theme:** To be planned
+**Duration:** TBD
 
 **Goals:**
-- Standardize DateTime timezone handling across all models
-- Add shipment status transition validation
-- Add EUDR compliance tests
+- Review outstanding issues
+- Plan next features
 
 **Features:**
 | Feature | Priority | Status |
 |---------|----------|--------|
-| DateTime timezone standardization | SHOULD | Planned |
-| Shipment status state machine | SHOULD | Planned |
-| EUDR compliance tests | SHOULD | Planned |
+| TBD | - | Planned |
 
 ---
 
-## Future Considerations (Sprint 13+)
+## Future Considerations (Sprint 16+)
 
 | Feature | Description | Priority |
 |---------|-------------|----------|
@@ -93,7 +93,7 @@ To continue development from where we left off:
 3. See [docs/KNOWN_ISSUES.md](./docs/KNOWN_ISSUES.md) for remaining tech debt
 4. Check git log for recent changes: `git log --oneline -20`
 
-**Current State:** Sprints 1-11 complete, Sprint 12 in progress.
+**Current State:** Sprints 1-14 complete, Sprint 15 planning.
 
 ---
 
