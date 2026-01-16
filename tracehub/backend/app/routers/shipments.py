@@ -263,6 +263,7 @@ async def get_shipment(
             "id": shipment.id,
             "reference": shipment.reference,
             "container_number": shipment.container_number,
+            "product_type": shipment.product_type,  # Required for EUDR exemption check
             "bl_number": shipment.bl_number,
             "booking_ref": shipment.booking_ref,
             "vessel_name": shipment.vessel_name,
