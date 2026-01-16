@@ -58,6 +58,7 @@ def upgrade() -> None:
     )
 
     # Backfill all existing shipments as horn_hoof (cast to enum type)
+    # Note: PostgreSQL enum values are case-sensitive, must match enum definition
     op.execute("UPDATE shipments SET product_type = 'horn_hoof'::producttype WHERE product_type IS NULL")
 
     # Add index for filtering shipments by product type

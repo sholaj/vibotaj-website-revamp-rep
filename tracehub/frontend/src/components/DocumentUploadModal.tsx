@@ -227,10 +227,10 @@ export default function DocumentUploadModal({
               <select
                 value={documentType}
                 onChange={(e) => setDocumentType(e.target.value as DocumentType)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 focus:ring-2 focus:ring-primary-500 focus:border-transparent"
               >
                 {DOCUMENT_TYPES.map((type) => (
-                  <option key={type.value} value={type.value}>
+                  <option key={type.value} value={type.value} className="bg-white text-gray-900">
                     {type.label}
                   </option>
                 ))}

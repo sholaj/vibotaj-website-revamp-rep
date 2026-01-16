@@ -6,6 +6,7 @@ import type {
   DocumentTransitionsResponse,
   DocumentStatus,
 } from '../types'
+import BolCompliancePanel from './BolCompliancePanel'
 
 interface DocumentReviewPanelProps {
   document: Document
@@ -231,6 +232,15 @@ export default function DocumentReviewPanel({
               </button>
             )}
           </div>
+
+          {/* BoL Compliance Panel - Only for Bill of Lading documents */}
+          {document.document_type === 'bill_of_lading' && (
+            <BolCompliancePanel
+              documentId={document.id}
+              shipmentId={document.shipment_id}
+              onSyncComplete={onUpdate}
+            />
+          )}
 
           {/* Validation Status */}
           {validation && (
