@@ -300,9 +300,10 @@ class ShipmentEnrichmentService:
             if not description:
                 description = f"Product (HS {hs_code})"
 
-            # Create product
+            # Create product (must include organization_id for multi-tenancy)
             product = Product(
                 shipment_id=shipment.id,
+                organization_id=shipment.organization_id,
                 hs_code=hs_code,
                 description=description,
                 quantity_net_kg=extracted.total_net_weight_kg,
