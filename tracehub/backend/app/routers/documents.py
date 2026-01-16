@@ -1563,6 +1563,25 @@ async def parse_bol_document(
     document.bol_parsed_data = parsed_bol.model_dump(mode="json")
     document.updated_at = datetime.utcnow()
 
+    # Update document metadata fields from parsed BoL for validation
+    if parsed_bol.bol_number and parsed_bol.bol_number != "UNKNOWN":
+        document.reference_number = parsed_bol.bol_number
+    if parsed_bol.date_of_issue:
+        document.issue_date = parsed_bol.date_of_issue
+    # Use vessel name as shipping line/carrier (common on Maersk BOLs)
+    if parsed_bol.vessel_name:
+        document.issuing_authority = parsed_bol.vessel_name
+    elif parsed_bol.shipper and parsed_bol.shipper.name:
+        # Fallback to shipper name if no vessel
+        document.issuing_authority = parsed_bol.shipper.name
+
+    logger.info(
+        f"BoL parsed - updating document fields: "
+        f"reference_number={document.reference_number}, "
+        f"issue_date={document.issue_date}, "
+        f"issuing_authority={document.issuing_authority}"
+    )
+
     # Auto-sync shipment data if requested
     sync_changes = None
     if auto_sync_shipment:
