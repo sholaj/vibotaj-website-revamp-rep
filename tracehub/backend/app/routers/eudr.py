@@ -389,18 +389,18 @@ async def verify_origin(
     Note: Horn & Hoof products (HS 0506/0507) are NOT covered by EUDR.
     Geolocation and deforestation fields will be rejected for these products.
     """
-    # Multi-tenancy: Get origin and verify organization access via shipment
-    origin = db.query(Origin).filter(Origin.id == origin_id).first()
+    # Multi-tenancy: Get origin with shipment organization verification in single query
+    origin = db.query(Origin).join(
+        Shipment, Origin.shipment_id == Shipment.id
+    ).filter(
+        Origin.id == origin_id,
+        Shipment.organization_id == current_user.organization_id
+    ).first()
     if not origin:
         raise HTTPException(status_code=404, detail="Origin not found")
 
-    # Get shipment to verify access and check product type
-    shipment = db.query(Shipment).filter(
-        Shipment.id == origin.shipment_id,
-        Shipment.organization_id == current_user.organization_id
-    ).first()
-    if not shipment:
-        raise HTTPException(status_code=404, detail="Origin not found")
+    # Get shipment for product type check
+    shipment = db.query(Shipment).filter(Shipment.id == origin.shipment_id).first()
 
     # EUDR validation for Horn & Hoof - these products are NOT covered by EUDR
     if verification and shipment.product_type == ProductType.HORN_HOOF:
@@ -501,18 +501,18 @@ async def get_origin_risk(
     Note: Risk assessment is only applicable for EUDR-covered products.
     Horn & Hoof products (HS 0506/0507) are NOT covered by EUDR.
     """
-    # Multi-tenancy: Get origin and verify organization access via shipment
-    origin = db.query(Origin).filter(Origin.id == origin_id).first()
+    # Multi-tenancy: Get origin with shipment organization verification in single query
+    origin = db.query(Origin).join(
+        Shipment, Origin.shipment_id == Shipment.id
+    ).filter(
+        Origin.id == origin_id,
+        Shipment.organization_id == current_user.organization_id
+    ).first()
     if not origin:
         raise HTTPException(status_code=404, detail="Origin not found")
 
-    # Verify user has access to this origin's shipment
-    shipment = db.query(Shipment).filter(
-        Shipment.id == origin.shipment_id,
-        Shipment.organization_id == current_user.organization_id
-    ).first()
-    if not shipment:
-        raise HTTPException(status_code=404, detail="Origin not found")
+    # Get shipment for product type check
+    shipment = db.query(Shipment).filter(Shipment.id == origin.shipment_id).first()
 
     # Horn & Hoof products don't have EUDR risk assessment
     if shipment.product_type == ProductType.HORN_HOOF:

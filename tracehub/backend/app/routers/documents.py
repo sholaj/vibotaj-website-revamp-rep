@@ -127,8 +127,11 @@ async def upload_document(
     # Check permission
     check_permission(current_user, Permission.DOCUMENTS_UPLOAD)
 
-    # Verify shipment exists
-    shipment = db.query(Shipment).filter(Shipment.id == shipment_id).first()
+    # Verify shipment exists and belongs to user's organization
+    shipment = db.query(Shipment).filter(
+        Shipment.id == shipment_id,
+        Shipment.organization_id == current_user.organization_id
+    ).first()
     if not shipment:
         raise HTTPException(status_code=404, detail="Shipment not found")
 
@@ -847,7 +850,10 @@ async def get_expiring_documents(
     current_user: CurrentUser = Depends(get_current_active_user)
 ):
     """Get documents expiring within the specified timeframe."""
-    query = db.query(Document).filter(Document.expiry_date.isnot(None))
+    query = db.query(Document).filter(
+        Document.expiry_date.isnot(None),
+        Document.organization_id == current_user.organization_id
+    )
 
     if shipment_id:
         query = query.filter(Document.shipment_id == shipment_id)
@@ -883,8 +889,11 @@ async def get_shipment_workflow_summary(
     current_user: CurrentUser = Depends(get_current_active_user)
 ):
     """Get workflow summary for all documents in a shipment."""
-    # Verify shipment exists
-    shipment = db.query(Shipment).filter(Shipment.id == shipment_id).first()
+    # Verify shipment exists and belongs to user's organization
+    shipment = db.query(Shipment).filter(
+        Shipment.id == shipment_id,
+        Shipment.organization_id == current_user.organization_id
+    ).first()
     if not shipment:
         raise HTTPException(status_code=404, detail="Shipment not found")
 
@@ -1358,7 +1367,11 @@ async def extract_shipment_data(
     if not document.file_path or not os.path.exists(document.file_path):
         raise HTTPException(status_code=404, detail="Document file not found")
 
-    shipment = db.query(Shipment).filter(Shipment.id == document.shipment_id).first()
+    # Verify shipment belongs to user's organization (defense in depth)
+    shipment = db.query(Shipment).filter(
+        Shipment.id == document.shipment_id,
+        Shipment.organization_id == current_user.organization_id
+    ).first()
     if not shipment:
         raise HTTPException(status_code=404, detail="Shipment not found")
 
@@ -1435,8 +1448,11 @@ async def preview_extraction(
         document.document_type
     )
 
-    # Get current shipment data for comparison
-    shipment = db.query(Shipment).filter(Shipment.id == document.shipment_id).first()
+    # Get current shipment data for comparison (verify org ownership)
+    shipment = db.query(Shipment).filter(
+        Shipment.id == document.shipment_id,
+        Shipment.organization_id == current_user.organization_id
+    ).first()
 
     return {
         "document_id": str(document_id),
@@ -1550,7 +1566,10 @@ async def parse_bol_document(
     # Auto-sync shipment data if requested
     sync_changes = None
     if auto_sync_shipment:
-        shipment = db.query(Shipment).filter(Shipment.id == document.shipment_id).first()
+        shipment = db.query(Shipment).filter(
+            Shipment.id == document.shipment_id,
+            Shipment.organization_id == current_user.organization_id
+        ).first()
         if shipment:
             sync_changes = bol_shipment_sync.apply_sync_changes(shipment, parsed_bol)
             logger.info(f"BoL sync applied to shipment {shipment.reference}: {sync_changes}")
@@ -1675,7 +1694,10 @@ async def check_bol_compliance(
     # Auto-sync shipment data if requested and compliance passed
     sync_changes = None
     if auto_sync_shipment and compliance_decision != "REJECT":
-        shipment = db.query(Shipment).filter(Shipment.id == document.shipment_id).first()
+        shipment = db.query(Shipment).filter(
+            Shipment.id == document.shipment_id,
+            Shipment.organization_id == current_user.organization_id
+        ).first()
         if shipment:
             sync_changes = bol_shipment_sync.apply_sync_changes(shipment, parsed_bol)
             logger.info(f"BoL sync applied to shipment {shipment.reference}: {sync_changes}")
@@ -1829,7 +1851,11 @@ async def preview_bol_sync(
             detail="BoL not parsed yet. Call /bol/parse first."
         )
 
-    shipment = db.query(Shipment).filter(Shipment.id == document.shipment_id).first()
+    # Verify shipment belongs to user's organization
+    shipment = db.query(Shipment).filter(
+        Shipment.id == document.shipment_id,
+        Shipment.organization_id == current_user.organization_id
+    ).first()
     if not shipment:
         raise HTTPException(status_code=404, detail="Shipment not found")
 
@@ -1901,7 +1927,11 @@ async def sync_bol_to_shipment(
             detail="BoL not parsed yet. Call /bol/parse first."
         )
 
-    shipment = db.query(Shipment).filter(Shipment.id == document.shipment_id).first()
+    # Verify shipment belongs to user's organization
+    shipment = db.query(Shipment).filter(
+        Shipment.id == document.shipment_id,
+        Shipment.organization_id == current_user.organization_id
+    ).first()
     if not shipment:
         raise HTTPException(status_code=404, detail="Shipment not found")
 
