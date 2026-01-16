@@ -3,7 +3,64 @@
 All notable changes to the TraceHub platform are documented in this file.
 
 ## [Unreleased]
-- Sprint 12: DateTime timezone standardization, shipment status transitions
+
+### Sprint 12: BoL Parsing & Compliance Engine
+
+**New Features:**
+
+**Backend - Bill of Lading Parser (Phase 1-2):**
+- Created `schemas/bol.py` - Canonical BoL Pydantic models
+  - `CanonicalBoL`: Full BoL structure with shipper, consignee, containers, cargo
+  - `BolParty`: Party details with name, address, country
+  - `BolContainer`: ISO 6346 container validation
+  - `BolCargo`: Cargo with HS codes and weights
+- Created `services/bol_parser.py` - Text extraction from BoL documents
+  - Regex-based extraction for major shipping lines (MSC, Hapag-Lloyd, MAERSK)
+  - Confidence scoring based on extracted field completeness
+  - Handles various BoL formats and layouts
+
+**Backend - Compliance Rules Engine (Phase 3-4):**
+- Created `services/bol_rules/engine.py` - Deterministic rules evaluation
+  - Condition types: NOT_NULL, IN_LIST, EQUALS, RANGE, DATE_ORDER, REGEX
+  - Nested field access using dot notation (e.g., `shipper.name`)
+- Created `services/bol_rules/compliance_rules.py` - Standard BoL rules
+  - BOL-001 to BOL-011: Validation rules for all BoL fields
+  - Decision logic: APPROVE/HOLD/REJECT based on severity
+- **Result:** 100% deterministic compliance decisions (no AI/ML)
+
+**Backend - API & Database Integration (Phase 5):**
+- Created `models/compliance_result.py` - Compliance result storage
+- Created Alembic migration `20260116_0001_add_bol_compliance_fields.py`
+  - Added `bol_parsed_data` JSONB column to documents
+  - Created `compliance_results` table
+- Added API endpoints to `routers/documents.py`:
+  - `POST /api/documents/{id}/bol/parse` - Parse BoL document
+  - `POST /api/documents/{id}/bol/compliance` - Check compliance
+  - `GET /api/documents/{id}/bol/compliance` - Get results
+  - `GET /api/documents/{id}/bol/sync-preview` - Preview sync changes
+  - `POST /api/documents/{id}/bol/sync` - Sync to shipment
+
+**Backend - Shipment Auto-Population (Phase 5B):**
+- Created `services/bol_shipment_sync.py` - BoL to shipment sync
+  - Placeholder detection (BUYER-CNT-XXX, TBD, PENDING patterns)
+  - Auto-updates: B/L number, container, vessel, ports, ATD
+  - Change tracking for audit trail
+- **Result:** BoL is now source of truth for shipment details
+
+**Frontend - BoL Compliance Panel (Phase 6):**
+- Created `components/BolCompliancePanel.tsx`
+  - Decision badge (green APPROVE, yellow HOLD, red REJECT)
+  - Rule results list with severity indicators
+  - Parsed data summary (vessel, containers, ports)
+  - Sync preview and apply buttons
+- Updated `types/index.ts` with BoL types
+- Updated `api/client.ts` with compliance API methods
+
+**Documentation:**
+- Updated `docs/COMPLIANCE_MATRIX.md` with BoL compliance rules
+- Added comprehensive test suite:
+  - 173+ unit tests for schema, parser, engine, API
+  - 16 E2E tests for full workflow
 
 ---
 

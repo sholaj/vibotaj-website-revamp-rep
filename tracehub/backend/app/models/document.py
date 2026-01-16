@@ -4,7 +4,7 @@ import uuid
 import enum
 from datetime import datetime
 from sqlalchemy import Column, String, DateTime, ForeignKey, Enum, Integer, Text, Float
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import relationship
 from ..database import Base
 
@@ -105,6 +105,11 @@ class Document(Base):
     extracted_container_number = Column(String(20), nullable=True)  # ISO 6346 format
     extraction_confidence = Column(Float, nullable=True)  # 0.0-1.0 score
 
+    # BoL parsing and compliance fields
+    bol_parsed_data = Column(JSONB, nullable=True)  # Parsed BoL in canonical format
+    compliance_status = Column(String(20), nullable=True)  # APPROVE, HOLD, REJECT
+    compliance_checked_at = Column(DateTime(timezone=True), nullable=True)
+
     # Organization (multi-tenancy)
     organization_id = Column(
         UUID(as_uuid=True),
@@ -120,6 +125,7 @@ class Document(Base):
     # Relationships
     shipment = relationship("Shipment", back_populates="documents")
     contents = relationship("DocumentContent", back_populates="document", cascade="all, delete-orphan")
+    compliance_results = relationship("ComplianceResult", back_populates="document", cascade="all, delete-orphan")
 
     def __repr__(self):
         return f"<Document {self.document_type.value}: {self.name}>"

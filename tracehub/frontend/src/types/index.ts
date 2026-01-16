@@ -649,6 +649,147 @@ export interface WorkflowSummaryResponse {
 }
 
 // ============================================
+// Bill of Lading Compliance Types
+// ============================================
+
+export type BolComplianceDecision = 'APPROVE' | 'HOLD' | 'REJECT'
+
+export interface BolRuleResult {
+  rule_id: string
+  rule_name: string
+  passed: boolean
+  message: string
+  severity: 'ERROR' | 'WARNING' | 'INFO'
+}
+
+export interface BolComplianceSummary {
+  total_rules: number
+  passed: number
+  errors: number
+  warnings: number
+  info: number
+}
+
+export interface BolParsedData {
+  bol_number: string
+  shipper?: {
+    name: string
+    address?: string
+    country?: string
+  }
+  consignee?: {
+    name: string
+    address?: string
+    country?: string
+  }
+  containers: Array<{
+    number: string
+    type?: string
+    seal_number?: string
+    weight_kg?: number
+  }>
+  cargo: Array<{
+    description: string
+    hs_code?: string
+    quantity?: number
+    unit?: string
+    gross_weight_kg?: number
+    net_weight_kg?: number
+  }>
+  vessel_name?: string
+  voyage_number?: string
+  port_of_loading?: string
+  port_of_discharge?: string
+  shipped_on_board_date?: string
+  freight_terms?: string
+  confidence_score: number
+}
+
+export interface BolParseResponse {
+  document_id: string
+  parsed_bol: BolParsedData
+  confidence_score: number
+  is_complete: boolean
+  message: string
+  shipment_sync?: {
+    applied: boolean
+    changes: Record<string, { old: unknown; new: unknown }>
+  }
+}
+
+export interface BolComplianceResponse {
+  document_id: string
+  compliance_status: BolComplianceDecision
+  checked_at: string
+  results: BolRuleResult[]
+  summary: BolComplianceSummary
+  parsed_bol: {
+    bol_number: string
+    shipper?: string
+    consignee?: string
+    container_count: number
+    confidence_score: number
+  }
+  shipment_sync?: {
+    applied: boolean
+    changes: Record<string, { old: unknown; new: unknown }>
+  }
+}
+
+export interface BolComplianceResultsResponse {
+  document_id: string
+  compliance_status: BolComplianceDecision | null
+  checked_at: string | null
+  results: Array<BolRuleResult & { id: string; checked_at?: string }>
+  summary: BolComplianceSummary
+  parsed_bol: BolParsedData | null
+  message?: string
+}
+
+export interface BolSyncPreviewResponse {
+  document_id: string
+  shipment_id: string
+  shipment_reference: string
+  changes_to_apply: Record<string, { old: unknown; new: unknown }>
+  change_count: number
+  current_values: {
+    bl_number?: string
+    container_number?: string
+    vessel_name?: string
+    voyage_number?: string
+    pol_code?: string
+    pod_code?: string
+    atd?: string
+  }
+  bol_values: {
+    bol_number?: string
+    container_number?: string
+    vessel_name?: string
+    voyage_number?: string
+    port_of_loading?: string
+    port_of_discharge?: string
+    shipped_on_board_date?: string
+  }
+}
+
+export interface BolSyncResponse {
+  document_id: string
+  shipment_id: string
+  shipment_reference: string
+  sync_applied: boolean
+  changes: Record<string, { old: unknown; new: unknown }>
+  updated_shipment: {
+    bl_number?: string
+    container_number?: string
+    vessel_name?: string
+    voyage_number?: string
+    pol_code?: string
+    pod_code?: string
+    atd?: string
+  }
+}
+
+// ============================================
 // Notification Types
 // ============================================
 

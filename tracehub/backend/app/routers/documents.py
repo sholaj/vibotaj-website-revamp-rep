@@ -40,6 +40,14 @@ from ..services.document_classifier import document_classifier
 from ..services.shipment_enrichment import shipment_enrichment_service
 from ..services.compliance import validate_document_content as validate_compliance
 from ..services.shipment_data_extractor import ShipmentDataExtractor
+from ..services.bol_parser import bol_parser
+from ..services.bol_rules import (
+    RulesEngine,
+    STANDARD_BOL_RULES,
+    get_compliance_decision,
+)
+from ..services.bol_shipment_sync import bol_shipment_sync
+from ..models import ComplianceResult
 
 router = APIRouter()
 settings = get_settings()
@@ -1466,4 +1474,462 @@ async def preview_extraction(
             "existing_hs_codes": [p.hs_code for p in shipment.products] if shipment else []
         },
         "raw_fields": extracted.raw_fields
+    }
+
+
+# ============ Bill of Lading Compliance Endpoints ============
+
+class BolComplianceResponse(BaseModel):
+    """Response for BoL compliance check."""
+    document_id: str
+    compliance_status: str  # APPROVE, HOLD, REJECT
+    parsed_bol: Optional[dict] = None
+    results: List[dict]
+    summary: dict
+
+
+@router.post("/{document_id}/bol/parse")
+async def parse_bol_document(
+    document_id: UUID,
+    auto_sync_shipment: bool = Query(False, description="Auto-sync shipment data from parsed BoL"),
+    db: Session = Depends(get_db),
+    current_user: CurrentUser = Depends(get_current_active_user)
+):
+    """Parse a Bill of Lading document and extract structured data.
+
+    This endpoint extracts data from a BoL PDF and stores the parsed
+    data in the document record. The BoL becomes the SOURCE OF TRUTH
+    for shipment details.
+
+    Args:
+        document_id: Document UUID
+        auto_sync_shipment: If True, automatically update shipment with BoL data
+
+    Returns:
+        Parsed BoL data with confidence score
+    """
+    check_permission(current_user, Permission.DOCUMENTS_UPLOAD)
+
+    document = db.query(Document).filter(
+        Document.id == document_id,
+        Document.organization_id == current_user.organization_id
+    ).first()
+    if not document:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    # Verify it's a Bill of Lading
+    if document.document_type != DocumentType.BILL_OF_LADING:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Document is not a Bill of Lading (type: {document.document_type.value})"
+        )
+
+    if not document.file_path or not os.path.exists(document.file_path):
+        raise HTTPException(status_code=404, detail="Document file not found")
+
+    if not pdf_processor.is_available():
+        raise HTTPException(
+            status_code=503,
+            detail="PDF processing is not available. Install PyMuPDF."
+        )
+
+    # Extract text from PDF
+    pages = pdf_processor.extract_text(document.file_path)
+    if not pages:
+        raise HTTPException(status_code=400, detail="Could not extract text from PDF")
+
+    full_text = "\n".join(page.text for page in pages)
+
+    # Parse the BoL
+    parsed_bol = bol_parser.parse(full_text)
+
+    # Store parsed data in document
+    document.bol_parsed_data = parsed_bol.model_dump(mode="json")
+    document.updated_at = datetime.utcnow()
+
+    # Auto-sync shipment data if requested
+    sync_changes = None
+    if auto_sync_shipment:
+        shipment = db.query(Shipment).filter(Shipment.id == document.shipment_id).first()
+        if shipment:
+            sync_changes = bol_shipment_sync.apply_sync_changes(shipment, parsed_bol)
+            logger.info(f"BoL sync applied to shipment {shipment.reference}: {sync_changes}")
+
+    db.commit()
+    db.refresh(document)
+
+    response = {
+        "document_id": str(document_id),
+        "parsed_bol": parsed_bol.model_dump(mode="json"),
+        "confidence_score": parsed_bol.confidence_score,
+        "is_complete": parsed_bol.is_complete(),
+        "message": "Bill of Lading parsed successfully"
+    }
+
+    if sync_changes:
+        response["shipment_sync"] = {
+            "applied": True,
+            "changes": sync_changes
+        }
+
+    return response
+
+
+@router.post("/{document_id}/bol/check-compliance")
+async def check_bol_compliance(
+    document_id: UUID,
+    store_results: bool = Query(True, description="Store results in database"),
+    auto_sync_shipment: bool = Query(False, description="Auto-sync shipment data from parsed BoL"),
+    db: Session = Depends(get_db),
+    current_user: CurrentUser = Depends(get_current_active_user)
+):
+    """Run compliance checks on a Bill of Lading document.
+
+    This endpoint:
+    1. Parses the BoL document (if not already parsed)
+    2. Runs all compliance rules against the parsed data
+    3. Returns compliance decision (APPROVE, HOLD, REJECT)
+    4. Optionally stores results in database
+
+    Compliance Decisions:
+    - APPROVE: All rules passed (or only INFO failures)
+    - HOLD: WARNING severity failures (requires manual review)
+    - REJECT: ERROR severity failures (critical issues)
+
+    Args:
+        document_id: Document UUID
+        store_results: If True, store compliance results in database
+        auto_sync_shipment: If True, automatically update shipment with BoL data
+    """
+    check_permission(current_user, Permission.DOCUMENTS_VALIDATE)
+
+    document = db.query(Document).filter(
+        Document.id == document_id,
+        Document.organization_id == current_user.organization_id
+    ).first()
+    if not document:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    if document.document_type != DocumentType.BILL_OF_LADING:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Document is not a Bill of Lading (type: {document.document_type.value})"
+        )
+
+    # Get or parse BoL data
+    parsed_data = document.bol_parsed_data
+    if not parsed_data:
+        # Parse the document first
+        if not document.file_path or not os.path.exists(document.file_path):
+            raise HTTPException(status_code=404, detail="Document file not found")
+
+        if not pdf_processor.is_available():
+            raise HTTPException(
+                status_code=503,
+                detail="PDF processing is not available. Install PyMuPDF."
+            )
+
+        pages = pdf_processor.extract_text(document.file_path)
+        if not pages:
+            raise HTTPException(status_code=400, detail="Could not extract text from PDF")
+
+        full_text = "\n".join(page.text for page in pages)
+        parsed_bol = bol_parser.parse(full_text)
+        document.bol_parsed_data = parsed_bol.model_dump(mode="json")
+        parsed_data = document.bol_parsed_data
+    else:
+        # Reconstruct BoL from stored data
+        from ..schemas.bol import CanonicalBoL
+        parsed_bol = CanonicalBoL.model_validate(parsed_data)
+
+    # Run compliance rules
+    engine = RulesEngine(STANDARD_BOL_RULES)
+    results = engine.evaluate(parsed_bol)
+    compliance_decision = get_compliance_decision(results)
+
+    # Update document compliance status
+    document.compliance_status = compliance_decision
+    document.compliance_checked_at = datetime.utcnow()
+
+    # Store individual rule results if requested
+    if store_results:
+        # Clear existing results for this document
+        db.query(ComplianceResult).filter(
+            ComplianceResult.document_id == document_id
+        ).delete()
+
+        # Store new results
+        for result in results:
+            compliance_result = ComplianceResult(
+                document_id=document_id,
+                organization_id=current_user.organization_id,
+                rule_id=result.rule_id,
+                rule_name=result.rule_name,
+                passed=result.passed,
+                message=result.message,
+                severity=result.severity,
+                checked_at=datetime.utcnow()
+            )
+            db.add(compliance_result)
+
+    # Auto-sync shipment data if requested and compliance passed
+    sync_changes = None
+    if auto_sync_shipment and compliance_decision != "REJECT":
+        shipment = db.query(Shipment).filter(Shipment.id == document.shipment_id).first()
+        if shipment:
+            sync_changes = bol_shipment_sync.apply_sync_changes(shipment, parsed_bol)
+            logger.info(f"BoL sync applied to shipment {shipment.reference}: {sync_changes}")
+
+    db.commit()
+    db.refresh(document)
+
+    # Build response
+    error_count = sum(1 for r in results if not r.passed and r.severity == "ERROR")
+    warning_count = sum(1 for r in results if not r.passed and r.severity == "WARNING")
+    info_count = sum(1 for r in results if not r.passed and r.severity == "INFO")
+    passed_count = sum(1 for r in results if r.passed)
+
+    response = {
+        "document_id": str(document_id),
+        "compliance_status": compliance_decision,
+        "checked_at": document.compliance_checked_at.isoformat(),
+        "results": [
+            {
+                "rule_id": r.rule_id,
+                "rule_name": r.rule_name,
+                "passed": r.passed,
+                "message": r.message,
+                "severity": r.severity
+            }
+            for r in results
+        ],
+        "summary": {
+            "total_rules": len(results),
+            "passed": passed_count,
+            "errors": error_count,
+            "warnings": warning_count,
+            "info": info_count
+        },
+        "parsed_bol": {
+            "bol_number": parsed_bol.bol_number,
+            "shipper": parsed_bol.shipper.name if parsed_bol.shipper else None,
+            "consignee": parsed_bol.consignee.name if parsed_bol.consignee else None,
+            "container_count": len(parsed_bol.containers),
+            "confidence_score": parsed_bol.confidence_score
+        }
+    }
+
+    if sync_changes:
+        response["shipment_sync"] = {
+            "applied": True,
+            "changes": sync_changes
+        }
+
+    return response
+
+
+@router.get("/{document_id}/bol/compliance-results")
+async def get_bol_compliance_results(
+    document_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: CurrentUser = Depends(get_current_active_user)
+):
+    """Get stored compliance results for a Bill of Lading document.
+
+    Returns the most recent compliance check results stored in the database.
+    """
+    document = db.query(Document).filter(
+        Document.id == document_id,
+        Document.organization_id == current_user.organization_id
+    ).first()
+    if not document:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    if document.document_type != DocumentType.BILL_OF_LADING:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Document is not a Bill of Lading (type: {document.document_type.value})"
+        )
+
+    # Get stored compliance results
+    results = db.query(ComplianceResult).filter(
+        ComplianceResult.document_id == document_id,
+        ComplianceResult.organization_id == current_user.organization_id
+    ).order_by(ComplianceResult.checked_at.desc()).all()
+
+    if not results:
+        return {
+            "document_id": str(document_id),
+            "compliance_status": document.compliance_status,
+            "checked_at": document.compliance_checked_at.isoformat() if document.compliance_checked_at else None,
+            "results": [],
+            "message": "No compliance results found. Run /bol/check-compliance first."
+        }
+
+    # Calculate summary
+    error_count = sum(1 for r in results if not r.passed and r.severity == "ERROR")
+    warning_count = sum(1 for r in results if not r.passed and r.severity == "WARNING")
+    info_count = sum(1 for r in results if not r.passed and r.severity == "INFO")
+    passed_count = sum(1 for r in results if r.passed)
+
+    return {
+        "document_id": str(document_id),
+        "compliance_status": document.compliance_status,
+        "checked_at": document.compliance_checked_at.isoformat() if document.compliance_checked_at else None,
+        "results": [
+            {
+                "id": str(r.id),
+                "rule_id": r.rule_id,
+                "rule_name": r.rule_name,
+                "passed": r.passed,
+                "message": r.message,
+                "severity": r.severity,
+                "checked_at": r.checked_at.isoformat() if r.checked_at else None
+            }
+            for r in results
+        ],
+        "summary": {
+            "total_rules": len(results),
+            "passed": passed_count,
+            "errors": error_count,
+            "warnings": warning_count,
+            "info": info_count
+        },
+        "parsed_bol": document.bol_parsed_data
+    }
+
+
+@router.get("/{document_id}/bol/sync-preview")
+async def preview_bol_sync(
+    document_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: CurrentUser = Depends(get_current_active_user)
+):
+    """Preview what changes would be made to the shipment from BoL data.
+
+    This endpoint shows what fields would be updated if the BoL data
+    is synced to the shipment, without actually making the changes.
+    """
+    document = db.query(Document).filter(
+        Document.id == document_id,
+        Document.organization_id == current_user.organization_id
+    ).first()
+    if not document:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    if document.document_type != DocumentType.BILL_OF_LADING:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Document is not a Bill of Lading (type: {document.document_type.value})"
+        )
+
+    if not document.bol_parsed_data:
+        raise HTTPException(
+            status_code=400,
+            detail="BoL not parsed yet. Call /bol/parse first."
+        )
+
+    shipment = db.query(Shipment).filter(Shipment.id == document.shipment_id).first()
+    if not shipment:
+        raise HTTPException(status_code=404, detail="Shipment not found")
+
+    # Reconstruct BoL from stored data
+    from ..schemas.bol import CanonicalBoL
+    parsed_bol = CanonicalBoL.model_validate(document.bol_parsed_data)
+
+    # Get preview of changes (without applying)
+    changes = bol_shipment_sync.get_sync_changes(shipment, parsed_bol)
+
+    return {
+        "document_id": str(document_id),
+        "shipment_id": str(shipment.id),
+        "shipment_reference": shipment.reference,
+        "changes_to_apply": changes,
+        "change_count": len(changes),
+        "current_values": {
+            "bl_number": shipment.bl_number,
+            "container_number": shipment.container_number,
+            "vessel_name": shipment.vessel_name,
+            "voyage_number": shipment.voyage_number,
+            "pol_code": shipment.pol_code,
+            "pod_code": shipment.pod_code,
+            "atd": shipment.atd.isoformat() if shipment.atd else None
+        },
+        "bol_values": {
+            "bol_number": parsed_bol.bol_number,
+            "container_number": parsed_bol.get_primary_container(),
+            "vessel_name": parsed_bol.vessel_name,
+            "voyage_number": parsed_bol.voyage_number,
+            "port_of_loading": parsed_bol.port_of_loading,
+            "port_of_discharge": parsed_bol.port_of_discharge,
+            "shipped_on_board_date": parsed_bol.shipped_on_board_date.isoformat() if parsed_bol.shipped_on_board_date else None
+        }
+    }
+
+
+@router.post("/{document_id}/bol/sync")
+async def sync_bol_to_shipment(
+    document_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: CurrentUser = Depends(get_current_active_user)
+):
+    """Sync BoL data to the shipment.
+
+    This endpoint applies the parsed BoL data to update the shipment record.
+    Use /bol/sync-preview first to see what changes will be made.
+
+    Requires: documents:upload permission
+    """
+    check_permission(current_user, Permission.DOCUMENTS_UPLOAD)
+
+    document = db.query(Document).filter(
+        Document.id == document_id,
+        Document.organization_id == current_user.organization_id
+    ).first()
+    if not document:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    if document.document_type != DocumentType.BILL_OF_LADING:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Document is not a Bill of Lading (type: {document.document_type.value})"
+        )
+
+    if not document.bol_parsed_data:
+        raise HTTPException(
+            status_code=400,
+            detail="BoL not parsed yet. Call /bol/parse first."
+        )
+
+    shipment = db.query(Shipment).filter(Shipment.id == document.shipment_id).first()
+    if not shipment:
+        raise HTTPException(status_code=404, detail="Shipment not found")
+
+    # Reconstruct BoL from stored data
+    from ..schemas.bol import CanonicalBoL
+    parsed_bol = CanonicalBoL.model_validate(document.bol_parsed_data)
+
+    # Apply changes
+    changes = bol_shipment_sync.apply_sync_changes(shipment, parsed_bol)
+
+    if changes:
+        db.commit()
+        db.refresh(shipment)
+        logger.info(f"BoL sync applied to shipment {shipment.reference}: {changes}")
+
+    return {
+        "document_id": str(document_id),
+        "shipment_id": str(shipment.id),
+        "shipment_reference": shipment.reference,
+        "sync_applied": bool(changes),
+        "changes": changes,
+        "updated_shipment": {
+            "bl_number": shipment.bl_number,
+            "container_number": shipment.container_number,
+            "vessel_name": shipment.vessel_name,
+            "voyage_number": shipment.voyage_number,
+            "pol_code": shipment.pol_code,
+            "pod_code": shipment.pod_code,
+            "atd": shipment.atd.isoformat() if shipment.atd else None
+        }
     }

@@ -135,15 +135,68 @@ const isEUDRRequired = (hsCode: string): boolean => {
 
 ---
 
+## Bill of Lading Compliance Rules
+
+### Source of Truth Principle
+**When a Bill of Lading is uploaded and parsed, it becomes the authoritative source for shipment details.**
+
+### Compliance Decision Logic
+
+| Decision | Condition | Action |
+|----------|-----------|--------|
+| **APPROVE** | All rules pass OR only INFO failures | Proceed with shipment |
+| **HOLD** | WARNING failures (no ERRORs) | Review required |
+| **REJECT** | ERROR severity failures | Cannot proceed |
+
+### Compliance Rules
+
+| Rule ID | Name | Severity | Validation |
+|---------|------|----------|------------|
+| BOL-001 | Shipper Name Required | ERROR | Not "Unknown Shipper" placeholder |
+| BOL-002 | Consignee Name Required | ERROR | Not "Unknown Consignee" placeholder |
+| BOL-003 | Container ISO 6346 Format | WARNING | 4 letters + 7 digits (e.g., MSKU1234567) |
+| BOL-004 | BoL Number Required | ERROR | Not "UNKNOWN" placeholder |
+| BOL-005 | Port of Loading Required | WARNING | Should be specified |
+| BOL-006 | Cargo Description Required | WARNING | At least one cargo item |
+| BOL-007 | Container Required | WARNING | At least one container |
+| BOL-008 | Port of Discharge Required | WARNING | Should be specified |
+| BOL-009 | Vessel Name Present | INFO | Helps with tracking |
+| BOL-010 | Voyage Number Present | INFO | Helps with tracking |
+| BOL-011 | Confidence Score Threshold | INFO | Parser confidence >= 50% |
+
+### Shipment Auto-Population
+
+When a BoL is parsed, these shipment fields are automatically updated:
+
+| BoL Field | Shipment Field | Behavior |
+|-----------|----------------|----------|
+| `bol_number` | `bl_number` | Always update |
+| `containers[0].number` | `container_number` | Update if placeholder |
+| `vessel_name` | `vessel_name` | Update if present |
+| `voyage_number` | `voyage_number` | Update if present |
+| `port_of_loading` | `pol_code` | Extract UN/LOCODE |
+| `port_of_discharge` | `pod_code` | Extract UN/LOCODE |
+| `shipped_on_board_date` | `atd` | Update departure date |
+
+### Placeholder Detection
+
+Container numbers matching these patterns are replaced:
+- `*-CNT-*` (e.g., BECKMANN-CNT-001, HAGES-CNT-002)
+- `TBD`, `TBC`, `PENDING`, `PLACEHOLDER`
+- `N/A`, `NA`, Empty/null values
+
+---
+
 ## Changes Log
 
 | Date | Change | Reason |
 |------|--------|--------|
 | 2026-01-06 | Initial creation | Establish single source of truth |
 | 2026-01-06 | Confirmed Horn/Hoof NOT EUDR | HS 0506/0507 not in EUDR Annex I |
+| 2026-01-16 | Added BoL Compliance Rules | Sprint 12 - BoL parsing & rules engine |
 
 ---
 
-**Last Updated:** 2026-01-06  
-**Maintained By:** TraceHub Development Team  
+**Last Updated:** 2026-01-16
+**Maintained By:** TraceHub Development Team
 **Review Frequency:** Before any compliance-related code changes

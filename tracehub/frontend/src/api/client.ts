@@ -88,6 +88,12 @@ import type {
   InvitationAcceptInfo,
   AcceptInvitationRequest,
   AcceptedInvitationResponse,
+  // Bill of Lading compliance types
+  BolParseResponse,
+  BolComplianceResponse,
+  BolComplianceResultsResponse,
+  BolSyncPreviewResponse,
+  BolSyncResponse,
 } from '../types'
 
 // ============================================
@@ -929,6 +935,82 @@ class ApiClient {
       pending_validation: [],
       issues: [],
     }
+  }
+
+  // ============================================
+  // Bill of Lading Compliance Methods
+  // ============================================
+
+  /**
+   * Parse a Bill of Lading document and extract structured data.
+   * Optionally sync the extracted data to the shipment.
+   */
+  async parseBol(
+    documentId: string,
+    autoSyncShipment: boolean = false
+  ): Promise<BolParseResponse> {
+    const response = await this.client.post<BolParseResponse>(
+      `documents/${documentId}/bol/parse?auto_sync_shipment=${autoSyncShipment}`
+    )
+    this.cache.invalidate('documents')
+    this.cache.invalidate('shipments')
+    return response.data
+  }
+
+  /**
+   * Run compliance checks on a Bill of Lading document.
+   * Returns compliance decision: APPROVE, HOLD, or REJECT.
+   */
+  async checkBolCompliance(
+    documentId: string,
+    options: {
+      storeResults?: boolean
+      autoSyncShipment?: boolean
+    } = {}
+  ): Promise<BolComplianceResponse> {
+    const { storeResults = true, autoSyncShipment = false } = options
+    const params = new URLSearchParams()
+    params.append('store_results', storeResults.toString())
+    params.append('auto_sync_shipment', autoSyncShipment.toString())
+
+    const response = await this.client.post<BolComplianceResponse>(
+      `documents/${documentId}/bol/check-compliance?${params.toString()}`
+    )
+    this.cache.invalidate('documents')
+    this.cache.invalidate('shipments')
+    return response.data
+  }
+
+  /**
+   * Get stored compliance results for a Bill of Lading document.
+   */
+  async getBolComplianceResults(documentId: string): Promise<BolComplianceResultsResponse> {
+    return this.executeWithRetry<BolComplianceResultsResponse>({
+      method: 'GET',
+      url: `documents/${documentId}/bol/compliance-results`,
+    })
+  }
+
+  /**
+   * Preview what changes would be made to the shipment from BoL data.
+   */
+  async previewBolSync(documentId: string): Promise<BolSyncPreviewResponse> {
+    return this.executeWithRetry<BolSyncPreviewResponse>({
+      method: 'GET',
+      url: `documents/${documentId}/bol/sync-preview`,
+    })
+  }
+
+  /**
+   * Sync BoL data to the shipment.
+   */
+  async syncBolToShipment(documentId: string): Promise<BolSyncResponse> {
+    const response = await this.client.post<BolSyncResponse>(
+      `documents/${documentId}/bol/sync`
+    )
+    this.cache.invalidate('documents')
+    this.cache.invalidate('shipments')
+    return response.data
   }
 
   // ============================================
