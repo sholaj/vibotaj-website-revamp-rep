@@ -473,7 +473,7 @@ async def validate_document(
 
     document.status = DocumentStatus.VALIDATED
     document.validated_at = datetime.utcnow()
-    document.validated_by = current_user.email
+    document.validated_by = current_user.id
     if notes:
         document.validation_notes = notes
 
@@ -985,7 +985,7 @@ async def validate_document_content(
 
     content.status = DocumentStatus.VALIDATED
     content.validated_at = datetime.utcnow()
-    content.validated_by = current_user.email
+    content.validated_by = current_user.id
     if notes:
         content.validation_notes = notes
 
@@ -1002,7 +1002,7 @@ async def validate_document_content(
     if all_validated and document:
         document.status = DocumentStatus.VALIDATED
         document.validated_at = datetime.utcnow()
-        document.validated_by = current_user.email
+        document.validated_by = current_user.id
 
     db.commit()
     db.refresh(content)
