@@ -159,36 +159,52 @@ EXTRACTION_PATTERNS = {
 
     # Bill of Lading number patterns
     "bl_number": [
-        r'(?:B/?L\s*(?:No\.?|Number)?|Bill\s+of\s+Lading\s*(?:No\.?)?)\s*[:.]?\s*([A-Z0-9]{6,})',
-        r'(?:BL\s*No|B/L\s*No|BL\s*Number)[\s.:]*\s*([A-Z0-9]{6,})',
-        r'(?:Master\s+)?B/?L[\s:]+([A-Z0-9-]{6,})',
+        # Maersk format: B/N. 262495038
+        r'B/N\.?\s*(\d{9,})',
+        # Standard formats
+        r'(?:B/?L\s*(?:No\.?|Number)?|Bill\s+of\s+Lading\s*(?:No\.?)?)\s*[:.]?\s*(\d{6,})',
+        r'(?:BL\s*No|B/L\s*No|BL\s*Number)[\s.:]*\s*(\d{6,})',
+        r'(?:Master\s+)?B/?L[\s:]+(\d{6,})',
     ],
 
-    # Vessel name patterns
+    # Vessel name patterns - improved for Maersk format
     "vessel_name": [
-        r'(?:Vessel|V/N|Ship|M/?V)[\s:]*["\']?([A-Z][A-Z\s]+?)["\']?\s*(?:V\.|VOY|$)',
-        r'(?:Ocean\s+)?Vessel[\s:]+([A-Z][A-Za-z\s]{3,30})',
-        r'(?:Carrier|Vessel\s+Name)[\s:]+([A-Z][A-Za-z\s]{3,30})',
+        # Maersk format: vessel name followed by voyage on same line
+        # e.g., "RHINE MAERSK 550N" - capture vessel name before voyage number
+        r'\n([A-Z][A-Z\s]+MAERSK)\s+\d+[A-Z]?\n',
+        r'\n([A-Z][A-Z\s]+MSC)\s+\d+[A-Z]?\n',
+        # Generic format: VESSEL NAME followed by voyage
+        r'\n([A-Z]{2,}(?:\s+[A-Z]{2,}){0,3})\s+\d{2,}[A-Z]?\s*\n',
+        # Labeled formats
+        r'(?:Ocean\s+)?Vessel[\s:]+([A-Z][A-Za-z\s]{3,25}?)(?:\s+\d|\n|$)',
+        r'(?:Carrier|Vessel\s+Name)[\s:]+([A-Z][A-Za-z\s]{3,25}?)(?:\s+\d|\n|$)',
     ],
 
-    # Voyage number patterns
+    # Voyage number patterns - improved for Maersk format
     "voyage_number": [
-        r'(?:Voyage|Voy|V\.|VOY)[\s.:]*#?\s*([A-Z0-9-]+)',
-        r'(?:Voyage\s+No|V/N)[\s.:]*\s*([A-Z0-9-]+)',
+        # Maersk format: voyage number after vessel name (e.g., "550N")
+        r'(?:MAERSK|MSC)\s+(\d{2,}[A-Z]?)\s*\n',
+        # Standard formats
+        r'(?:Voyage|Voy)\s*(?:No\.?)?\s*[:.]?\s*(\d{2,}[A-Z]?)',
+        r'\bVoyage\s+No[,.]?\s*\d?\s*[^\n]*\n[A-Z\s]+\s+(\d{2,}[A-Z]?)',
     ],
 
-    # Port of Loading patterns
+    # Port of Loading patterns - improved for Maersk format
     "port_of_loading": [
+        # Maersk format: "Port of Loading Port of Discharge" header, then "Apapa Hamburg" on next line
+        r'Port\s+of\s+Loading\s+Port\s+of\s+Discharge[^\n]*\n([A-Za-z]+)\s+[A-Za-z]+',
+        # Standard labeled formats
         r'(?:Port\s+of\s+Loading|POL|Load(?:ing)?\s+Port)[\s:]+([A-Za-z,\s]+?)(?:\n|$|Port)',
         r'(?:From|Origin|Shipped\s+From)[\s:]+([A-Za-z,\s]+?)(?:\n|$|To)',
-        r'(?:Place\s+of\s+Receipt)[\s:]+([A-Za-z,\s]+?)(?:\n|$)',
     ],
 
-    # Port of Discharge patterns
+    # Port of Discharge patterns - improved for Maersk format
     "port_of_discharge": [
-        r'(?:Port\s+of\s+Discharge|POD|Discharge\s+Port|Destination\s+Port)[\s:]+([A-Za-z,\s]+?)(?:\n|$|Final)',
-        r'(?:To|Destination|Shipped\s+To|Delivery\s+Port)[\s:]+([A-Za-z,\s]+?)(?:\n|$)',
-        r'(?:Place\s+of\s+Delivery)[\s:]+([A-Za-z,\s]+?)(?:\n|$)',
+        # Maersk format: "Port of Loading Port of Discharge" header, then "Apapa Hamburg" on next line
+        r'Port\s+of\s+Loading\s+Port\s+of\s+Discharge[^\n]*\n[A-Za-z]+\s+([A-Za-z]+)',
+        # Standard labeled formats
+        r'(?:Port\s+of\s+Discharge|POD|Discharge\s+Port)[\s:]+([A-Za-z]+)(?:\s|,|\n|$)',
+        r'(?:Destination\s+Port)[\s:]+([A-Za-z]+)(?:\s|,|\n|$)',
     ],
 
     # Final destination patterns
@@ -241,8 +257,56 @@ PRODUCT_PATTERNS = {
 class ShipmentDataExtractor:
     """Service for extracting shipment-relevant data from document text."""
 
+    # Invalid vessel name patterns (common false positives)
+    INVALID_VESSEL_PATTERNS = [
+        r'^per$', r'^the$', r'^and$', r'^for$', r'^via$', r'^see$',
+        r'^clause', r'^shipped', r'^carrier', r'^vessel$',
+    ]
+
+    # Invalid port name patterns (legal text, not ports)
+    INVALID_PORT_PATTERNS = [
+        r'consignee', r'named', r'proof', r'identity', r'bearer',
+        r'order', r'notify', r'delivery', r'clause', r'shipper',
+    ]
+
     def __init__(self):
         self._ai_client = None
+
+    def _is_valid_vessel_name(self, name: str) -> bool:
+        """Validate that vessel name is not a false positive."""
+        if not name or len(name) < 3:
+            return False
+        name_lower = name.lower().strip()
+        for pattern in self.INVALID_VESSEL_PATTERNS:
+            if re.match(pattern, name_lower):
+                return False
+        return True
+
+    def _is_valid_port_name(self, name: str) -> bool:
+        """Validate that port name is not legal text or false positive."""
+        if not name or len(name) < 3:
+            return False
+        # Port names should be short (typically < 30 chars)
+        if len(name) > 30:
+            return False
+        name_lower = name.lower()
+        for pattern in self.INVALID_PORT_PATTERNS:
+            if pattern in name_lower:
+                return False
+        return True
+
+    def _is_valid_voyage(self, voyage: str) -> bool:
+        """Validate voyage number format."""
+        if not voyage or len(voyage) < 2:
+            return False
+        # Voyage should contain at least one digit
+        if not any(c.isdigit() for c in voyage):
+            return False
+        # Filter common false positives
+        voyage_upper = voyage.upper().strip()
+        if voyage_upper in ['NO', 'NA', 'N/A', 'NIL', 'TBA', 'TBD']:
+            return False
+        return True
 
     def extract_from_text(
         self,
@@ -271,30 +335,30 @@ class ShipmentDataExtractor:
 
         # Extract B/L number
         bl = self._extract_pattern(text_clean, "bl_number")
-        if bl:
+        if bl and bl.strip().isdigit():  # B/L should be numeric
             result.bl_number = bl.strip()
             result.raw_fields["bl_number"] = bl
 
         # Extract vessel and voyage
         vessel = self._extract_pattern(text_clean, "vessel_name")
-        if vessel:
+        if vessel and self._is_valid_vessel_name(vessel):
             result.vessel_name = vessel.strip().title()
             result.raw_fields["vessel_name"] = vessel
 
         voyage = self._extract_pattern(text_clean, "voyage_number")
-        if voyage:
+        if voyage and self._is_valid_voyage(voyage):
             result.voyage_number = voyage.strip().upper()
             result.raw_fields["voyage_number"] = voyage
 
         # Extract ports
         pol = self._extract_pattern(text_clean, "port_of_loading")
-        if pol:
+        if pol and self._is_valid_port_name(pol):
             result.port_of_loading_name = pol.strip().title()
             result.port_of_loading_code = self._resolve_port_code(pol)
             result.raw_fields["port_of_loading"] = pol
 
         pod = self._extract_pattern(text_clean, "port_of_discharge")
-        if pod:
+        if pod and self._is_valid_port_name(pod):
             result.port_of_discharge_name = pod.strip().title()
             result.port_of_discharge_code = self._resolve_port_code(pod)
             result.raw_fields["port_of_discharge"] = pod
