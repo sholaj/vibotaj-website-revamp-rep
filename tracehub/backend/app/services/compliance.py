@@ -430,8 +430,8 @@ def get_required_documents_by_hs_code(
 def get_required_documents(shipment: Shipment) -> List[DocumentType]:
     """Get list of required document types for a shipment.
 
-    This is a convenience wrapper around get_required_documents_by_hs_code
-    that extracts HS code and destination from a Shipment object.
+    Uses product_type (primary) or products array HS code (fallback)
+    to determine document requirements.
 
     Args:
         shipment: The shipment to check
@@ -439,15 +439,19 @@ def get_required_documents(shipment: Shipment) -> List[DocumentType]:
     Returns:
         List of required DocumentType enums
     """
-    # Get HS code prefix from first product if available
+    # Get destination country
+    destination = shipment.pod_code[:2] if shipment.pod_code else "DE"
+
+    # Primary: Check product_type field (set during shipment creation)
+    if shipment.product_type:
+        return get_required_documents_by_product_type(shipment.product_type, destination)
+
+    # Fallback: Get HS code prefix from first product if available
     hs_code = "default"
     if shipment.products and len(shipment.products) > 0:
         product_hs = shipment.products[0].hs_code
         if product_hs:
             hs_code = product_hs
-
-    # Get destination country
-    destination = shipment.pod_code[:2] if shipment.pod_code else "DE"
 
     return get_required_documents_by_hs_code(hs_code, destination)
 
