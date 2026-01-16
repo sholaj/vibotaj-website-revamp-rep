@@ -161,102 +161,104 @@ class ValidationResult:
 
 
 # Define validation rules per document type
+# Phase 1: Only file upload is required (ERROR)
+# Other fields are recommended (WARNING) and can be filled later via parsing or manual entry
 DOCUMENT_VALIDATION_RULES: Dict[DocumentType, List[ValidationRule]] = {
     DocumentType.BILL_OF_LADING: [
         FileUploadedRule(),
-        RequiredFieldRule("reference_number", "BL Number"),
-        RequiredFieldRule("issue_date", "Issue Date"),
-        DateNotFutureRule("issue_date", "Issue Date"),
-        RequiredFieldRule("issuing_authority", "Shipping Line/Carrier"),
+        RequiredFieldRule("reference_number", "BL Number", severity=ValidationSeverity.WARNING),
+        RequiredFieldRule("issue_date", "Issue Date", severity=ValidationSeverity.WARNING),
+        DateNotFutureRule("issue_date", "Issue Date", severity=ValidationSeverity.WARNING),
+        RequiredFieldRule("issuing_authority", "Shipping Line/Carrier", severity=ValidationSeverity.WARNING),
     ],
 
     DocumentType.COMMERCIAL_INVOICE: [
         FileUploadedRule(),
-        RequiredFieldRule("reference_number", "Invoice Number"),
-        RequiredFieldRule("issue_date", "Invoice Date"),
-        DateNotFutureRule("issue_date", "Invoice Date"),
+        RequiredFieldRule("reference_number", "Invoice Number", severity=ValidationSeverity.WARNING),
+        RequiredFieldRule("issue_date", "Invoice Date", severity=ValidationSeverity.WARNING),
+        DateNotFutureRule("issue_date", "Invoice Date", severity=ValidationSeverity.WARNING),
     ],
 
     DocumentType.PACKING_LIST: [
         FileUploadedRule(),
-        RequiredFieldRule("reference_number", "Packing List Reference"),
-        RequiredFieldRule("issue_date", "Issue Date"),
+        RequiredFieldRule("reference_number", "Packing List Reference", severity=ValidationSeverity.WARNING),
+        RequiredFieldRule("issue_date", "Issue Date", severity=ValidationSeverity.WARNING),
     ],
 
     DocumentType.CERTIFICATE_OF_ORIGIN: [
         FileUploadedRule(),
-        RequiredFieldRule("reference_number", "Certificate Number"),
-        RequiredFieldRule("issue_date", "Issue Date"),
-        RequiredFieldRule("issuing_authority", "Issuing Chamber/Authority"),
-        DateNotFutureRule("issue_date", "Issue Date"),
+        RequiredFieldRule("reference_number", "Certificate Number", severity=ValidationSeverity.WARNING),
+        RequiredFieldRule("issue_date", "Issue Date", severity=ValidationSeverity.WARNING),
+        RequiredFieldRule("issuing_authority", "Issuing Chamber/Authority", severity=ValidationSeverity.WARNING),
+        DateNotFutureRule("issue_date", "Issue Date", severity=ValidationSeverity.WARNING),
     ],
 
     DocumentType.PHYTOSANITARY_CERTIFICATE: [
         FileUploadedRule(),
-        RequiredFieldRule("reference_number", "Certificate Number"),
-        RequiredFieldRule("issue_date", "Issue Date"),
-        RequiredFieldRule("issuing_authority", "Plant Quarantine Authority"),
-        RequiredFieldRule("expiry_date", "Expiry Date"),
-        DateNotExpiredRule("expiry_date", "Certificate", grace_days=0),
-        DateNotFutureRule("issue_date", "Issue Date"),
+        RequiredFieldRule("reference_number", "Certificate Number", severity=ValidationSeverity.WARNING),
+        RequiredFieldRule("issue_date", "Issue Date", severity=ValidationSeverity.WARNING),
+        RequiredFieldRule("issuing_authority", "Plant Quarantine Authority", severity=ValidationSeverity.WARNING),
+        RequiredFieldRule("expiry_date", "Expiry Date", severity=ValidationSeverity.WARNING),
+        DateNotExpiredRule("expiry_date", "Certificate", grace_days=0, severity=ValidationSeverity.ERROR),
+        DateNotFutureRule("issue_date", "Issue Date", severity=ValidationSeverity.WARNING),
     ],
 
     DocumentType.FUMIGATION_CERTIFICATE: [
         FileUploadedRule(),
-        RequiredFieldRule("reference_number", "Certificate Number"),
-        RequiredFieldRule("issue_date", "Treatment Date"),
-        RequiredFieldRule("issuing_authority", "Fumigation Company"),
-        RequiredFieldRule("expiry_date", "Validity Date"),
-        DateNotExpiredRule("expiry_date", "Certificate", grace_days=0),
+        RequiredFieldRule("reference_number", "Certificate Number", severity=ValidationSeverity.WARNING),
+        RequiredFieldRule("issue_date", "Treatment Date", severity=ValidationSeverity.WARNING),
+        RequiredFieldRule("issuing_authority", "Fumigation Company", severity=ValidationSeverity.WARNING),
+        RequiredFieldRule("expiry_date", "Validity Date", severity=ValidationSeverity.WARNING),
+        DateNotExpiredRule("expiry_date", "Certificate", grace_days=0, severity=ValidationSeverity.ERROR),
     ],
 
     DocumentType.SANITARY_CERTIFICATE: [
         FileUploadedRule(),
-        RequiredFieldRule("reference_number", "Certificate Number"),
-        RequiredFieldRule("issue_date", "Issue Date"),
-        RequiredFieldRule("issuing_authority", "Health Authority"),
-        RequiredFieldRule("expiry_date", "Expiry Date"),
-        DateNotExpiredRule("expiry_date", "Certificate", grace_days=0),
+        RequiredFieldRule("reference_number", "Certificate Number", severity=ValidationSeverity.WARNING),
+        RequiredFieldRule("issue_date", "Issue Date", severity=ValidationSeverity.WARNING),
+        RequiredFieldRule("issuing_authority", "Health Authority", severity=ValidationSeverity.WARNING),
+        RequiredFieldRule("expiry_date", "Expiry Date", severity=ValidationSeverity.WARNING),
+        DateNotExpiredRule("expiry_date", "Certificate", grace_days=0, severity=ValidationSeverity.ERROR),
     ],
 
     DocumentType.INSURANCE_CERTIFICATE: [
         FileUploadedRule(),
-        RequiredFieldRule("reference_number", "Policy/Certificate Number"),
-        RequiredFieldRule("issue_date", "Issue Date"),
-        RequiredFieldRule("issuing_authority", "Insurance Company"),
-        RequiredFieldRule("expiry_date", "Coverage End Date"),
-        DateNotExpiredRule("expiry_date", "Insurance Coverage", grace_days=0),
+        RequiredFieldRule("reference_number", "Policy/Certificate Number", severity=ValidationSeverity.WARNING),
+        RequiredFieldRule("issue_date", "Issue Date", severity=ValidationSeverity.WARNING),
+        RequiredFieldRule("issuing_authority", "Insurance Company", severity=ValidationSeverity.WARNING),
+        RequiredFieldRule("expiry_date", "Coverage End Date", severity=ValidationSeverity.WARNING),
+        DateNotExpiredRule("expiry_date", "Insurance Coverage", grace_days=0, severity=ValidationSeverity.ERROR),
     ],
 
     DocumentType.EUDR_DUE_DILIGENCE: [
         FileUploadedRule(),
-        RequiredFieldRule("reference_number", "DDS Reference Number"),
-        RequiredFieldRule("issue_date", "Statement Date"),
-        DateNotFutureRule("issue_date", "Statement Date"),
-        # EUDR-specific fields stored in extra_data
+        RequiredFieldRule("reference_number", "DDS Reference Number", severity=ValidationSeverity.WARNING),
+        RequiredFieldRule("issue_date", "Statement Date", severity=ValidationSeverity.WARNING),
+        DateNotFutureRule("issue_date", "Statement Date", severity=ValidationSeverity.WARNING),
+        # EUDR-specific fields stored in extra_data - these are important for EUDR compliance
         ExtraDataFieldRule(
             field="extra_data",
             extra_field="operator_name",
             description="Operator Name",
-            severity=ValidationSeverity.ERROR
+            severity=ValidationSeverity.WARNING
         ),
         ExtraDataFieldRule(
             field="extra_data",
             extra_field="country_of_production",
             description="Country of Production",
-            severity=ValidationSeverity.ERROR
+            severity=ValidationSeverity.WARNING
         ),
         ExtraDataFieldRule(
             field="extra_data",
             extra_field="geolocation_coordinates",
             description="Geolocation Coordinates",
-            severity=ValidationSeverity.ERROR
+            severity=ValidationSeverity.WARNING
         ),
         ExtraDataFieldRule(
             field="extra_data",
             extra_field="commodity_description",
             description="Commodity Description",
-            severity=ValidationSeverity.ERROR
+            severity=ValidationSeverity.WARNING
         ),
         ExtraDataFieldRule(
             field="extra_data",
@@ -268,39 +270,40 @@ DOCUMENT_VALIDATION_RULES: Dict[DocumentType, List[ValidationRule]] = {
 
     DocumentType.QUALITY_CERTIFICATE: [
         FileUploadedRule(),
-        RequiredFieldRule("reference_number", "Certificate Number"),
-        RequiredFieldRule("issue_date", "Test Date"),
-        RequiredFieldRule("issuing_authority", "Testing Laboratory"),
+        RequiredFieldRule("reference_number", "Certificate Number", severity=ValidationSeverity.WARNING),
+        RequiredFieldRule("issue_date", "Test Date", severity=ValidationSeverity.WARNING),
+        RequiredFieldRule("issuing_authority", "Testing Laboratory", severity=ValidationSeverity.WARNING),
     ],
 
     DocumentType.CUSTOMS_DECLARATION: [
         FileUploadedRule(),
-        RequiredFieldRule("reference_number", "Declaration Number"),
-        RequiredFieldRule("issue_date", "Declaration Date"),
+        RequiredFieldRule("reference_number", "Declaration Number", severity=ValidationSeverity.WARNING),
+        RequiredFieldRule("issue_date", "Declaration Date", severity=ValidationSeverity.WARNING),
     ],
 
     DocumentType.EU_TRACES_CERTIFICATE: [
         FileUploadedRule(),
-        RequiredFieldRule("reference_number", "TRACES Reference Number"),
-        RequiredFieldRule("issue_date", "Issue Date"),
-        DateNotFutureRule("issue_date", "Issue Date"),
-        RequiredFieldRule("issuing_authority", "Issuing Authority"),
+        RequiredFieldRule("reference_number", "TRACES Reference Number", severity=ValidationSeverity.WARNING),
+        RequiredFieldRule("issue_date", "Issue Date", severity=ValidationSeverity.WARNING),
+        DateNotFutureRule("issue_date", "Issue Date", severity=ValidationSeverity.WARNING),
+        RequiredFieldRule("issuing_authority", "Issuing Authority", severity=ValidationSeverity.WARNING),
+        # TRACES number validation - warning only, can be verified later
         ExpectedValueRule(
             field="reference_number",
             description="TRACES Reference Number",
             expected_value="RC1479592",
-            severity=ValidationSeverity.ERROR
+            severity=ValidationSeverity.WARNING
         ),
     ],
 
     DocumentType.VETERINARY_HEALTH_CERTIFICATE: [
         FileUploadedRule(),
-        RequiredFieldRule("reference_number", "Certificate Number"),
-        RequiredFieldRule("issue_date", "Issue Date"),
-        DateNotFutureRule("issue_date", "Issue Date"),
-        RequiredFieldRule("issuing_authority", "Veterinary Authority"),
-        RequiredFieldRule("expiry_date", "Expiry Date"),
-        DateNotExpiredRule("expiry_date", "Certificate", grace_days=0),
+        RequiredFieldRule("reference_number", "Certificate Number", severity=ValidationSeverity.WARNING),
+        RequiredFieldRule("issue_date", "Issue Date", severity=ValidationSeverity.WARNING),
+        DateNotFutureRule("issue_date", "Issue Date", severity=ValidationSeverity.WARNING),
+        RequiredFieldRule("issuing_authority", "Veterinary Authority", severity=ValidationSeverity.WARNING),
+        RequiredFieldRule("expiry_date", "Expiry Date", severity=ValidationSeverity.WARNING),
+        DateNotExpiredRule("expiry_date", "Certificate", grace_days=0, severity=ValidationSeverity.ERROR),
         ContainsValueRule(
             field="issuing_authority",
             description="Veterinary Authority",
@@ -311,19 +314,19 @@ DOCUMENT_VALIDATION_RULES: Dict[DocumentType, List[ValidationRule]] = {
 
     DocumentType.EXPORT_DECLARATION: [
         FileUploadedRule(),
-        RequiredFieldRule("reference_number", "Declaration Number"),
-        RequiredFieldRule("issue_date", "Issue Date"),
+        RequiredFieldRule("reference_number", "Declaration Number", severity=ValidationSeverity.WARNING),
+        RequiredFieldRule("issue_date", "Issue Date", severity=ValidationSeverity.WARNING),
     ],
 
     DocumentType.CONTRACT: [
         FileUploadedRule(),
-        RequiredFieldRule("reference_number", "Contract Number"),
-        RequiredFieldRule("issue_date", "Contract Date"),
+        RequiredFieldRule("reference_number", "Contract Number", severity=ValidationSeverity.WARNING),
+        RequiredFieldRule("issue_date", "Contract Date", severity=ValidationSeverity.WARNING),
     ],
 
     DocumentType.OTHER: [
         FileUploadedRule(),
-        RequiredFieldRule("name", "Document Name"),
+        # No strict requirements for "other" documents
     ],
 }
 
