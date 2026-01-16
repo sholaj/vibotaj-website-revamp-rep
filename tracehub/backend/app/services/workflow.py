@@ -5,6 +5,7 @@ and audit trail support.
 """
 
 from typing import Dict, List, Optional, Tuple, Any
+from uuid import UUID
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
@@ -215,7 +216,8 @@ class TransitionResult:
 def transition_document(
     document: Document,
     target_status: DocumentStatus,
-    user: str = "system",
+    user_id: Optional[UUID] = None,
+    user_email: str = "system",
     user_role: str = "admin",
     notes: Optional[str] = None
 ) -> TransitionResult:
@@ -224,7 +226,8 @@ def transition_document(
     Args:
         document: The document to transition
         target_status: The desired target status
-        user: Username performing the transition
+        user_id: UUID of the user performing the transition
+        user_email: Email of the user (for display/logging)
         user_role: Role of the user
         notes: Optional notes for the transition
 
@@ -245,7 +248,7 @@ def transition_document(
             previous_status=previous_status,
             new_status=previous_status,
             error_message=error,
-            transitioned_by=user
+            transitioned_by=user_email
         )
 
     # Run validation if required
@@ -261,7 +264,7 @@ def transition_document(
                 new_status=previous_status,
                 validation_result=validation_result,
                 error_message="Document validation failed",
-                transitioned_by=user
+                transitioned_by=user_email
             )
 
     # Perform the transition
@@ -271,7 +274,7 @@ def transition_document(
     # Update validation tracking fields
     if target_status == DocumentStatus.VALIDATED:
         document.validated_at = datetime.utcnow()
-        document.validated_by = user
+        document.validated_by = user_id  # UUID foreign key
         if notes:
             document.validation_notes = notes
 
@@ -280,7 +283,7 @@ def transition_document(
         previous_status=previous_status,
         new_status=target_status,
         validation_result=validation_result,
-        transitioned_by=user
+        transitioned_by=user_email
     )
 
 

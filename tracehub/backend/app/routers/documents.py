@@ -648,7 +648,8 @@ async def transition_document_status(
     result = transition_document(
         document=document,
         target_status=request.target_status,
-        user=current_user.email,
+        user_id=current_user.id,
+        user_email=current_user.email,
         user_role=user_role,
         notes=request.notes
     )
@@ -706,7 +707,8 @@ async def approve_document(
     result = transition_document(
         document=document,
         target_status=target_status,
-        user=current_user.email,
+        user_id=current_user.id,
+        user_email=current_user.email,
         user_role=current_user.role.value,
         notes=request.notes
     )
@@ -773,7 +775,8 @@ async def reject_document(
     result = transition_document(
         document=document,
         target_status=target_status,
-        user=current_user.email,
+        user_id=current_user.id,
+        user_email=current_user.email,
         user_role=current_user.role.value,
         notes=request.notes
     )
