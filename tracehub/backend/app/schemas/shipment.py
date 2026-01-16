@@ -145,24 +145,46 @@ class ProductInfo(BaseModel):
 
 
 class EventInfo(BaseModel):
-    """Container event in responses."""
+    """Container event in responses.
+
+    Field names match frontend ContainerEvent interface:
+    - event_type (lowercase) instead of event_status (UPPERCASE)
+    - event_timestamp instead of event_time
+    """
     id: UUID
-    event_status: str  # Matches ContainerEvent.event_status
-    event_time: Optional[datetime] = None  # Can be null for some events
+    event_type: str  # Lowercase event type matching frontend EventType
+    event_timestamp: Optional[datetime] = None  # Can be null for some events
     location_code: Optional[str] = None
     location_name: Optional[str] = None
     vessel_name: Optional[str] = None
     voyage_number: Optional[str] = None
+    description: Optional[str] = None
+    source: Optional[str] = None
 
     class Config:
         from_attributes = True
 
-    @validator('event_status', pre=True)
-    def convert_event_status(cls, v):
-        """Convert enum value to string."""
+    @validator('event_type', pre=True)
+    def convert_event_type(cls, v):
+        """Convert backend UPPERCASE enum to frontend lowercase event type."""
+        # Map backend event status to frontend event type
+        status_to_type_map = {
+            "BOOKED": "booking_confirmed",
+            "GATE_IN": "gate_in",
+            "LOADED": "loaded",
+            "DEPARTED": "departed",
+            "IN_TRANSIT": "departed",
+            "TRANSSHIPMENT": "transshipment",
+            "ARRIVED": "arrived",
+            "DISCHARGED": "discharged",
+            "GATE_OUT": "gate_out",
+            "DELIVERED": "delivered",
+            "OTHER": "unknown",
+        }
         if hasattr(v, 'value'):
-            return v.value
-        return str(v) if v is not None else v
+            v = v.value
+        v = str(v) if v is not None else "OTHER"
+        return status_to_type_map.get(v, "unknown")
 
 
 class DocumentInfo(BaseModel):

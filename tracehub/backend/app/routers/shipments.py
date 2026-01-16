@@ -303,17 +303,19 @@ async def get_shipment(
         logger.info(f"Built shipment_dict with {len(shipment_dict.get('products', []))} products")
         shipment_data = ShipmentResponse(**shipment_dict)
 
-        # Serialize event
+        # Serialize event (using frontend-compatible field names)
         event_data = None
         if latest_event:
             event_dict = {
                 "id": latest_event.id,
-                "event_status": latest_event.event_status.value if hasattr(latest_event.event_status, 'value') else str(latest_event.event_status),
-                "event_time": latest_event.event_time,
+                "event_type": latest_event.event_status.value if hasattr(latest_event.event_status, 'value') else str(latest_event.event_status),
+                "event_timestamp": latest_event.event_time,
                 "location_code": latest_event.location_code,
                 "location_name": latest_event.location_name,
                 "vessel_name": latest_event.vessel_name,
                 "voyage_number": latest_event.voyage_number,
+                "description": latest_event.description,
+                "source": latest_event.source,
             }
             event_data = EventInfo(**event_dict)
 
@@ -583,6 +585,10 @@ async def get_shipment_events(
     """Get container event history for a shipment.
 
     Sprint 11: Buyers can also access events for shipments assigned to them.
+
+    Returns events with field names matching frontend expectations:
+    - event_type (lowercase) instead of event_status (UPPERCASE)
+    - event_timestamp instead of event_time
     """
     # Filter by organization for multi-tenancy security (owner OR buyer)
     shipment = get_accessible_shipment(db, shipment_id, current_user)
@@ -596,7 +602,41 @@ async def get_shipment_events(
         .all()
     )
 
-    return {"events": events}
+    # Map backend event status to frontend event type
+    # Backend uses UPPERCASE enum values, frontend expects lowercase with underscores
+    status_to_type_map = {
+        "BOOKED": "booking_confirmed",
+        "GATE_IN": "gate_in",
+        "LOADED": "loaded",
+        "DEPARTED": "departed",
+        "IN_TRANSIT": "departed",  # Map to departed as frontend doesn't have in_transit
+        "TRANSSHIPMENT": "transshipment",
+        "ARRIVED": "arrived",
+        "DISCHARGED": "discharged",
+        "GATE_OUT": "gate_out",
+        "DELIVERED": "delivered",
+        "OTHER": "unknown",
+    }
+
+    # Transform events to match frontend's expected format
+    transformed_events = []
+    for event in events:
+        event_status_value = event.event_status.value if event.event_status else "OTHER"
+        event_type = status_to_type_map.get(event_status_value, "unknown")
+
+        transformed_events.append({
+            "id": str(event.id),
+            "event_type": event_type,
+            "event_timestamp": event.event_time.isoformat() if event.event_time else None,
+            "location_name": event.location_name,
+            "location_code": event.location_code,
+            "vessel_name": event.vessel_name,
+            "voyage_number": event.voyage_number,
+            "description": event.description,
+            "source": event.source,
+        })
+
+    return {"events": transformed_events}
 
 
 @router.get("/{shipment_id}/audit-pack")

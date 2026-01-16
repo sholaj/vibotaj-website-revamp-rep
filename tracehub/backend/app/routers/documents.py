@@ -1730,6 +1730,14 @@ async def check_bol_compliance(
     document.compliance_status = compliance_decision
     document.compliance_checked_at = datetime.utcnow()
 
+    # Synchronize workflow status with compliance result
+    # This ensures document.status reflects the compliance outcome
+    if compliance_decision == "APPROVE":
+        document.status = DocumentStatus.COMPLIANCE_OK
+    elif compliance_decision == "REJECT":
+        document.status = DocumentStatus.COMPLIANCE_FAILED
+    # Note: HOLD keeps current status - document can still be processed
+
     # Store individual rule results if requested
     if store_results:
         # Clear existing results for this document

@@ -46,6 +46,21 @@ async def get_container_status(
     client = get_jsoncargo_client()
     live_status = await client.get_container_status(container_number)
 
+    # Map backend event status to frontend event type
+    status_to_type_map = {
+        "BOOKED": "booking_confirmed",
+        "GATE_IN": "gate_in",
+        "LOADED": "loaded",
+        "DEPARTED": "departed",
+        "IN_TRANSIT": "departed",
+        "TRANSSHIPMENT": "transshipment",
+        "ARRIVED": "arrived",
+        "DISCHARGED": "discharged",
+        "GATE_OUT": "gate_out",
+        "DELIVERED": "delivered",
+        "OTHER": "unknown",
+    }
+
     return {
         "container_number": container_number,
         "shipment_reference": shipment.reference,
@@ -57,8 +72,8 @@ async def get_container_status(
         "pol": {"code": shipment.pol_code, "name": shipment.pol_name},
         "pod": {"code": shipment.pod_code, "name": shipment.pod_name},
         "latest_event": {
-            "status": latest_event.event_status.value if latest_event else None,
-            "timestamp": latest_event.event_time if latest_event else None,
+            "type": status_to_type_map.get(latest_event.event_status.value, "unknown") if latest_event else None,
+            "timestamp": latest_event.event_time.isoformat() if latest_event and latest_event.event_time else None,
             "location": latest_event.location_name if latest_event else None,
         } if latest_event else None,
         "live_tracking": live_status
