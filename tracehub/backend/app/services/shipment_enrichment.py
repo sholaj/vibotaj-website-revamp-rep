@@ -304,6 +304,7 @@ class ShipmentEnrichmentService:
             product = Product(
                 shipment_id=shipment.id,
                 organization_id=shipment.organization_id,
+                name=description,  # Required field
                 hs_code=hs_code,
                 description=description,
                 quantity_net_kg=extracted.total_net_weight_kg,
