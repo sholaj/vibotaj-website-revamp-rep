@@ -1,4 +1,8 @@
-"""Audit pack generation service."""
+"""Audit pack generation service.
+
+Uses Pydantic schemas for type-safe metadata generation,
+preventing attribute access errors on SQLAlchemy models.
+"""
 
 import io
 import os
@@ -15,6 +19,15 @@ from reportlab.lib.units import mm
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
 
 from ..models import Shipment, Document, ContainerEvent, Product
+from ..schemas.audit_pack import (
+    AuditPackMetadata,
+    ShipmentMetadata,
+    ProductMetadata,
+    PartyInfo,
+    PortInfo,
+    TrackingLog,
+    TrackingEvent,
+)
 from .compliance import get_required_documents, check_document_completeness, DOCUMENT_NAMES
 from ..config import get_settings
 
@@ -52,65 +65,68 @@ def generate_audit_pack(shipment: Shipment, db: Session) -> io.BytesIO:
                     filename = f"{i:02d}-{doc.document_type.value}{ext}"
                     zip_file.write(full_path, filename)
 
-        # 3. Add tracking log JSON
+        # 3. Add tracking log JSON (using Pydantic schema for type safety)
         events = (
             db.query(ContainerEvent)
             .filter(ContainerEvent.shipment_id == shipment.id)
             .order_by(ContainerEvent.event_time.asc())
             .all()
         )
-        tracking_log = {
-            "container_number": shipment.container_number,
-            "exported_at": datetime.utcnow().isoformat(),
-            "events": [
-                {
-                    "type": e.event_status.value,
-                    "timestamp": e.event_time.isoformat() if e.event_time else None,
-                    "location": e.location_name,
-                    "vessel": e.vessel_name,
-                    "voyage": e.voyage_number,
-                }
+        tracking_log = TrackingLog(
+            container_number=shipment.container_number,
+            exported_at=datetime.utcnow().isoformat(),
+            events=[
+                TrackingEvent(
+                    type=e.event_status.value,
+                    timestamp=e.event_time.isoformat() if e.event_time else None,
+                    location=e.location_name,
+                    vessel=e.vessel_name,
+                    voyage=e.voyage_number,
+                )
                 for e in events
             ]
-        }
-        zip_file.writestr("container-tracking-log.json", json.dumps(tracking_log, indent=2))
+        )
+        zip_file.writestr("container-tracking-log.json", tracking_log.model_dump_json(indent=2))
 
-        # 4. Add metadata JSON
+        # 4. Add metadata JSON (using Pydantic schema for type safety)
+        # This prevents bugs like accessing non-existent attributes (e.g., shipment.buyer)
         products = db.query(Product).filter(Product.shipment_id == shipment.id).all()
-        metadata = {
-            "shipment": {
-                "reference": shipment.reference,
-                "container_number": shipment.container_number,
-                "bl_number": shipment.bl_number,
-                "vessel": shipment.vessel_name,
-                "voyage": shipment.voyage_number,
-                "etd": shipment.etd.isoformat() if shipment.etd else None,
-                "eta": shipment.eta.isoformat() if shipment.eta else None,
-                "pol": {"code": shipment.pol_code, "name": shipment.pol_name},
-                "pod": {"code": shipment.pod_code, "name": shipment.pod_name},
-                "incoterms": shipment.incoterms,
-                "status": shipment.status.value,
-            },
-            "products": [
-                {
-                    "hs_code": p.hs_code,
-                    "description": p.description,
-                    "quantity_net_kg": float(p.quantity_net_kg) if p.quantity_net_kg else None,
-                    "quantity_gross_kg": float(p.quantity_gross_kg) if p.quantity_gross_kg else None,
-                }
+        metadata = AuditPackMetadata(
+            shipment=ShipmentMetadata(
+                reference=shipment.reference,
+                container_number=shipment.container_number,
+                bl_number=shipment.bl_number,
+                vessel=shipment.vessel_name,
+                voyage=shipment.voyage_number,
+                etd=shipment.etd.isoformat() if shipment.etd else None,
+                eta=shipment.eta.isoformat() if shipment.eta else None,
+                pol=PortInfo(code=shipment.pol_code, name=shipment.pol_name),
+                pod=PortInfo(code=shipment.pod_code, name=shipment.pod_name),
+                incoterms=shipment.incoterms,
+                status=shipment.status.value,
+            ),
+            products=[
+                ProductMetadata(
+                    hs_code=p.hs_code,
+                    description=p.description,
+                    quantity_net_kg=float(p.quantity_net_kg) if p.quantity_net_kg else None,
+                    quantity_gross_kg=float(p.quantity_gross_kg) if p.quantity_gross_kg else None,
+                )
                 for p in products
             ],
-            "buyer": {
-                "name": shipment.importer_name,
-                "organization_id": str(shipment.buyer_organization_id) if shipment.buyer_organization_id else None,
-            },
-            "exporter": {
-                "name": shipment.exporter_name,
-                "organization_id": str(shipment.organization_id) if shipment.organization_id else None,
-            },
-            "exported_at": datetime.utcnow().isoformat(),
-        }
-        zip_file.writestr("metadata.json", json.dumps(metadata, indent=2))
+            # Note: Uses importer_name/exporter_name from Shipment model
+            # NOT buyer/supplier relationships (which don't exist)
+            buyer=PartyInfo(
+                name=shipment.importer_name,
+                organization_id=str(shipment.buyer_organization_id) if shipment.buyer_organization_id else None,
+            ),
+            exporter=PartyInfo(
+                name=shipment.exporter_name,
+                organization_id=str(shipment.organization_id) if shipment.organization_id else None,
+            ),
+            exported_at=datetime.utcnow().isoformat(),
+        )
+        zip_file.writestr("metadata.json", metadata.model_dump_json(indent=2))
 
     zip_buffer.seek(0)
     return zip_buffer
