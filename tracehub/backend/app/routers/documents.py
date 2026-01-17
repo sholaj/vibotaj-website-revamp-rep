@@ -258,15 +258,28 @@ async def upload_document(
             if dc.get("reference_number") and not any(
                 d["reference_number"] == dc["reference_number"] for d in duplicates_found
             ):
-                registry = ReferenceRegistry(
-                    shipment_id=shipment_id,
-                    reference_number=dc["reference_number"],
-                    document_type=doc_type_enum,
-                    document_content_id=content.id,
-                    document_id=document.id,
-                    first_seen_at=datetime.utcnow()
-                )
-                db.add(registry)
+                # Check if reference already exists (to avoid IntegrityError on commit)
+                existing_registry = db.query(ReferenceRegistry).filter(
+                    ReferenceRegistry.shipment_id == shipment_id,
+                    ReferenceRegistry.reference_number == dc["reference_number"],
+                    ReferenceRegistry.document_type == doc_type_enum
+                ).first()
+
+                if not existing_registry:
+                    registry = ReferenceRegistry(
+                        shipment_id=shipment_id,
+                        reference_number=dc["reference_number"],
+                        document_type=doc_type_enum,
+                        document_content_id=content.id,
+                        document_id=document.id,
+                        first_seen_at=datetime.utcnow()
+                    )
+                    db.add(registry)
+                else:
+                    logger.info(
+                        f"Reference {dc['reference_number']} already registered for shipment "
+                        f"{shipment_id}, document type {doc_type_enum.value} - skipping duplicate registry"
+                    )
 
     # Notify compliance team/admins about new document
     # Note: notify_users expects user UUIDs, not emails
