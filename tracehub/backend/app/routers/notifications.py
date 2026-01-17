@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from typing import Optional, List
 from uuid import UUID
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 from ..database import get_db
 from ..models.notification import Notification, NotificationType
@@ -21,6 +21,8 @@ router = APIRouter()
 
 class NotificationResponse(BaseModel):
     """Notification response model."""
+    model_config = ConfigDict(from_attributes=True)
+
     id: str
     user_id: str
     type: str
@@ -30,9 +32,6 @@ class NotificationResponse(BaseModel):
     read: bool
     read_at: Optional[str]
     created_at: str
-
-    class Config:
-        from_attributes = True
 
 
 class NotificationListResponse(BaseModel):

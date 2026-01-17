@@ -13,7 +13,7 @@ The schema is designed to:
 import re
 from datetime import date
 from typing import List, Optional
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class BolParty(BaseModel):
@@ -132,19 +132,8 @@ class CanonicalBoL(BaseModel):
         weights = [c.gross_weight_kg for c in self.cargo if c.gross_weight_kg]
         return sum(weights) if weights else None
 
-    def is_complete(self) -> bool:
-        """Check if BoL has minimum required data for compliance."""
-        return bool(
-            self.bol_number and
-            self.shipper and self.shipper.name and
-            self.consignee and self.consignee.name and
-            self.containers and
-            self.cargo
-        )
-
-    class Config:
-        """Pydantic configuration."""
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "bol_number": "APU106546",
                 "shipper": {
@@ -172,3 +161,14 @@ class CanonicalBoL(BaseModel):
                 "confidence_score": 0.95
             }
         }
+    )
+
+    def is_complete(self) -> bool:
+        """Check if BoL has minimum required data for compliance."""
+        return bool(
+            self.bol_number and
+            self.shipper and self.shipper.name and
+            self.consignee and self.consignee.name and
+            self.containers and
+            self.cargo
+        )

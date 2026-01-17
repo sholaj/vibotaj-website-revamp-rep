@@ -4,7 +4,7 @@ Updated to match production database schema (Sprint 8).
 """
 
 import re
-from pydantic import BaseModel, validator, field_validator
+from pydantic import BaseModel, ConfigDict, field_validator
 from typing import Optional, List
 from uuid import UUID
 from datetime import datetime, date
@@ -133,15 +133,14 @@ class ShipmentUpdate(BaseModel):
 
 class ProductInfo(BaseModel):
     """Product information in responses."""
+    model_config = ConfigDict(from_attributes=True)
+
     id: UUID
     hs_code: str
     description: Optional[str] = None
     quantity_net_kg: Optional[float] = None
     quantity_gross_kg: Optional[float] = None
     packaging_type: Optional[str] = None
-
-    class Config:
-        from_attributes = True
 
 
 class EventInfo(BaseModel):
@@ -151,6 +150,8 @@ class EventInfo(BaseModel):
     - event_type (lowercase) instead of event_status (UPPERCASE)
     - event_timestamp instead of event_time
     """
+    model_config = ConfigDict(from_attributes=True)
+
     id: UUID
     event_type: str  # Lowercase event type matching frontend EventType
     event_timestamp: Optional[datetime] = None  # Can be null for some events
@@ -161,10 +162,8 @@ class EventInfo(BaseModel):
     description: Optional[str] = None
     source: Optional[str] = None
 
-    class Config:
-        from_attributes = True
-
-    @validator('event_type', pre=True)
+    @field_validator('event_type', mode='before')
+    @classmethod
     def convert_event_type(cls, v):
         """Convert backend UPPERCASE enum to frontend lowercase event type."""
         # Map backend event status to frontend event type
@@ -189,6 +188,8 @@ class EventInfo(BaseModel):
 
 class DocumentInfo(BaseModel):
     """Document information in responses."""
+    model_config = ConfigDict(from_attributes=True)
+
     id: UUID
     document_type: str
     name: str
@@ -197,10 +198,8 @@ class DocumentInfo(BaseModel):
     issue_date: Optional[datetime] = None
     file_path: Optional[str] = None
 
-    class Config:
-        from_attributes = True
-
-    @validator('document_type', 'status', pre=True)
+    @field_validator('document_type', 'status', mode='before')
+    @classmethod
     def convert_enum_to_str(cls, v):
         """Convert enum values to strings."""
         if hasattr(v, 'value'):
@@ -220,17 +219,18 @@ class DocumentSummary(BaseModel):
 
 class OrganizationInfo(BaseModel):
     """Organization information in responses."""
+    model_config = ConfigDict(from_attributes=True)
+
     id: UUID
     name: str
     slug: str
     type: str
 
-    class Config:
-        from_attributes = True
-
 
 class ShipmentResponse(BaseModel):
     """Basic shipment response matching production database schema."""
+    model_config = ConfigDict(from_attributes=True)
+
     id: UUID
     reference: str
     container_number: str
@@ -262,9 +262,6 @@ class ShipmentResponse(BaseModel):
     # Include products for HS code-based compliance checks (e.g., Horn & Hoof exemption)
     products: List[ProductInfo] = []
 
-    class Config:
-        from_attributes = True
-
 
 class ShipmentListResponse(BaseModel):
     """Response for paginated shipment list."""
@@ -277,14 +274,13 @@ class ShipmentListResponse(BaseModel):
 
 class ShipmentDetailResponse(BaseModel):
     """Detailed shipment response with related entities."""
+    model_config = ConfigDict(from_attributes=True)
+
     shipment: ShipmentResponse
     organization: Optional[OrganizationInfo] = None
     latest_event: Optional[EventInfo] = None
     documents: List[DocumentInfo] = []
     document_summary: DocumentSummary
-
-    class Config:
-        from_attributes = True
 
 
 class ContainerUpdateRequest(BaseModel):

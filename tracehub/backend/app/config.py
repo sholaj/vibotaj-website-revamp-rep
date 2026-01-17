@@ -1,11 +1,12 @@
 """Application configuration using Pydantic settings."""
 
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 from functools import lru_cache
 
 
 class Settings(BaseSettings):
     """Application settings loaded from environment variables."""
+    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
 
     # Application
     app_name: str = "TraceHub"
@@ -52,10 +53,6 @@ class Settings(BaseSettings):
 
     # Frontend URL (for invitation links)
     frontend_url: str = "https://tracehub.vibotaj.com"
-
-    class Config:
-        env_file = ".env"
-        env_file_encoding = "utf-8"
 
 
 @lru_cache

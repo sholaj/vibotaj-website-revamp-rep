@@ -7,7 +7,7 @@ Some overlap with schemas/organization.py but provide more focused models
 for the invitation workflow.
 """
 
-from pydantic import BaseModel, EmailStr, Field, field_validator
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 from typing import Optional, List
 from uuid import UUID
 from datetime import datetime
@@ -39,6 +39,8 @@ class InvitationResponse(BaseModel):
     Returned by invitation management endpoints.
     Does not include the token (which is only returned on creation).
     """
+    model_config = ConfigDict(from_attributes=True)
+
     id: UUID
     organization_id: UUID
     organization_name: Optional[str] = None
@@ -51,9 +53,6 @@ class InvitationResponse(BaseModel):
     created_by_name: Optional[str] = None
     accepted_at: Optional[datetime] = None
 
-    class Config:
-        from_attributes = True
-
 
 class InvitationCreateResponse(BaseModel):
     """Schema for invitation creation response.
@@ -61,6 +60,8 @@ class InvitationCreateResponse(BaseModel):
     Includes the invitation_url which contains the token.
     This is only returned once during creation.
     """
+    model_config = ConfigDict(from_attributes=True)
+
     id: UUID
     organization_id: UUID
     organization_name: str
@@ -73,9 +74,6 @@ class InvitationCreateResponse(BaseModel):
         ...,
         description="URL for the invitee to accept the invitation (includes token)"
     )
-
-    class Config:
-        from_attributes = True
 
 
 class InvitationListResponse(BaseModel):

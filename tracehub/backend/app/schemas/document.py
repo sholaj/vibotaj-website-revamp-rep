@@ -1,6 +1,6 @@
 """Document schemas for API responses."""
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from typing import Optional, List
 from uuid import UUID
 from datetime import datetime, date
@@ -10,6 +10,8 @@ from ..models.document import DocumentType, DocumentStatus
 
 class DocumentResponse(BaseModel):
     """Document response schema - aligned with Document model field names."""
+    model_config = ConfigDict(from_attributes=True)
+
     id: UUID
     shipment_id: UUID
     document_type: DocumentType
@@ -33,9 +35,6 @@ class DocumentResponse(BaseModel):
     # Container extraction fields (for BOL documents)
     extracted_container_number: Optional[str] = None
     extraction_confidence: Optional[float] = None
-
-    class Config:
-        from_attributes = True
 
 
 class DocumentUploadRequest(BaseModel):

@@ -1,6 +1,6 @@
 """User schemas for API requests and responses."""
 
-from pydantic import BaseModel, EmailStr, Field, field_validator
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 from typing import Optional, List
 from uuid import UUID
 from datetime import datetime
@@ -66,17 +66,18 @@ class UserPasswordUpdate(BaseModel):
 
 class UserOrganizationInfo(BaseModel):
     """Summary of user's primary organization membership."""
+    model_config = ConfigDict(from_attributes=True)
+
     organization_id: UUID
     organization_name: str
     organization_type: OrganizationType
     org_role: OrgRole
 
-    class Config:
-        from_attributes = True
-
 
 class UserResponse(BaseModel):
     """Schema for user response (excludes password)."""
+    model_config = ConfigDict(from_attributes=True)
+
     id: UUID
     email: str
     full_name: str
@@ -86,9 +87,6 @@ class UserResponse(BaseModel):
     updated_at: Optional[datetime] = None
     last_login: Optional[datetime] = None
     primary_organization: Optional[UserOrganizationInfo] = None
-
-    class Config:
-        from_attributes = True
 
 
 class UserListResponse(BaseModel):
@@ -110,6 +108,8 @@ class UserInToken(BaseModel):
 
 class CurrentUser(BaseModel):
     """Current authenticated user with permissions."""
+    model_config = ConfigDict(from_attributes=True)
+
     id: UUID
     email: str
     full_name: str
@@ -121,9 +121,6 @@ class CurrentUser(BaseModel):
     org_role: Optional[OrgRole] = None
     org_type: Optional[OrganizationType] = None
     org_permissions: List[str] = []
-
-    class Config:
-        from_attributes = True
 
     # Backward compatibility with old User model
     @property

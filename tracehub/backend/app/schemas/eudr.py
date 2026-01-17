@@ -1,6 +1,6 @@
 """EUDR Compliance Pydantic Schemas."""
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 from typing import List, Dict, Any, Optional
 from datetime import date, datetime
 from enum import Enum
@@ -107,6 +107,8 @@ class EUDROriginValidation(BaseModel):
 
 class EUDRStatusResponse(BaseModel):
     """Full EUDR compliance status response."""
+    model_config = ConfigDict(from_attributes=True)
+
     shipment_id: str
     shipment_reference: str
     overall_status: EUDRValidationStatus
@@ -117,9 +119,6 @@ class EUDRStatusResponse(BaseModel):
     origin_validations: List[EUDROriginValidation]
     cutoff_date: str
     assessed_at: str
-
-    class Config:
-        from_attributes = True
 
 
 class EUDRActionItem(BaseModel):

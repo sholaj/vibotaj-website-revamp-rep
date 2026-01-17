@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, Query, HTTPException
 from sqlalchemy.orm import Session
 from datetime import datetime, timedelta
 from typing import Optional
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from uuid import UUID
 
 from ..database import get_db
@@ -17,6 +17,8 @@ router = APIRouter()
 
 class AuditLogResponse(BaseModel):
     """Audit log entry response."""
+    model_config = ConfigDict(from_attributes=True)
+
     id: str
     user_id: Optional[str]
     username: Optional[str]
@@ -30,9 +32,6 @@ class AuditLogResponse(BaseModel):
     details: dict
     error_message: Optional[str]
     timestamp: datetime
-
-    class Config:
-        from_attributes = True
 
 
 class AuditLogListResponse(BaseModel):

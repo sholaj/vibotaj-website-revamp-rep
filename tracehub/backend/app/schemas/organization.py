@@ -3,7 +3,7 @@
 Sprint 8: Multi-Tenancy Feature
 """
 
-from pydantic import BaseModel, EmailStr, Field, field_validator
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 from typing import Optional, List, Dict, Any
 from uuid import UUID
 from datetime import datetime
@@ -133,6 +133,8 @@ class OrganizationUpdate(BaseModel):
 
 class OrganizationResponse(BaseModel):
     """Schema for organization response."""
+    model_config = ConfigDict(from_attributes=True)
+
     id: UUID
     name: str
     slug: str
@@ -151,12 +153,11 @@ class OrganizationResponse(BaseModel):
     updated_at: Optional[datetime] = None
     created_by: Optional[UUID] = None
 
-    class Config:
-        from_attributes = True
-
 
 class OrganizationListItem(BaseModel):
     """Schema for organization in list responses."""
+    model_config = ConfigDict(from_attributes=True)
+
     id: UUID
     name: str
     slug: str
@@ -164,9 +165,6 @@ class OrganizationListItem(BaseModel):
     status: OrganizationStatus
     member_count: int = 0
     created_at: datetime
-
-    class Config:
-        from_attributes = True
 
 
 class OrganizationListResponse(BaseModel):
@@ -207,6 +205,8 @@ class MembershipUpdate(BaseModel):
 
 class MembershipResponse(BaseModel):
     """Schema for membership response."""
+    model_config = ConfigDict(from_attributes=True)
+
     id: UUID
     user_id: UUID
     organization_id: UUID
@@ -219,9 +219,6 @@ class MembershipResponse(BaseModel):
     last_active_at: Optional[datetime] = None
     invited_by: Optional[UUID] = None
     permissions: Optional[List[str]] = None
-
-    class Config:
-        from_attributes = True
 
 
 class MembershipListResponse(BaseModel):
@@ -251,6 +248,8 @@ class InvitationCreate(BaseModel):
 
 class InvitationResponse(BaseModel):
     """Schema for invitation response."""
+    model_config = ConfigDict(from_attributes=True)
+
     id: UUID
     organization_id: UUID
     organization_name: Optional[str] = None
@@ -265,9 +264,6 @@ class InvitationResponse(BaseModel):
     created_by: Optional[UUID] = None
     created_by_name: Optional[str] = None
     accepted_at: Optional[datetime] = None
-
-    class Config:
-        from_attributes = True
 
 
 class InvitationListResponse(BaseModel):
