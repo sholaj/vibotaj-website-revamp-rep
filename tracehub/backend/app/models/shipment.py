@@ -93,6 +93,11 @@ class Shipment(Base):
     eudr_compliant = Column(Boolean, default=False)
     eudr_statement_id = Column(String(100))  # EUDR DDS reference number
 
+    # Validation override fields (for admin override of validation status)
+    validation_override_reason = Column(String(500), nullable=True)
+    validation_override_by = Column(String(255), nullable=True)  # Email of admin who overrode
+    validation_override_at = Column(DateTime(timezone=True), nullable=True)
+
     # Organization (multi-tenancy - required)
     organization_id = Column(
         UUID(as_uuid=True),

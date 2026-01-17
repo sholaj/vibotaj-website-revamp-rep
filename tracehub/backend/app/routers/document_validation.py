@@ -90,7 +90,20 @@ async def validate_shipment(
         f"valid={report.is_valid}, failed={report.failed}, warnings={report.warnings}"
     )
 
-    return report.to_dict()
+    # Build response with override info
+    result = report.to_dict()
+
+    # Add override info if present
+    if shipment.validation_override_reason:
+        result["override"] = {
+            "reason": shipment.validation_override_reason,
+            "overridden_by": shipment.validation_override_by,
+            "overridden_at": shipment.validation_override_at.isoformat() if shipment.validation_override_at else None,
+        }
+    else:
+        result["override"] = None
+
+    return result
 
 
 @router.get("/shipments/{shipment_id}")
@@ -148,7 +161,20 @@ async def get_validation_report(
         f"valid={report.is_valid}, failed={report.failed}, warnings={report.warnings}"
     )
 
-    return report.to_dict()
+    # Build response with override info
+    result = report.to_dict()
+
+    # Add override info if present
+    if shipment.validation_override_reason:
+        result["override"] = {
+            "reason": shipment.validation_override_reason,
+            "overridden_by": shipment.validation_override_by,
+            "overridden_at": shipment.validation_override_at.isoformat() if shipment.validation_override_at else None,
+        }
+    else:
+        result["override"] = None
+
+    return result
 
 
 @router.get("/shipments/{shipment_id}/status")
@@ -421,3 +447,171 @@ async def validate_single_document(
         "results": [r.to_dict() for r in results],
         "is_valid": all(r.passed or r.severity == RuleSeverity.INFO for r in results),
     }
+
+
+@router.post("/shipments/{shipment_id}/override")
+async def override_shipment_validation(
+    shipment_id: UUID,
+    reason: str = Query(..., min_length=5, description="Reason for override (min 5 chars)"),
+    db: Session = Depends(get_db),
+    current_user: CurrentUser = Depends(get_current_active_user),
+):
+    """
+    Override the validation status for a shipment.
+
+    Allows admin users to mark a shipment as valid despite failing validation rules.
+    This is useful when documents are correct but automated checks fail.
+
+    **Requirements:**
+    - User must have 'admin' or 'owner' role
+    - Reason must be at least 5 characters
+
+    **Audit:**
+    - Override is logged to the audit trail with user and reason
+    """
+    # Check role
+    if current_user.role not in ["admin", "owner"]:
+        raise HTTPException(
+            status_code=403,
+            detail="Override requires admin or owner role"
+        )
+
+    # Get shipment with multi-tenancy check
+    shipment = db.query(Shipment).filter(
+        Shipment.id == shipment_id,
+        Shipment.organization_id == current_user.organization_id
+    ).first()
+
+    if not shipment:
+        raise HTTPException(status_code=404, detail="Shipment not found")
+
+    # Set override fields
+    shipment.validation_override_reason = reason
+    shipment.validation_override_by = current_user.email
+    shipment.validation_override_at = datetime.utcnow()
+
+    # Log to audit trail
+    from ..models.audit_log import AuditLog
+
+    audit_entry = AuditLog(
+        action="shipment.validation_override",
+        resource_type="shipment",
+        resource_id=str(shipment_id),
+        user_id=str(current_user.id),
+        username=current_user.email,
+        organization_id=current_user.organization_id,
+        details={
+            "action": "validation_override",
+            "override_reason": reason,
+            "overridden_by": current_user.email,
+            "shipment_reference": shipment.reference,
+        },
+    )
+    db.add(audit_entry)
+    db.commit()
+    db.refresh(shipment)
+
+    logger.info(
+        f"Validation override for shipment {shipment.reference} by {current_user.email}: {reason}"
+    )
+
+    # Return updated validation report
+    documents = db.query(Document).filter(Document.shipment_id == shipment_id).all()
+    runner = ValidationRunner()
+    report = runner.validate_shipment(
+        shipment=shipment,
+        documents=documents,
+        user=current_user.email,
+        db=db,
+    )
+
+    result = report.to_dict()
+    result["override"] = {
+        "reason": shipment.validation_override_reason,
+        "overridden_by": shipment.validation_override_by,
+        "overridden_at": shipment.validation_override_at.isoformat() if shipment.validation_override_at else None,
+    }
+
+    return result
+
+
+@router.delete("/shipments/{shipment_id}/override")
+async def clear_shipment_validation_override(
+    shipment_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: CurrentUser = Depends(get_current_active_user),
+):
+    """
+    Clear the validation override for a shipment.
+
+    Removes any admin override, returning the shipment to normal validation status.
+
+    **Requirements:**
+    - User must have 'admin' or 'owner' role
+    """
+    # Check role
+    if current_user.role not in ["admin", "owner"]:
+        raise HTTPException(
+            status_code=403,
+            detail="Clearing override requires admin or owner role"
+        )
+
+    # Get shipment with multi-tenancy check
+    shipment = db.query(Shipment).filter(
+        Shipment.id == shipment_id,
+        Shipment.organization_id == current_user.organization_id
+    ).first()
+
+    if not shipment:
+        raise HTTPException(status_code=404, detail="Shipment not found")
+
+    # Check if there's an override to clear
+    if not shipment.validation_override_reason:
+        raise HTTPException(status_code=400, detail="No override to clear")
+
+    # Log to audit trail before clearing
+    from ..models.audit_log import AuditLog
+
+    audit_entry = AuditLog(
+        action="shipment.validation_override_cleared",
+        resource_type="shipment",
+        resource_id=str(shipment_id),
+        user_id=str(current_user.id),
+        username=current_user.email,
+        organization_id=current_user.organization_id,
+        details={
+            "action": "validation_override_cleared",
+            "cleared_by": current_user.email,
+            "previous_reason": shipment.validation_override_reason,
+            "previous_override_by": shipment.validation_override_by,
+            "shipment_reference": shipment.reference,
+        },
+    )
+    db.add(audit_entry)
+
+    # Clear override fields
+    shipment.validation_override_reason = None
+    shipment.validation_override_by = None
+    shipment.validation_override_at = None
+
+    db.commit()
+    db.refresh(shipment)
+
+    logger.info(
+        f"Validation override cleared for shipment {shipment.reference} by {current_user.email}"
+    )
+
+    # Return updated validation report
+    documents = db.query(Document).filter(Document.shipment_id == shipment_id).all()
+    runner = ValidationRunner()
+    report = runner.validate_shipment(
+        shipment=shipment,
+        documents=documents,
+        user=current_user.email,
+        db=db,
+    )
+
+    result = report.to_dict()
+    result["override"] = None
+
+    return result
