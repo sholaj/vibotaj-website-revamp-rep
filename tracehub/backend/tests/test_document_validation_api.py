@@ -75,6 +75,10 @@ def mock_shipment(mock_current_user):
     shipment.organization_id = mock_current_user.organization_id
     shipment.product_type = ProductType.HORN_HOOF
     shipment.etd = datetime(2026, 2, 15)
+    # Validation override fields (Sprint 12)
+    shipment.validation_override_reason = None
+    shipment.validation_override_by = None
+    shipment.validation_override_at = None
     return shipment
 
 
