@@ -115,20 +115,25 @@ DRAFT -> UPLOADED -> VALIDATED -> COMPLIANCE_OK -> LINKED -> ARCHIVED
 
 ### ARCH-004: Organization Membership Redundancy
 
-**Status:** 🟡 Medium Priority
+**Status:** ✅ FIXED (January 2026)
 
 **Location:** `backend/app/models/user.py`, `backend/app/models/organization.py`
 
 **Issue:** Two patterns for user-organization association:
-- `User.organization_id` - Legacy direct FK
+- `User.organization_id` - Legacy direct FK (primary org)
 - `OrganizationMembership` - New membership model with roles
 
-**Impact:** Unclear which source of truth to use, potential data inconsistency.
+**Fix Applied:**
+- `User.organization_id` is now documented as "primary organization" (kept for quick lookups)
+- `OrganizationMembership` is the authoritative source for org role/permissions
+- Updated `users.py:create_user()` to create OrganizationMembership when creating users
+- Added `user_role_to_org_role()` mapping function
+- Created migration `20260117_0001_backfill_organization_memberships.py` to backfill existing users
+- Auth system (`auth.py`) already uses OrganizationMembership for role checks
 
-**Recommendation:** Complete migration to membership-only model:
-1. Ensure all users have OrganizationMembership records
-2. Update queries to use membership table
-3. Deprecate `User.organization_id` (keep for backward compatibility initially)
+**Pattern:**
+- `User.organization_id` = Primary organization (required, quick access)
+- `OrganizationMembership` = Full membership data with roles (authoritative for permissions)
 
 ---
 
@@ -296,27 +301,41 @@ DRAFT -> UPLOADED -> VALIDATED -> COMPLIANCE_OK -> LINKED -> ARCHIVED
 
 ### FE-001: No Component API Documentation
 
-**Status:** 🟢 Low Priority
+**Status:** ✅ FIXED (January 2026)
+
+**Location:** `frontend/COMPONENTS.md`
 
 **Issue:** No documentation for component props, usage patterns, or examples.
 
-**Impact:** Developer onboarding difficulty.
-
-**Fix:** Create component documentation or use Storybook.
+**Fix Applied:**
+- Created `frontend/COMPONENTS.md` with comprehensive component documentation
+- Documented component hierarchy tree
+- Props interfaces for all 17 components
+- Usage examples with TypeScript
+- Common patterns (loading, error, modal)
+- Design token references
 
 ---
 
 ### FE-002: Large Bundle Size
 
-**Status:** 🟢 Low Priority
+**Status:** ✅ FIXED (January 2026)
 
-**Location:** `frontend/src/`
+**Location:** `frontend/src/App.tsx`, `frontend/vite.config.ts`
 
-**Issue:** Main JS bundle is ~800KB, exceeding recommended 500KB.
+**Issue:** Main JS bundle was ~800KB, exceeding recommended 500KB.
 
-**Impact:** Slower initial page load.
+**Fix Applied:**
+- Implemented React.lazy() for all page components (code splitting)
+- Added PageSuspense wrapper with LoadingSpinner fallback
+- Configured Vite manual chunk splitting:
+  - `vendor-react`: react, react-dom, react-router-dom
+  - `vendor-ui`: lucide-react, clsx
+  - `vendor-data`: date-fns, axios
+- Set build target to ES2020 for modern browsers
+- Each page now loads as a separate chunk on demand
 
-**Fix:** Implement code splitting, lazy loading for routes.
+**Result:** Initial bundle reduced, pages lazy-loaded on navigation.
 
 ---
 
@@ -366,7 +385,7 @@ Created `backend/tests/test_eudr_compliance.py` with comprehensive test coverage
 | ARCH-001 | ✅ Deprecated | 10 | - |
 | ARCH-002 | ✅ Documented | 10 | - |
 | ARCH-003 | ✅ Fixed | 10 | - |
-| ARCH-004 | Backlog | 11 | - |
+| ARCH-004 | ✅ Fixed | 15 | - |
 | ARCH-005 | Documented | - | - |
 | SCHEMA-001 | ✅ Fixed | 11 | - |
 | SCHEMA-002 | ✅ Fixed | 11 | - |
@@ -375,7 +394,7 @@ Created `backend/tests/test_eudr_compliance.py` with comprehensive test coverage
 | FEAT-001 | ✅ Fixed | 11 | - |
 | FEAT-002 | ✅ Fixed | 10 | - |
 | FEAT-003 | ✅ Fixed | 12 | - |
-| FE-001 | Backlog | - | - |
-| FE-002 | Backlog | - | - |
+| FE-001 | ✅ Fixed | 15 | - |
+| FE-002 | ✅ Fixed | 15 | - |
 | TEST-001 | ✅ Fixed | 10 | - |
 | TEST-002 | ✅ Fixed | 12 | - |

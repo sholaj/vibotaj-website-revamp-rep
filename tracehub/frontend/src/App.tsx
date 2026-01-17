@@ -6,18 +6,23 @@
  * - Token validation on app load
  * - Proper authentication state management
  * - Permission-based UI rendering
+ * - Code splitting with React.lazy() for bundle optimization (FE-002)
  */
 
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom'
-import Login from './pages/Login'
-import Shipment from './pages/Shipment'
-import Dashboard from './pages/Dashboard'
-import Analytics from './pages/Analytics'
-import Users from './pages/Users'
-import Organizations from './pages/Organizations'
-import AcceptInvitation from './pages/AcceptInvitation'
+import { lazy, Suspense, type ReactNode } from 'react'
 import Layout from './components/Layout'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
+
+// Lazy-loaded page components for code splitting (FE-002)
+// Each page is split into a separate chunk, loaded on demand
+const Login = lazy(() => import('./pages/Login'))
+const Dashboard = lazy(() => import('./pages/Dashboard'))
+const Shipment = lazy(() => import('./pages/Shipment'))
+const Analytics = lazy(() => import('./pages/Analytics'))
+const Users = lazy(() => import('./pages/Users'))
+const Organizations = lazy(() => import('./pages/Organizations'))
+const AcceptInvitation = lazy(() => import('./pages/AcceptInvitation'))
 
 // Loading spinner component for consistent UI
 function LoadingSpinner() {
@@ -29,6 +34,11 @@ function LoadingSpinner() {
       </div>
     </div>
   )
+}
+
+// Suspense wrapper for lazy-loaded page components (FE-002)
+function PageSuspense({ children }: { children: ReactNode }) {
+  return <Suspense fallback={<LoadingSpinner />}>{children}</Suspense>
 }
 
 // Error display component
@@ -109,13 +119,15 @@ function AppRoutes() {
           isAuthenticated ? (
             <Navigate to="/dashboard" replace />
           ) : (
-            <Login onLogin={handleLogin} />
+            <PageSuspense>
+              <Login onLogin={handleLogin} />
+            </PageSuspense>
           )
         }
       />
 
       {/* Public invitation acceptance route */}
-      <Route path="/accept-invitation/:token" element={<AcceptInvitation />} />
+      <Route path="/accept-invitation/:token" element={<PageSuspense><AcceptInvitation /></PageSuspense>} />
 
       {/* Protected routes wrapped in Layout */}
       <Route
@@ -130,19 +142,19 @@ function AppRoutes() {
         <Route index element={<Navigate to="/dashboard" replace />} />
 
         {/* Dashboard - shipment list */}
-        <Route path="dashboard" element={<Dashboard />} />
+        <Route path="dashboard" element={<PageSuspense><Dashboard /></PageSuspense>} />
 
         {/* Analytics dashboard */}
-        <Route path="analytics" element={<Analytics />} />
+        <Route path="analytics" element={<PageSuspense><Analytics /></PageSuspense>} />
 
         {/* User management (admin only) */}
-        <Route path="users" element={<Users />} />
+        <Route path="users" element={<PageSuspense><Users /></PageSuspense>} />
 
         {/* Organization management (admin only) */}
-        <Route path="organizations" element={<Organizations />} />
+        <Route path="organizations" element={<PageSuspense><Organizations /></PageSuspense>} />
 
         {/* Shipment detail page */}
-        <Route path="shipment/:id" element={<Shipment />} />
+        <Route path="shipment/:id" element={<PageSuspense><Shipment /></PageSuspense>} />
       </Route>
 
       {/* Catch-all redirect to login or dashboard based on auth state */}

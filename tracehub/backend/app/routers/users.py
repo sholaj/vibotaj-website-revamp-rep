@@ -9,7 +9,7 @@ import math
 
 from ..database import get_db
 from ..models.user import User as UserModel, UserRole
-from ..models.organization import Organization, OrganizationMembership, MembershipStatus
+from ..models.organization import Organization, OrganizationMembership, MembershipStatus, OrgRole
 from ..schemas.user import (
     UserCreate,
     UserUpdate,
@@ -37,6 +37,22 @@ def check_permission(user: CurrentUser, permission: Permission) -> None:
             status_code=status.HTTP_403_FORBIDDEN,
             detail=f"Permission denied. Required: {permission.value}"
         )
+
+
+def user_role_to_org_role(user_role: UserRole) -> OrgRole:
+    """Map UserRole to OrgRole for membership creation.
+
+    ARCH-004: Ensures membership is created alongside user.
+    """
+    mapping = {
+        UserRole.ADMIN: OrgRole.ADMIN,
+        UserRole.COMPLIANCE: OrgRole.MANAGER,
+        UserRole.LOGISTICS_AGENT: OrgRole.MEMBER,
+        UserRole.BUYER: OrgRole.VIEWER,
+        UserRole.SUPPLIER: OrgRole.MEMBER,
+        UserRole.VIEWER: OrgRole.VIEWER,
+    }
+    return mapping.get(user_role, OrgRole.MEMBER)
 
 
 def get_user_primary_organization(db: Session, user_id: UUID) -> Optional[UserOrganizationInfo]:
@@ -104,6 +120,19 @@ async def create_user(
     )
 
     db.add(user)
+    db.flush()  # Get user.id without committing
+
+    # ARCH-004: Create organization membership for new user
+    membership = OrganizationMembership(
+        user_id=user.id,
+        organization_id=current_user.organization_id,
+        org_role=user_role_to_org_role(user_data.role),
+        status=MembershipStatus.ACTIVE,
+        is_primary=True,
+        invited_by=current_user.id
+    )
+    db.add(membership)
+
     db.commit()
     db.refresh(user)
 
