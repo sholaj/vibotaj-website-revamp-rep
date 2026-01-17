@@ -6,6 +6,7 @@ Revision ID: 20260117_0001
 Revises: 20260116_0001
 Create Date: 2026-01-17
 
+IDEMPOTENT: Safe to run multiple times - uses ON CONFLICT DO NOTHING.
 """
 from alembic import op
 import sqlalchemy as sa
@@ -59,6 +60,7 @@ def upgrade():
         conn.execute(sa.text("""
             INSERT INTO organization_memberships (id, user_id, organization_id, org_role, status, is_primary, joined_at, last_active_at)
             VALUES (gen_random_uuid(), :user_id, :org_id, :org_role, 'ACTIVE', true, :joined_at, :joined_at)
+            ON CONFLICT (user_id, organization_id) DO NOTHING
         """), {
             'user_id': user_id,
             'org_id': org_id,
