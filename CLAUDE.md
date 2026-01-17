@@ -46,6 +46,7 @@ REQUIRED documents for horn/hoof:
 - Linter: ruff
 - Type hints: Required for public functions
 - Docstrings: Google style
+- **Pydantic schemas: Required for all API responses and JSON generation**
 
 ### TypeScript
 - Formatter: Prettier
@@ -250,6 +251,74 @@ current_user: User = Depends(get_current_user)
 - **Security:** Prevents cross-tenant data leakage
 - **Compliance:** Required for multi-buyer support
 - **Buyer Access:** Shipments with `buyer_organization_id` are visible to buyer orgs (read-only)
+
+---
+
+## Pydantic Type Safety - REQUIRED
+
+**All JSON generation and API responses MUST use Pydantic schemas.**
+
+This prevents runtime `AttributeError` bugs like accessing non-existent model attributes.
+
+### Why This Matters
+
+A production bug occurred when code referenced `shipment.buyer` instead of `shipment.importer_name`:
+```python
+# BUG: shipment.buyer doesn't exist on the SQLAlchemy model
+"buyer": {"name": shipment.buyer.company_name}  # AttributeError in production!
+```
+
+With Pydantic schemas, the IDE and type checker catch this during development.
+
+### Required Pattern
+
+**1. Create a Pydantic schema in `app/schemas/`:**
+```python
+from pydantic import BaseModel
+from typing import Optional
+
+class PartyInfo(BaseModel):
+    """Document the expected structure."""
+    name: Optional[str] = None
+    organization_id: Optional[str] = None
+```
+
+**2. Use the schema when building JSON:**
+```python
+from ..schemas.audit_pack import PartyInfo, AuditPackMetadata
+
+# CORRECT: Uses Pydantic schema - IDE will catch typos
+metadata = AuditPackMetadata(
+    buyer=PartyInfo(
+        name=shipment.importer_name,  # Correct attribute
+        organization_id=str(shipment.buyer_organization_id)
+    )
+)
+json_output = metadata.model_dump_json(indent=2)
+```
+
+**3. NEVER build JSON dicts manually for complex structures:**
+```python
+# WRONG: No type safety, typos silently pass
+metadata = {
+    "buyer": {"name": shipment.buyer.company_name}  # Bug not caught!
+}
+```
+
+### Schema Locations
+
+| Schema File | Purpose |
+|-------------|---------|
+| `schemas/shipment.py` | Shipment request/response |
+| `schemas/document.py` | Document request/response |
+| `schemas/audit_pack.py` | Audit pack metadata JSON |
+| `schemas/user.py` | User/auth schemas |
+
+### Benefits
+- **IDE autocomplete** for model attributes
+- **Type checker** catches attribute errors before runtime
+- **Self-documenting** JSON structure
+- **Validation** ensures data integrity
 
 ---
 
