@@ -93,6 +93,64 @@ async def validate_shipment(
     return report.to_dict()
 
 
+@router.get("/shipments/{shipment_id}")
+async def get_validation_report(
+    shipment_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: CurrentUser = Depends(get_current_active_user),
+):
+    """
+    Get validation report for a shipment.
+
+    Runs all applicable validation rules based on the shipment's product type
+    and returns a comprehensive validation report. This is the same as the
+    POST /validate endpoint but as a GET for retrieving the current state.
+
+    **Returns:**
+    - Validation report with pass/fail status for each rule
+    - Summary statistics (passed, failed, warnings)
+    - List of rejected documents (if any)
+
+    **Requires:** Authenticated user with access to the shipment's organization
+    """
+    logger.info(f"Validation report requested for shipment {shipment_id} by {current_user.email}")
+
+    # Get shipment with multi-tenancy check (owner or buyer can access)
+    shipment = db.query(Shipment).filter(
+        Shipment.id == shipment_id,
+        (
+            (Shipment.organization_id == current_user.organization_id) |
+            (Shipment.buyer_organization_id == current_user.organization_id)
+        )
+    ).first()
+
+    if not shipment:
+        raise HTTPException(status_code=404, detail="Shipment not found")
+
+    # Get all documents for this shipment
+    documents = db.query(Document).filter(
+        Document.shipment_id == shipment_id
+    ).all()
+
+    logger.info(f"Found {len(documents)} documents for shipment {shipment.reference}")
+
+    # Run validation
+    runner = ValidationRunner()
+    report = runner.validate_shipment(
+        shipment=shipment,
+        documents=documents,
+        user=current_user.email,
+        db=db,
+    )
+
+    logger.info(
+        f"Validation report for {shipment.reference}: "
+        f"valid={report.is_valid}, failed={report.failed}, warnings={report.warnings}"
+    )
+
+    return report.to_dict()
+
+
 @router.get("/shipments/{shipment_id}/status")
 async def get_validation_status(
     shipment_id: UUID,

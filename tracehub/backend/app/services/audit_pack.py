@@ -101,12 +101,12 @@ def generate_audit_pack(shipment: Shipment, db: Session) -> io.BytesIO:
                 for p in products
             ],
             "buyer": {
-                "name": shipment.buyer.company_name if shipment.buyer else None,
-                "country": shipment.buyer.country if shipment.buyer else None,
+                "name": shipment.importer_name,
+                "organization_id": str(shipment.buyer_organization_id) if shipment.buyer_organization_id else None,
             },
-            "supplier": {
-                "name": shipment.supplier.company_name if shipment.supplier else None,
-                "country": shipment.supplier.country if shipment.supplier else None,
+            "exporter": {
+                "name": shipment.exporter_name,
+                "organization_id": str(shipment.organization_id) if shipment.organization_id else None,
             },
             "exported_at": datetime.utcnow().isoformat(),
         }
