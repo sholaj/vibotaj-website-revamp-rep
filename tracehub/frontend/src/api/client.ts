@@ -98,6 +98,10 @@ import type {
   ShipmentValidationReport,
   ValidationRulesResponse,
   ValidationOverrideRequest,
+  // Document deletion and audit status types
+  DocumentDeleteRequest,
+  DocumentDeleteResponse,
+  ShipmentAuditStatusResponse,
 } from '../types'
 
 // ============================================
@@ -681,8 +685,10 @@ class ApiClient {
     return response.data
   }
 
-  async deleteDocument(documentId: string): Promise<{ message: string }> {
-    const response = await this.client.delete(`documents/${documentId}`)
+  async deleteDocument(documentId: string, reason: string): Promise<DocumentDeleteResponse> {
+    const response = await this.client.delete(`documents/${documentId}`, {
+      data: { reason } as DocumentDeleteRequest,
+    })
 
     // Invalidate related caches
     this.cache.invalidate('shipments')
@@ -1075,6 +1081,17 @@ class ApiClient {
       responseType: 'blob',
     })
     return response.data
+  }
+
+  /**
+   * Get document audit pack inclusion status for a shipment.
+   * Shows which documents will be included in the audit pack download.
+   */
+  async getShipmentAuditStatus(shipmentId: string): Promise<ShipmentAuditStatusResponse> {
+    return this.executeWithRetry<ShipmentAuditStatusResponse>({
+      method: 'GET',
+      url: `documents/shipment/${shipmentId}/audit-status`,
+    })
   }
 
   // ============================================

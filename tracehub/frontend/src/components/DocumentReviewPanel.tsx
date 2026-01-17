@@ -54,6 +54,9 @@ export default function DocumentReviewPanel({
   const [error, setError] = useState<string | null>(null)
   const [notes, setNotes] = useState('')
   const [showRejectForm, setShowRejectForm] = useState(false)
+  const [showDeleteForm, setShowDeleteForm] = useState(false)
+  const [deleteReason, setDeleteReason] = useState('')
+  const [deleteLoading, setDeleteLoading] = useState(false)
 
   useEffect(() => {
     loadDocumentDetails()
@@ -135,6 +138,25 @@ export default function DocumentReviewPanel({
       URL.revokeObjectURL(url)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to download document')
+    }
+  }
+
+  const handleDelete = async () => {
+    if (deleteReason.trim().length < 5) {
+      setError('Deletion reason must be at least 5 characters')
+      return
+    }
+
+    try {
+      setDeleteLoading(true)
+      setError(null)
+      await api.deleteDocument(document.id, deleteReason.trim())
+      onUpdate()
+      onClose()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to delete document')
+    } finally {
+      setDeleteLoading(false)
     }
   }
 
@@ -220,18 +242,72 @@ export default function DocumentReviewPanel({
               )}
             </div>
 
-            {document.file_name && (
+            <div className="mt-4 flex gap-2 flex-wrap">
+              {document.file_name && (
+                <button
+                  onClick={handleDownload}
+                  className="inline-flex items-center px-3 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
+                >
+                  <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  Download
+                </button>
+              )}
               <button
-                onClick={handleDownload}
-                className="mt-4 inline-flex items-center px-3 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
+                onClick={() => setShowDeleteForm(true)}
+                className="inline-flex items-center px-3 py-2 border border-red-300 rounded-md text-sm font-medium text-red-700 bg-white hover:bg-red-50"
               >
                 <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                 </svg>
-                Download Document
+                Delete
               </button>
-            )}
+            </div>
           </div>
+
+          {/* Delete Confirmation Form */}
+          {showDeleteForm && (
+            <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+              <h3 className="font-medium text-red-900 mb-3">Delete Document</h3>
+              <p className="text-sm text-red-700 mb-3">
+                This action cannot be undone. Please provide a reason for deleting this document.
+              </p>
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-sm font-medium text-red-800 mb-1">
+                    Reason for Deletion <span className="text-red-500">*</span>
+                  </label>
+                  <textarea
+                    value={deleteReason}
+                    onChange={(e) => setDeleteReason(e.target.value)}
+                    placeholder="Explain why this document is being deleted (min 5 characters)..."
+                    rows={3}
+                    className="w-full px-3 py-2 border border-red-300 rounded-md text-sm focus:ring-red-500 focus:border-red-500"
+                    required
+                  />
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={handleDelete}
+                    disabled={deleteLoading || deleteReason.trim().length < 5}
+                    className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {deleteLoading ? 'Deleting...' : 'Confirm Delete'}
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShowDeleteForm(false)
+                      setDeleteReason('')
+                    }}
+                    className="px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* BoL Compliance Panel - Only for Bill of Lading documents */}
           {document.document_type === 'bill_of_lading' && (

@@ -1,11 +1,75 @@
 """Document schemas for API responses."""
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 from typing import Optional, List
 from uuid import UUID
 from datetime import datetime, date
 
 from ..models.document import DocumentType, DocumentStatus
+
+
+# =============================================================================
+# Audit Status Schemas (Phase 1)
+# =============================================================================
+
+class DocumentAuditStatus(BaseModel):
+    """Document status for audit pack inclusion."""
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    name: str
+    document_type: str
+    status: str
+    file_name: Optional[str] = None
+    file_size: Optional[int] = None
+    file_exists: bool = False
+    will_be_included: bool = False
+    missing_reason: Optional[str] = None
+
+
+class ShipmentAuditStatusResponse(BaseModel):
+    """Response for shipment audit status check."""
+    model_config = ConfigDict(from_attributes=True)
+
+    shipment_id: UUID
+    shipment_reference: str
+    total_documents: int
+    included_count: int
+    missing_count: int
+    documents: List[DocumentAuditStatus]
+    required_document_types: List[str]
+    missing_required_types: List[str]
+
+
+# =============================================================================
+# Document Deletion Schemas (Phase 1)
+# =============================================================================
+
+class DocumentDeleteRequest(BaseModel):
+    """Request body for document deletion with reason."""
+    reason: str = Field(
+        ...,
+        min_length=5,
+        max_length=500,
+        description="Reason for deletion (5-500 characters)"
+    )
+
+
+class DocumentDeleteResponse(BaseModel):
+    """Response for document deletion."""
+    model_config = ConfigDict(from_attributes=True)
+
+    success: bool
+    message: str
+    document_id: UUID
+    document_name: str
+    deleted_by: str
+    deleted_at: datetime
+
+
+# =============================================================================
+# Existing Schemas
+# =============================================================================
 
 
 class DocumentResponse(BaseModel):

@@ -48,6 +48,15 @@ from ..services.bol_rules import (
 )
 from ..services.bol_shipment_sync import bol_shipment_sync
 from ..services.entity_factory import create_document
+from ..services.file_utils import get_full_path, delete_file, file_exists
+from ..services.compliance import get_required_documents
+from ..services.audit_log import AuditLogger, get_audit_logger
+from ..schemas.document import (
+    DocumentAuditStatus,
+    ShipmentAuditStatusResponse,
+    DocumentDeleteRequest,
+    DocumentDeleteResponse,
+)
 from ..models import ComplianceResult
 
 router = APIRouter()
@@ -503,15 +512,20 @@ async def validate_document(
     return response
 
 
-@router.delete("/{document_id}")
+@router.delete("/{document_id}", response_model=DocumentDeleteResponse)
 async def delete_document(
     document_id: UUID,
+    delete_request: DocumentDeleteRequest,
     db: Session = Depends(get_db),
     current_user: CurrentUser = Depends(get_current_active_user)
 ):
-    """Delete a document.
+    """Delete a document with audit trail.
 
-    Requires: documents:delete permission (admin role)
+    Requires:
+    - documents:delete permission (admin role)
+    - Deletion reason (5-500 characters)
+
+    Returns detailed deletion response with audit information.
     """
     # Check permission
     check_permission(current_user, Permission.DOCUMENTS_DELETE)
@@ -523,14 +537,45 @@ async def delete_document(
     if not document:
         raise HTTPException(status_code=404, detail="Document not found")
 
-    # Delete file if exists
-    if document.file_path and os.path.exists(document.file_path):
-        os.remove(document.file_path)
+    # Store metadata before deletion for audit
+    doc_name = document.name
+    doc_metadata = {
+        "document_id": str(document.id),
+        "document_name": document.name,
+        "document_type": document.document_type.value,
+        "file_name": document.file_name,
+        "shipment_id": str(document.shipment_id),
+        "deletion_reason": delete_request.reason,
+    }
+
+    # Delete file if exists (using shared path resolution)
+    delete_file(document.file_path)
 
     db.delete(document)
+
+    # Log deletion to audit trail
+    audit_logger = get_audit_logger()
+    audit_logger.log(
+        action="document.delete",
+        resource_type="document",
+        resource_id=str(document_id),
+        username=current_user.email,
+        organization_id=str(current_user.organization_id),
+        success=True,
+        details=doc_metadata,
+        db=db,
+    )
+
     db.commit()
 
-    return {"message": "Document deleted"}
+    return DocumentDeleteResponse(
+        success=True,
+        message=f"Document '{doc_name}' deleted successfully",
+        document_id=document_id,
+        document_name=doc_name,
+        deleted_by=current_user.email,
+        deleted_at=datetime.utcnow(),
+    )
 
 
 @router.delete("/shipment/{shipment_id}/all")
@@ -553,12 +598,11 @@ async def delete_all_shipment_documents(
 
     deleted_count = 0
     for document in documents:
-        # Delete file if exists
-        if document.file_path and os.path.exists(document.file_path):
-            try:
-                os.remove(document.file_path)
-            except Exception as e:
-                logger.warning(f"Failed to delete file {document.file_path}: {e}")
+        # Delete file if exists (using shared path resolution)
+        try:
+            delete_file(document.file_path)
+        except Exception as e:
+            logger.warning(f"Failed to delete file {document.file_path}: {e}")
 
         db.delete(document)
         deleted_count += 1
@@ -567,6 +611,86 @@ async def delete_all_shipment_documents(
     logger.info(f"Deleted {deleted_count} documents for shipment {shipment_id}")
 
     return {"message": f"Deleted {deleted_count} documents", "deleted_count": deleted_count}
+
+
+# ============ Audit Pack Status Endpoint ============
+
+@router.get("/shipment/{shipment_id}/audit-status", response_model=ShipmentAuditStatusResponse)
+async def get_shipment_audit_status(
+    shipment_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: CurrentUser = Depends(get_current_active_user)
+):
+    """Get document audit pack inclusion status for a shipment.
+
+    Returns status of each document showing:
+    - Whether file exists on disk
+    - Whether it will be included in audit pack download
+    - Missing required document types
+
+    Use this endpoint to preview what will be included in the audit pack
+    before downloading it.
+    """
+    # Verify shipment exists and belongs to user's organization
+    shipment = db.query(Shipment).filter(
+        Shipment.id == shipment_id,
+        Shipment.organization_id == current_user.organization_id
+    ).first()
+    if not shipment:
+        raise HTTPException(status_code=404, detail="Shipment not found")
+
+    # Get all documents for this shipment
+    documents = db.query(Document).filter(Document.shipment_id == shipment_id).all()
+
+    # Get required document types for this shipment
+    required_types = get_required_documents(shipment)
+    required_type_values = [dt.value for dt in required_types]
+
+    # Check each document
+    doc_statuses = []
+    included_count = 0
+    doc_types_present = set()
+
+    for doc in documents:
+        has_file = file_exists(doc.file_path)
+        will_include = has_file and doc.file_path is not None
+
+        if will_include:
+            included_count += 1
+
+        doc_types_present.add(doc.document_type.value)
+
+        missing_reason = None
+        if not doc.file_path:
+            missing_reason = "No file path stored"
+        elif not has_file:
+            missing_reason = "File not found on disk"
+
+        doc_statuses.append(DocumentAuditStatus(
+            id=doc.id,
+            name=doc.name,
+            document_type=doc.document_type.value,
+            status=doc.status.value,
+            file_name=doc.file_name,
+            file_size=doc.file_size,
+            file_exists=has_file,
+            will_be_included=will_include,
+            missing_reason=missing_reason,
+        ))
+
+    # Find missing required types
+    missing_required = [dt for dt in required_type_values if dt not in doc_types_present]
+
+    return ShipmentAuditStatusResponse(
+        shipment_id=shipment_id,
+        shipment_reference=shipment.reference,
+        total_documents=len(documents),
+        included_count=included_count,
+        missing_count=len(documents) - included_count,
+        documents=doc_statuses,
+        required_document_types=required_type_values,
+        missing_required_types=missing_required,
+    )
 
 
 # ============ Validation & Workflow Endpoints ============

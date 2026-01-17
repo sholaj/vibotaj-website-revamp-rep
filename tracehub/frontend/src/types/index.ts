@@ -290,6 +290,50 @@ export interface DocumentUploadResponse {
 }
 
 // ============================================
+// Document Deletion Types
+// ============================================
+
+export interface DocumentDeleteRequest {
+  reason: string  // Required: 5-500 characters
+}
+
+export interface DocumentDeleteResponse {
+  success: boolean
+  message: string
+  document_id: string
+  document_name: string
+  deleted_by: string
+  deleted_at: string
+}
+
+// ============================================
+// Audit Pack Status Types
+// ============================================
+
+export interface DocumentAuditStatus {
+  id: string
+  name: string
+  document_type: string
+  status: string
+  file_name?: string
+  file_size?: number
+  file_exists: boolean
+  will_be_included: boolean
+  missing_reason?: string
+}
+
+export interface ShipmentAuditStatusResponse {
+  shipment_id: string
+  shipment_reference: string
+  total_documents: number
+  included_count: number
+  missing_count: number
+  documents: DocumentAuditStatus[]
+  required_document_types: string[]
+  missing_required_types: string[]
+}
+
+// ============================================
 // Container Event Types
 // Aligned with backend EventType enum
 // ============================================

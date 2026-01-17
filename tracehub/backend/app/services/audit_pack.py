@@ -29,10 +29,8 @@ from ..schemas.audit_pack import (
     TrackingEvent,
 )
 from .compliance import get_required_documents, check_document_completeness, DOCUMENT_NAMES
+from .file_utils import get_full_path
 from ..config import get_settings
-
-# Base directory for uploads (tracehub/ - parent of backend/)
-UPLOAD_BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 
 def generate_audit_pack(shipment: Shipment, db: Session) -> io.BytesIO:
@@ -57,9 +55,9 @@ def generate_audit_pack(shipment: Shipment, db: Session) -> io.BytesIO:
         documents = db.query(Document).filter(Document.shipment_id == shipment.id).all()
         for i, doc in enumerate(documents, 1):
             if doc.file_path:
-                # Resolve full path from relative path
-                full_path = os.path.join(UPLOAD_BASE_DIR, doc.file_path)
-                if os.path.exists(full_path):
+                # Resolve full path using shared utility
+                full_path = get_full_path(doc.file_path)
+                if full_path and os.path.exists(full_path):
                     # Get file extension
                     ext = os.path.splitext(doc.file_name or doc.file_path)[1]
                     filename = f"{i:02d}-{doc.document_type.value}{ext}"
