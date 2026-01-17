@@ -20,14 +20,14 @@ branch_labels = None
 depends_on = None
 
 
-# Role mapping: UserRole -> OrgRole
+# Role mapping: UserRole -> OrgRole (UPPERCASE to match PostgreSQL enum)
 USER_ROLE_TO_ORG_ROLE = {
-    'admin': 'admin',
-    'compliance': 'manager',
-    'logistics_agent': 'member',
-    'buyer': 'viewer',
-    'supplier': 'member',
-    'viewer': 'viewer',
+    'admin': 'ADMIN',
+    'compliance': 'MANAGER',
+    'logistics_agent': 'MEMBER',
+    'buyer': 'VIEWER',
+    'supplier': 'MEMBER',
+    'viewer': 'VIEWER',
 }
 
 
@@ -51,8 +51,8 @@ def upgrade():
         user_role = user[2]
         created_at = user[3] or datetime.utcnow()
 
-        # Map user role to org role
-        org_role = USER_ROLE_TO_ORG_ROLE.get(user_role, 'member')
+        # Map user role to org role (UPPERCASE to match PostgreSQL enum)
+        org_role = USER_ROLE_TO_ORG_ROLE.get(user_role, 'MEMBER')
 
         print(f"Creating membership for user {user_id} in org {org_id} with role {org_role}")
 
