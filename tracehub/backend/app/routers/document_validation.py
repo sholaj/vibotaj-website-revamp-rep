@@ -8,11 +8,12 @@ All endpoints enforce multi-tenancy by filtering on organization_id.
 """
 
 import logging
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Body
 from sqlalchemy.orm import Session
 from typing import Optional, List
 from uuid import UUID
 from datetime import datetime
+from pydantic import BaseModel, Field
 
 from ..database import get_db
 from ..routers.auth import get_current_active_user
@@ -30,6 +31,11 @@ from ..services.document_rules import (
 
 router = APIRouter(prefix="/validation", tags=["Document Validation"])
 logger = logging.getLogger(__name__)
+
+
+class ValidationOverrideRequest(BaseModel):
+    """Request body for validation override."""
+    reason: str = Field(..., min_length=5, description="Reason for override (min 5 chars)")
 
 
 @router.post("/shipments/{shipment_id}/validate")
@@ -452,7 +458,7 @@ async def validate_single_document(
 @router.post("/shipments/{shipment_id}/override")
 async def override_shipment_validation(
     shipment_id: UUID,
-    reason: str = Query(..., min_length=5, description="Reason for override (min 5 chars)"),
+    override_request: ValidationOverrideRequest,
     db: Session = Depends(get_db),
     current_user: CurrentUser = Depends(get_current_active_user),
 ):
@@ -486,6 +492,7 @@ async def override_shipment_validation(
         raise HTTPException(status_code=404, detail="Shipment not found")
 
     # Set override fields
+    reason = override_request.reason
     shipment.validation_override_reason = reason
     shipment.validation_override_by = current_user.email
     shipment.validation_override_at = datetime.utcnow()
