@@ -1,6 +1,7 @@
 # BoL Parsing & Compliance Engine - Implementation Plan
 
-**PRP:** `PRPs/active/PRP-bol-parsing-compliance-engine.md`
+**PRP:** `PRPs/completed/PRP-bol-parsing-compliance-engine-PLAN.md`
+**Status:** ✅ Completed (2026-01-17)
 **Sprint:** 12
 **TDD Approach:** Write tests first (RED), then implement (GREEN), then refactor
 

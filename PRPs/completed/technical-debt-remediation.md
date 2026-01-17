@@ -1,8 +1,8 @@
 # PRP: Technical Debt & Gap Remediation
 
-**Status:** Draft
+**Status:** ✅ Completed (2026-01-17)
 **Priority:** P1
-**Sprint:** 15 (Proposed)
+**Sprint:** 15
 **Created:** 2026-01-13
 **Author:** Claude Code
 
@@ -22,14 +22,14 @@ This PRP addresses critical technical debt and architectural gaps identified in 
 ### Functional Requirements
 
 #### Critical (P0)
-- [ ] **FR-001**: Documents uploaded via `/api/documents/upload` must have `organization_id` assigned from current user
-- [ ] **FR-002**: Shipment deletion must work without 500 errors
-- [ ] **FR-003**: Frontend `ShipmentStatus` must include `customs` status
+- [x] **FR-001**: Documents uploaded via `/api/documents/upload` must have `organization_id` assigned from current user (SEC-001 FIX)
+- [x] **FR-002**: Shipment deletion must work without 500 errors (SEC-002 FIX)
+- [x] **FR-003**: Frontend `ShipmentStatus` must include `customs` status (TICKET-001)
 
 #### High Priority (P1)
-- [ ] **FR-004**: Standardize shipment status naming between backend and frontend
-- [ ] **FR-005**: Align document field naming (`file_size` vs `file_size_bytes`, etc.)
-- [ ] **FR-006**: Dashboard should show overview stats, not just shipment list
+- [x] **FR-004**: Standardize shipment status naming between backend and frontend (TICKET-001)
+- [x] **FR-005**: Align document field naming (`file_size` vs `file_size_bytes`, etc.) (TICKET-002)
+- [ ] **FR-006**: Dashboard should show overview stats, not just shipment list (Phase 3 - deferred)
 
 #### Medium Priority (P2)
 - [ ] **FR-007**: Party/organization handling consistency
