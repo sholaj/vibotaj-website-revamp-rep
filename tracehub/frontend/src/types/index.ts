@@ -1275,3 +1275,66 @@ export interface MemberListResponse {
 // Invitation Types
 // See ./invitation.ts for full invitation types
 // ============================================
+
+// ============================================
+// Shipment Validation Rules Engine Types
+// ============================================
+
+export type ValidationSeverity = 'critical' | 'error' | 'warning' | 'info'
+
+export interface ShipmentValidationRule {
+  rule_id: string
+  name: string
+  description: string
+  severity: ValidationSeverity
+  category: string
+  applies_to: string[]  // Product types this rule applies to
+}
+
+export interface ShipmentValidationRuleResult {
+  rule_id: string
+  rule_name: string
+  passed: boolean
+  severity: ValidationSeverity
+  message: string
+  category: string
+  document_id?: string
+  details?: Record<string, unknown>
+}
+
+export interface ShipmentValidationSummary {
+  total_rules: number
+  passed: number
+  failed: number
+  critical_failures: number
+  errors: number
+  warnings: number
+  is_valid: boolean
+}
+
+export interface ShipmentValidationReport {
+  shipment_id: string
+  shipment_reference: string
+  product_type: ProductType
+  validated_at: string
+  validated_by?: string
+  summary: ShipmentValidationSummary
+  results: ShipmentValidationRuleResult[]
+  override?: ShipmentValidationOverride
+}
+
+export interface ShipmentValidationOverride {
+  overridden_by: string
+  overridden_at: string
+  reason: string
+  previous_status: boolean
+}
+
+export interface ValidationRulesResponse {
+  rules: ShipmentValidationRule[]
+  total: number
+}
+
+export interface ValidationOverrideRequest {
+  reason: string
+}

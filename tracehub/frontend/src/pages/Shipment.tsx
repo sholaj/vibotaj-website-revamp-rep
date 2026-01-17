@@ -41,8 +41,10 @@ import DocumentUploadModal from '../components/DocumentUploadModal'
 import DocumentReviewPanel from '../components/DocumentReviewPanel'
 import EUDRStatusCard from '../components/EUDRStatusCard'
 import ContainerSuggestion from '../components/ContainerSuggestion'
+import ShipmentValidationPanel from '../components/ShipmentValidationPanel'
 import { format, formatDistanceToNow } from 'date-fns'
 import { isHornHoofProduct } from '../utils/compliance'
+import { useAuth } from '../contexts/AuthContext'
 
 // Check if shipment contains Horn & Hoof products (exempt from EUDR)
 // Checks both product_type field (primary) and products array (fallback)
@@ -140,6 +142,9 @@ export default function Shipment() {
   const [isReviewPanelOpen, setIsReviewPanelOpen] = useState(false)
   const [trackingError, setTrackingError] = useState<string | null>(null)
   const [dismissedContainerSuggestion, setDismissedContainerSuggestion] = useState(false)
+
+  // Get auth context for admin check
+  const { isAdmin } = useAuth()
 
   // Fetch shipment data
   const fetchData = useCallback(async () => {
@@ -510,6 +515,15 @@ export default function Shipment() {
             <EUDRStatusCard
               shipmentId={id}
               onValidationComplete={fetchData}
+            />
+          )}
+
+          {/* Shipment Validation Panel */}
+          {id && (
+            <ShipmentValidationPanel
+              shipmentId={id}
+              onValidationComplete={fetchData}
+              isAdmin={isAdmin}
             />
           )}
 

@@ -94,6 +94,10 @@ import type {
   BolComplianceResultsResponse,
   BolSyncPreviewResponse,
   BolSyncResponse,
+  // Shipment validation rules engine types
+  ShipmentValidationReport,
+  ValidationRulesResponse,
+  ValidationOverrideRequest,
 } from '../types'
 
 // ============================================
@@ -1500,6 +1504,89 @@ class ApiClient {
       this.cache.invalidate()
     }
 
+    return response.data
+  }
+
+  // ============================================
+  // Shipment Validation Rules Engine Methods
+  // ============================================
+
+  /**
+   * Get all available validation rules
+   */
+  async getValidationRules(): Promise<ValidationRulesResponse> {
+    return this.cachedGet<ValidationRulesResponse>('validation/rules')
+  }
+
+  /**
+   * Get validation rules filtered by product type
+   */
+  async getValidationRulesForProductType(
+    productType: string
+  ): Promise<ValidationRulesResponse> {
+    return this.cachedGet<ValidationRulesResponse>(
+      `validation/rules?product_type=${productType}`
+    )
+  }
+
+  /**
+   * Validate a shipment against all applicable rules
+   */
+  async validateShipment(shipmentId: string): Promise<ShipmentValidationReport> {
+    const response = await this.client.post<ShipmentValidationReport>(
+      `validation/shipments/${shipmentId}/validate`
+    )
+    this.cache.invalidate(`validation/shipments/${shipmentId}`)
+    this.cache.invalidate(`shipments/${shipmentId}`)
+    return response.data
+  }
+
+  /**
+   * Get the latest validation report for a shipment
+   */
+  async getShipmentValidationReport(
+    shipmentId: string
+  ): Promise<ShipmentValidationReport | null> {
+    try {
+      return await this.cachedGet<ShipmentValidationReport>(
+        `validation/shipments/${shipmentId}`
+      )
+    } catch (error) {
+      // 404 means no validation report yet
+      if (axios.isAxiosError(error) && error.response?.status === 404) {
+        return null
+      }
+      throw error
+    }
+  }
+
+  /**
+   * Override validation status for a shipment (admin only)
+   */
+  async overrideShipmentValidation(
+    shipmentId: string,
+    data: ValidationOverrideRequest
+  ): Promise<ShipmentValidationReport> {
+    const response = await this.client.post<ShipmentValidationReport>(
+      `validation/shipments/${shipmentId}/override`,
+      data
+    )
+    this.cache.invalidate(`validation/shipments/${shipmentId}`)
+    this.cache.invalidate(`shipments/${shipmentId}`)
+    return response.data
+  }
+
+  /**
+   * Clear validation override for a shipment (admin only)
+   */
+  async clearValidationOverride(
+    shipmentId: string
+  ): Promise<ShipmentValidationReport> {
+    const response = await this.client.delete<ShipmentValidationReport>(
+      `validation/shipments/${shipmentId}/override`
+    )
+    this.cache.invalidate(`validation/shipments/${shipmentId}`)
+    this.cache.invalidate(`shipments/${shipmentId}`)
     return response.data
   }
 
