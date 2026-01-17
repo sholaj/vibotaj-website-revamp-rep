@@ -47,6 +47,7 @@ from ..services.bol_rules import (
     get_compliance_decision,
 )
 from ..services.bol_shipment_sync import bol_shipment_sync
+from ..services.entity_factory import create_document
 from ..models import ComplianceResult
 
 router = APIRouter()
@@ -217,20 +218,18 @@ async def upload_document(
             except ValueError:
                 pass  # Keep user's selection if AI type is invalid
 
-    # Create document record
-    # SEC-001: Set organization_id from current user for multi-tenancy isolation
-    document = Document(
-        shipment_id=shipment_id,
-        organization_id=current_user.organization_id,  # SEC-001 FIX: Required for multi-tenancy
+    # Create document record using factory (ensures organization_id is always set)
+    document = create_document(
+        shipment=shipment,
         document_type=final_document_type,
         name=file.filename,
         file_path=file_path,
         file_name=file.filename,
-        file_size=file_size,  # Fixed: use correct column name
+        file_size=file_size,
         mime_type=file.content_type,
         status=DocumentStatus.UPLOADED,
         reference_number=reference_number,
-        uploaded_by=current_user.id  # Fixed: use UUID, not email
+        uploaded_by=current_user.id
     )
 
     db.add(document)

@@ -12,9 +12,10 @@ from sqlalchemy import text
 from .config import get_settings
 from .database import engine, Base, get_db, SessionLocal
 from .routers import shipments, documents, tracking, webhooks, auth, notifications, users
-from .routers import analytics, audit, eudr, organizations, invitations
+from .routers import analytics, audit, eudr, organizations, invitations, document_validation
 from .middleware import RequestTrackingMiddleware, RateLimitMiddleware, ErrorHandlerMiddleware
 from .models import ContainerEvent, Shipment, Product
+from .services.entity_factory import create_product
 
 # Configure logging
 logging.basicConfig(
@@ -101,15 +102,16 @@ def ensure_horn_hoof_products():
 
             if existing_products == 0:
                 # Add Horn & Hoof product (HS 0506.90.00)
-                product = Product(
-                    shipment_id=shipment.id,
+                # Use entity factory to ensure organization_id is always set
+                product_name = "Bovine Hooves (Dried)" if "001" in shipment.reference else "Crushed Cow Horns"
+                product = create_product(
+                    shipment=shipment,
+                    name=product_name,
                     hs_code="0506.90.00",
-                    description="Bovine Hooves (Dried)" if "001" in shipment.reference else "Crushed Cow Horns",
+                    description=product_name,
                     quantity_net_kg=25000.0,
                     quantity_gross_kg=26500.0,
-                    unit_of_measure="KG",
-                    packaging_type="25kg bags",
-                    packaging_count=1000
+                    packaging="25kg bags",
                 )
                 db.add(product)
                 logger.info(f"Added Horn & Hoof product (HS 0506.90.00) to shipment {shipment.reference}")
@@ -296,6 +298,7 @@ app.include_router(notifications.router, prefix="/api/notifications", tags=["Not
 app.include_router(users.router, prefix="/api/users", tags=["Users"])
 app.include_router(organizations.router, prefix="/api/organizations", tags=["Organizations"])
 app.include_router(invitations.router, prefix="/api/invitations", tags=["Invitations"])
+app.include_router(document_validation.router, prefix="/api", tags=["Document Validation"])
 
 
 @app.get("/", tags=["Health"])

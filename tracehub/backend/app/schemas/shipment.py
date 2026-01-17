@@ -4,7 +4,7 @@ Updated to match production database schema (Sprint 8).
 """
 
 import re
-from pydantic import BaseModel, ConfigDict, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 from typing import Optional, List
 from uuid import UUID
 from datetime import datetime, date
@@ -149,12 +149,15 @@ class EventInfo(BaseModel):
     Field names match frontend ContainerEvent interface:
     - event_type (lowercase) instead of event_status (UPPERCASE)
     - event_timestamp instead of event_time
+
+    Uses validation_alias to map from model field names (event_status, event_time)
+    to frontend field names (event_type, event_timestamp).
     """
-    model_config = ConfigDict(from_attributes=True)
+    model_config = ConfigDict(from_attributes=True, populate_by_name=True)
 
     id: UUID
-    event_type: str  # Lowercase event type matching frontend EventType
-    event_timestamp: Optional[datetime] = None  # Can be null for some events
+    event_type: str = Field(validation_alias="event_status")  # Maps from model's event_status
+    event_timestamp: Optional[datetime] = Field(default=None, validation_alias="event_time")  # Maps from model's event_time
     location_code: Optional[str] = None
     location_name: Optional[str] = None
     vessel_name: Optional[str] = None

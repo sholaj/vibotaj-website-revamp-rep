@@ -15,6 +15,7 @@ from datetime import datetime
 from ..models import Shipment, Product, Document
 from ..models.document import DocumentType
 from .shipment_data_extractor import ExtractedShipmentData, shipment_data_extractor
+from .entity_factory import create_product
 
 logger = logging.getLogger(__name__)
 
@@ -300,11 +301,10 @@ class ShipmentEnrichmentService:
             if not description:
                 description = f"Product (HS {hs_code})"
 
-            # Create product (must include organization_id for multi-tenancy)
-            product = Product(
-                shipment_id=shipment.id,
-                organization_id=shipment.organization_id,
-                name=description,  # Required field
+            # Create product using factory (ensures organization_id is always set)
+            product = create_product(
+                shipment=shipment,
+                name=description,
                 hs_code=hs_code,
                 description=description,
                 quantity_net_kg=extracted.total_net_weight_kg,

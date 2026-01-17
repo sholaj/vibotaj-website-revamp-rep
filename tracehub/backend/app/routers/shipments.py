@@ -255,83 +255,18 @@ async def get_shipment(
         doc_completeness = check_document_completeness(documents, required_docs)
         logger.info(f"Doc completeness: {doc_completeness}")
 
-        # Explicitly serialize to avoid Pydantic nested conversion issues
+        # Use Pydantic model_validate for automatic serialization (PRP-017 Phase 2)
         from ..schemas.shipment import ShipmentResponse, EventInfo, DocumentInfo
 
-        # Build response dict manually to debug
-        shipment_dict = {
-            "id": shipment.id,
-            "reference": shipment.reference,
-            "container_number": shipment.container_number,
-            "product_type": shipment.product_type,  # Required for EUDR exemption check
-            "bl_number": shipment.bl_number,
-            "booking_ref": shipment.booking_ref,
-            "vessel_name": shipment.vessel_name,
-            "voyage_number": shipment.voyage_number,
-            "carrier_code": shipment.carrier_code,
-            "carrier_name": shipment.carrier_name,
-            "etd": shipment.etd,
-            "eta": shipment.eta,
-            "atd": shipment.atd,
-            "ata": shipment.ata,
-            "pol_code": shipment.pol_code,
-            "pol_name": shipment.pol_name,
-            "pod_code": shipment.pod_code,
-            "pod_name": shipment.pod_name,
-            "incoterms": shipment.incoterms,
-            "status": shipment.status.value if hasattr(shipment.status, 'value') else shipment.status,
-            "exporter_name": shipment.exporter_name,
-            "importer_name": shipment.importer_name,
-            "eudr_compliant": shipment.eudr_compliant,
-            "eudr_statement_id": shipment.eudr_statement_id,
-            "organization_id": shipment.organization_id,
-            "buyer_organization_id": shipment.buyer_organization_id,
-            "created_at": shipment.created_at,
-            "updated_at": shipment.updated_at,
-            "products": [
-                {
-                    "id": p.id,
-                    "hs_code": p.hs_code,
-                    "description": p.description,
-                    "quantity_net_kg": p.quantity_net_kg,
-                    "quantity_gross_kg": p.quantity_gross_kg,
-                    "packaging_type": getattr(p, 'packaging_type', None) or getattr(p, 'packaging', None),
-                }
-                for p in shipment.products
-            ]
-        }
-        logger.info(f"Built shipment_dict with {len(shipment_dict.get('products', []))} products")
-        shipment_data = ShipmentResponse(**shipment_dict)
+        # Serialize shipment with all fields automatically included
+        shipment_data = ShipmentResponse.model_validate(shipment)
+        logger.info(f"Serialized shipment with {len(shipment_data.products)} products")
 
-        # Serialize event (using frontend-compatible field names)
-        event_data = None
-        if latest_event:
-            event_dict = {
-                "id": latest_event.id,
-                "event_type": latest_event.event_status.value if hasattr(latest_event.event_status, 'value') else str(latest_event.event_status),
-                "event_timestamp": latest_event.event_time,
-                "location_code": latest_event.location_code,
-                "location_name": latest_event.location_name,
-                "vessel_name": latest_event.vessel_name,
-                "voyage_number": latest_event.voyage_number,
-                "description": latest_event.description,
-                "source": latest_event.source,
-            }
-            event_data = EventInfo(**event_dict)
+        # Serialize event using field aliases (event_status -> event_type, event_time -> event_timestamp)
+        event_data = EventInfo.model_validate(latest_event) if latest_event else None
 
-        # Serialize documents
-        doc_data = []
-        for doc in documents:
-            doc_dict = {
-                "id": doc.id,
-                "document_type": doc.document_type.value if hasattr(doc.document_type, 'value') else str(doc.document_type),
-                "name": doc.name,
-                "status": doc.status.value if hasattr(doc.status, 'value') else str(doc.status),
-                "reference_number": doc.reference_number,
-                "issue_date": getattr(doc, 'issue_date', None) or getattr(doc, 'document_date', None),
-                "file_path": doc.file_path,
-            }
-            doc_data.append(DocumentInfo(**doc_dict))
+        # Serialize documents with enum conversion handled by validators
+        doc_data = [DocumentInfo.model_validate(doc) for doc in documents]
 
         logger.info(f"Returning response with {len(doc_data)} documents")
         return ShipmentDetailResponse(

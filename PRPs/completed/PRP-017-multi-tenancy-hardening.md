@@ -1,6 +1,6 @@
 # PRP-017: Multi-Tenancy Hardening & API Response Refactoring
 
-## Status: ACTIVE
+## Status: ✅ COMPLETE (All Phases - 2026-01-17)
 ## Priority: P0 (Security)
 ## Sprint: 13
 ## Created: 2026-01-16
@@ -53,13 +53,13 @@ Recent bugs have exposed systemic issues with multi-tenancy implementation:
 
 ### 2. Manual Dict Building (causes forgotten fields)
 
-| File | Line | Pattern |
-|------|------|---------|
-| `shipments.py` | 262 | `shipment_dict = {` - 30+ fields manually listed |
-| `documents.py` | 346 | `response = {` |
-| `documents.py` | 481 | `response = {` |
-| `documents.py` | 1561 | `response = {` |
-| `documents.py` | 1692 | `response = {` |
+| File | Line | Pattern | Status |
+|------|------|---------|--------|
+| `shipments.py` | 262 | `shipment_dict = {` - 30+ fields manually listed | ✅ Fixed - uses model_validate() |
+| `documents.py` | 346 | `response = {` | N/A - custom API response |
+| `documents.py` | 481 | `response = {` | N/A - custom API response |
+| `documents.py` | 1561 | `response = {` | N/A - custom API response |
+| `documents.py` | 1692 | `response = {` | N/A - custom API response |
 
 ### 3. Entity Creation Points (need `organization_id`)
 
@@ -91,8 +91,8 @@ shipment = db.query(Shipment).filter(
 ```
 
 **Files to update:**
-- [ ] `documents.py` - 9 locations
-- [ ] `eudr.py` - 2 locations
+- [x] `documents.py` - 9 locations (verified 2026-01-17 - all have org filters)
+- [x] `eudr.py` - 2 locations (verified 2026-01-17 - use secure JOIN queries)
 
 ### Phase 2: Pydantic Response Models
 
@@ -132,13 +132,19 @@ return ShipmentResponse.model_validate(shipment)
 - Single source of truth for response shape
 
 **Files to update:**
-- [ ] `backend/app/schemas/shipment.py` - Add `from_attributes` config
-- [ ] `backend/app/routers/shipments.py` - Use `model_validate()`
-- [ ] `backend/app/routers/documents.py` - Use response models
+- [x] `backend/app/schemas/shipment.py` - Add `from_attributes` config + Field aliases ✅
+- [x] `backend/app/routers/shipments.py` - Use `model_validate()` ✅
+- [x] `backend/app/routers/documents.py` - Reviewed: response dicts are custom API responses, not ORM serializations ✅
 
-### Phase 3: Service Layer for Entity Creation
+### Phase 3: Service Layer for Entity Creation ✅ Complete
 
 Create centralized factory functions that always set required fields.
+
+**Status:** Implemented 2026-01-17
+- [x] Created `entity_factory.py` with `create_product()` and `create_document()`
+- [x] Refactored `main.py` to use `create_product()`
+- [x] Refactored `shipment_enrichment.py` to use `create_product()`
+- [x] Refactored `documents.py` to use `create_document()`
 
 **New file: `backend/app/services/entity_factory.py`**
 
