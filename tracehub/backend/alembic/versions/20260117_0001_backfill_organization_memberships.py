@@ -58,7 +58,7 @@ def upgrade():
 
         conn.execute(sa.text("""
             INSERT INTO organization_memberships (id, user_id, organization_id, org_role, status, is_primary, joined_at, last_active_at)
-            VALUES (gen_random_uuid(), :user_id, :org_id, :org_role, 'active', true, :joined_at, :joined_at)
+            VALUES (gen_random_uuid(), :user_id, :org_id, :org_role, 'ACTIVE', true, :joined_at, :joined_at)
         """), {
             'user_id': user_id,
             'org_id': org_id,
