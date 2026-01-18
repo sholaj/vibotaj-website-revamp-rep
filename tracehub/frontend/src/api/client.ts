@@ -73,6 +73,7 @@ import type {
   OrganizationCreate,
   OrganizationUpdate,
   OrganizationListResponse,
+  OrganizationDeleteResponse,
   OrganizationMember,
   MembershipCreate,
   MembershipUpdate,
@@ -573,6 +574,22 @@ class ApiClient {
     const response = await this.client.patch<Organization>(`organizations/${id}`, data)
     this.cache.invalidate('organizations')
     this.cache.invalidate(`organizations/${id}`)
+    return response.data
+  }
+
+  /**
+   * Delete (soft) an organization (admin only)
+   * Sets organization status to 'suspended' and deactivates all memberships
+   * @param id - The organization ID
+   * @param reason - Required reason for deletion (min 10 chars)
+   */
+  async deleteOrganization(id: string, reason: string): Promise<OrganizationDeleteResponse> {
+    const response = await this.client.delete<OrganizationDeleteResponse>(
+      `organizations/${id}?reason=${encodeURIComponent(reason)}`
+    )
+    this.cache.invalidate('organizations')
+    this.cache.invalidate(`organizations/${id}`)
+    this.cache.invalidate('organizations/buyers')
     return response.data
   }
 

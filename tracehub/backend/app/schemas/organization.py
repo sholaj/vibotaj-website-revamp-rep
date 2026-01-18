@@ -185,6 +185,16 @@ class OrganizationStats(BaseModel):
     compliance: Dict[str, Any]
 
 
+class OrganizationDeleteResponse(BaseModel):
+    """Response schema for organization deletion."""
+    organization_id: UUID
+    name: str
+    slug: str
+    deleted_at: datetime
+    message: str
+    members_affected: int
+
+
 # ============ Membership Schemas ============
 
 class MembershipBase(BaseModel):

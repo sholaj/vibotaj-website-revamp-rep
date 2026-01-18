@@ -1325,6 +1325,15 @@ export interface OrganizationUpdate {
   logo_url?: string
 }
 
+export interface OrganizationDeleteResponse {
+  organization_id: string
+  name: string
+  slug: string
+  deleted_at: string
+  message: string
+  members_affected: number
+}
+
 export type MembershipStatus = 'active' | 'suspended' | 'pending'
 
 export interface OrganizationMember {

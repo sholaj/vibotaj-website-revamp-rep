@@ -29,6 +29,7 @@ from ..schemas.organization import (
     OrganizationResponse,
     OrganizationListItem,
     OrganizationListResponse,
+    OrganizationDeleteResponse,
     OrganizationType,
     OrganizationStatus,
     OrgRole,
@@ -302,6 +303,76 @@ async def update_organization(
     ).scalar()
 
     return _org_to_response(org, member_count=member_count + user_count)
+
+
+@router.delete("/{org_id}", response_model=OrganizationDeleteResponse)
+async def delete_organization(
+    org_id: UUID,
+    reason: str = Query(..., min_length=10, description="Reason for deletion"),
+    current_user: CurrentUser = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """Delete (soft) an organization. Admin only.
+
+    Soft deletes by setting status to 'suspended' and deactivating all memberships.
+
+    Restrictions:
+    - Cannot delete VIBOTAJ organization
+    - Cannot delete organizations with active shipments
+    """
+    check_admin_permission(current_user)
+
+    org = db.query(Organization).filter(Organization.id == org_id).first()
+    if not org:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Organization not found"
+        )
+
+    # Prevent deletion of VIBOTAJ organization
+    if org.type == OrgTypeModel.VIBOTAJ:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot delete the VIBOTAJ organization"
+        )
+
+    # Check for active shipments
+    from ..models.shipment import Shipment
+    shipment_count = db.query(func.count(Shipment.id)).filter(
+        Shipment.organization_id == org_id
+    ).scalar()
+
+    if shipment_count > 0:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Cannot delete organization with {shipment_count} shipment(s). Reassign or delete shipments first."
+        )
+
+    # Count affected members
+    member_count = db.query(func.count(OrganizationMembership.id)).filter(
+        OrganizationMembership.organization_id == org_id,
+        OrganizationMembership.status == MemberStatusModel.ACTIVE
+    ).scalar()
+
+    # Soft delete: set status to suspended
+    org.status = OrgStatusModel.SUSPENDED
+    org.updated_at = datetime.utcnow()
+
+    # Deactivate all memberships
+    db.query(OrganizationMembership).filter(
+        OrganizationMembership.organization_id == org_id
+    ).update({OrganizationMembership.status: MemberStatusModel.SUSPENDED})
+
+    db.commit()
+
+    return OrganizationDeleteResponse(
+        organization_id=org.id,
+        name=org.name,
+        slug=org.slug,
+        deleted_at=datetime.utcnow(),
+        message=f"Organization '{org.name}' has been suspended. Reason: {reason}",
+        members_affected=member_count
+    )
 
 
 # ============ Member Management Endpoints ============

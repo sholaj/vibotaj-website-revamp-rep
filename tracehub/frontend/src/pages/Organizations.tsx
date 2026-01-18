@@ -15,16 +15,18 @@ import {
   Users as UsersIcon,
   ChevronRight,
   Loader2,
+  Trash2,
 } from 'lucide-react'
 import api, { ApiClientError } from '../api/client'
 import { useAuth, Permission } from '../contexts/AuthContext'
-import { MemberManagementPanel } from '../components/organizations'
+import { MemberManagementPanel, OrganizationDeleteModal } from '../components/organizations'
 import type {
   OrganizationListItem,
   OrganizationType,
   OrganizationStatus,
   OrganizationCreate,
   Organization,
+  OrganizationDeleteResponse,
 } from '../types'
 
 // Organization type badge styling
@@ -347,6 +349,8 @@ export default function Organizations() {
   const [totalPages, setTotalPages] = useState(1)
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [selectedOrg, setSelectedOrg] = useState<OrganizationListItem | null>(null)
+  const [showDeleteModal, setShowDeleteModal] = useState(false)
+  const [orgToDelete, setOrgToDelete] = useState<OrganizationListItem | null>(null)
 
   const fetchOrganizations = useCallback(async () => {
     setLoading(true)
@@ -540,7 +544,23 @@ export default function Organizations() {
                     {new Date(org.created_at).toLocaleDateString()}
                   </td>
                   <td className="px-6 py-4 text-right">
-                    <ChevronRight className="h-5 w-5 text-gray-400" />
+                    <div className="flex items-center justify-end space-x-2">
+                      {/* Delete button - hidden for VIBOTAJ orgs */}
+                      {org.type !== 'vibotaj' && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            setOrgToDelete(org)
+                            setShowDeleteModal(true)
+                          }}
+                          className="text-red-600 hover:bg-red-50 p-1 rounded"
+                          title="Delete organization"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      )}
+                      <ChevronRight className="h-5 w-5 text-gray-400" />
+                    </div>
                   </td>
                 </tr>
               ))
@@ -583,6 +603,26 @@ export default function Organizations() {
       <OrganizationDetailPanel
         organization={selectedOrg}
         onClose={() => setSelectedOrg(null)}
+      />
+
+      {/* Delete Modal */}
+      <OrganizationDeleteModal
+        isOpen={showDeleteModal}
+        onClose={() => {
+          setShowDeleteModal(false)
+          setOrgToDelete(null)
+        }}
+        organization={orgToDelete}
+        onDeleted={(response: OrganizationDeleteResponse) => {
+          // Show success message (could use toast)
+          console.log('Organization deleted:', response.message)
+          // Refresh the list
+          fetchOrganizations()
+          // Close detail panel if the deleted org was selected
+          if (selectedOrg?.id === response.organization_id) {
+            setSelectedOrg(null)
+          }
+        }}
       />
     </div>
   )

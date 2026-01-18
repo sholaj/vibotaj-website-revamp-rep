@@ -1049,3 +1049,236 @@ class TestOrganizationPermissions:
         # Restore overrides
         app.dependency_overrides.clear()
         app.dependency_overrides.update(saved_overrides)
+
+
+class TestOrganizationDeletion:
+    """Tests for organization deletion endpoint."""
+
+    @pytest.fixture
+    def admin_user_and_client(self, db_session, client):
+        """Create admin user and authenticated client."""
+        org = Organization(
+            name="Admin Test Org",
+            slug=f"admin-test-{uuid.uuid4().hex[:6]}",
+            type=OrganizationType.VIBOTAJ,
+            status=OrganizationStatus.ACTIVE,
+            contact_email="admin@test.com"
+        )
+        db_session.add(org)
+        db_session.commit()
+
+        admin = User(
+            email=f"admin-delete-{uuid.uuid4().hex[:6]}@test.com",
+            full_name="Admin User",
+            hashed_password=get_password_hash("test123"),
+            role=UserRole.ADMIN,
+            is_active=True,
+            organization_id=org.id
+        )
+        db_session.add(admin)
+        db_session.commit()
+
+        permissions = get_role_permissions(UserRole.ADMIN)
+        mock_user = CurrentUser(
+            id=admin.id,
+            email=admin.email,
+            full_name=admin.full_name,
+            role=UserRole.ADMIN,
+            is_active=True,
+            organization_id=org.id,
+            permissions=permissions
+        )
+        app.dependency_overrides[get_current_active_user] = lambda: mock_user
+        yield {"user": admin, "org": org, "client": client}
+        del app.dependency_overrides[get_current_active_user]
+        
+        # Cleanup
+        db_session.delete(admin)
+        db_session.delete(org)
+        db_session.commit()
+
+    @pytest.fixture
+    def deletable_org(self, db_session):
+        """Create an organization that can be deleted."""
+        org = Organization(
+            name="Deletable Org",
+            slug=f"deletable-{uuid.uuid4().hex[:6]}",
+            type=OrganizationType.BUYER,
+            status=OrganizationStatus.ACTIVE,
+            contact_email="delete@test.com"
+        )
+        db_session.add(org)
+        db_session.commit()
+        yield org
+        # May already be deleted, so check first
+        existing = db_session.get(Organization, org.id)
+        if existing:
+            db_session.delete(existing)
+            db_session.commit()
+
+    def test_delete_organization_success(self, admin_user_and_client, deletable_org, db_session):
+        """Should successfully soft-delete an organization."""
+        client = admin_user_and_client["client"]
+        
+        response = client.delete(
+            f"/api/organizations/{deletable_org.id}?reason=No longer needed for testing purposes"
+        )
+        
+        assert response.status_code == 200
+        data = response.json()
+        assert data["slug"] == deletable_org.slug
+        assert data["name"] == deletable_org.name
+        assert "suspended" in data["message"].lower() or deletable_org.name in data["message"]
+        assert data["members_affected"] == 0
+        
+        # Verify status changed
+        db_session.refresh(deletable_org)
+        assert deletable_org.status == OrganizationStatus.SUSPENDED
+
+    def test_delete_organization_not_found(self, admin_user_and_client):
+        """Should return 404 for non-existent organization."""
+        client = admin_user_and_client["client"]
+        fake_id = uuid.uuid4()
+        
+        response = client.delete(
+            f"/api/organizations/{fake_id}?reason=Testing non-existent organization"
+        )
+        
+        assert response.status_code == 404
+        assert "not found" in response.json()["detail"].lower()
+
+    def test_delete_vibotaj_organization_forbidden(self, admin_user_and_client, db_session):
+        """Should not allow deletion of VIBOTAJ organization."""
+        client = admin_user_and_client["client"]
+        
+        # Create a VIBOTAJ org
+        vibotaj_org = Organization(
+            name="VIBOTAJ Protected",
+            slug=f"vibotaj-prot-{uuid.uuid4().hex[:6]}",
+            type=OrganizationType.VIBOTAJ,
+            status=OrganizationStatus.ACTIVE,
+            contact_email="protected@vibotaj.com"
+        )
+        db_session.add(vibotaj_org)
+        db_session.commit()
+        
+        response = client.delete(
+            f"/api/organizations/{vibotaj_org.id}?reason=Testing deletion of VIBOTAJ org"
+        )
+        
+        assert response.status_code == 400
+        assert "VIBOTAJ" in response.json()["detail"]
+        
+        # Cleanup
+        db_session.delete(vibotaj_org)
+        db_session.commit()
+
+    def test_delete_organization_with_shipments_forbidden(self, admin_user_and_client, db_session):
+        """Should not allow deletion of organization with active shipments."""
+        client = admin_user_and_client["client"]
+        
+        # Create an org with a shipment
+        org_with_shipments = Organization(
+            name="Org With Shipments",
+            slug=f"org-ships-{uuid.uuid4().hex[:6]}",
+            type=OrganizationType.BUYER,
+            status=OrganizationStatus.ACTIVE,
+            contact_email="ships@test.com"
+        )
+        db_session.add(org_with_shipments)
+        db_session.commit()
+        
+        # Create a shipment for this org
+        shipment = Shipment(
+            reference=f"TEST-{uuid.uuid4().hex[:6]}",
+            status=ShipmentStatus.IN_TRANSIT,
+            organization_id=org_with_shipments.id
+        )
+        db_session.add(shipment)
+        db_session.commit()
+        
+        response = client.delete(
+            f"/api/organizations/{org_with_shipments.id}?reason=Testing deletion with shipments"
+        )
+        
+        assert response.status_code == 400
+        assert "shipment" in response.json()["detail"].lower()
+        
+        # Cleanup
+        db_session.delete(shipment)
+        db_session.delete(org_with_shipments)
+        db_session.commit()
+
+    def test_delete_organization_reason_required(self, admin_user_and_client, deletable_org):
+        """Should require a reason for deletion."""
+        client = admin_user_and_client["client"]
+        
+        # No reason parameter
+        response = client.delete(f"/api/organizations/{deletable_org.id}")
+        assert response.status_code == 422  # Validation error
+
+    def test_delete_organization_reason_too_short(self, admin_user_and_client, deletable_org):
+        """Should require reason to be at least 10 characters."""
+        client = admin_user_and_client["client"]
+        
+        response = client.delete(
+            f"/api/organizations/{deletable_org.id}?reason=short"
+        )
+        assert response.status_code == 422  # Validation error
+
+    def test_delete_organization_deactivates_members(self, admin_user_and_client, db_session):
+        """Should deactivate all organization members on deletion."""
+        client = admin_user_and_client["client"]
+        
+        # Create org with members
+        org = Organization(
+            name="Org With Members",
+            slug=f"org-members-{uuid.uuid4().hex[:6]}",
+            type=OrganizationType.BUYER,
+            status=OrganizationStatus.ACTIVE,
+            contact_email="members@test.com"
+        )
+        db_session.add(org)
+        db_session.commit()
+        
+        # Create test user
+        test_user = User(
+            email=f"member-test-{uuid.uuid4().hex[:6]}@test.com",
+            full_name="Test Member",
+            hashed_password=get_password_hash("test123"),
+            role=UserRole.BUYER,
+            is_active=True,
+            organization_id=org.id
+        )
+        db_session.add(test_user)
+        db_session.commit()
+        
+        # Create membership
+        from app.models.organization import MembershipStatus
+        membership = OrganizationMembership(
+            user_id=test_user.id,
+            organization_id=org.id,
+            org_role=OrgRole.MEMBER,
+            status=MembershipStatus.ACTIVE,
+            is_primary=True,
+            joined_at=datetime.utcnow()
+        )
+        db_session.add(membership)
+        db_session.commit()
+        
+        response = client.delete(
+            f"/api/organizations/{org.id}?reason=Testing member deactivation on org delete"
+        )
+        
+        assert response.status_code == 200
+        assert response.json()["members_affected"] == 1
+        
+        # Verify membership is suspended
+        db_session.refresh(membership)
+        assert membership.status == MembershipStatus.SUSPENDED
+        
+        # Cleanup
+        db_session.delete(membership)
+        db_session.delete(test_user)
+        db_session.delete(org)
+        db_session.commit()

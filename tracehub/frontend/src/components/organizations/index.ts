@@ -6,3 +6,4 @@
 
 export { default as InviteMemberModal } from './InviteMemberModal'
 export { default as MemberManagementPanel } from './MemberManagementPanel'
+export { default as OrganizationDeleteModal } from './OrganizationDeleteModal'
