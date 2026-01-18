@@ -117,6 +117,12 @@ class CanonicalBoL(BaseModel):
     raw_text: Optional[str] = Field(None, description="Raw extracted text")
     confidence_score: float = Field(default=0.0, ge=0.0, le=1.0, description="Parser confidence")
 
+    # EU TRACES reference (required for Horn & Hoof / animal products)
+    traces_reference: Optional[str] = Field(None, description="EU TRACES certificate reference")
+
+    # Veterinary certificate date (for animal products)
+    vet_cert_date: Optional[date] = Field(None, description="Veterinary certificate issue date")
+
     def get_primary_container(self) -> Optional[str]:
         """Get the primary (first) container number."""
         if self.containers:

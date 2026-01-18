@@ -71,16 +71,27 @@ class JSONCargoClient:
     async def get_container_status(
         self,
         container_number: str,
-        shipping_line: Optional[str] = None
+        shipping_line: Optional[str] = None,
+        bl_number: Optional[str] = None,
+        vessel_name: Optional[str] = None,
+        voyage_number: Optional[str] = None
     ) -> Optional[Dict[str, Any]]:
         """Get current tracking status for a container.
 
         Args:
             container_number: Container ID (e.g., MRSU3452572)
             shipping_line: Shipping line name (auto-detected if not provided)
+            bl_number: Bill of Lading number for shipment context
+            vessel_name: Vessel name for shipment context
+            voyage_number: Voyage number for shipment context
 
         Returns:
             Container status and events, or None if not found
+
+        Note:
+            The bl_number, vessel_name, and voyage_number parameters help
+            disambiguate tracking results when a container is reused across
+            multiple shipments. See PRP: Container Tracking Enhancement.
         """
         if not self.api_key:
             logger.warning("JSONCargo API key not configured - using mock mode")
@@ -93,11 +104,20 @@ class JSONCargoClient:
                 logger.error(f"Could not detect carrier for container {container_number}")
                 return None
 
+        # Build request params with shipment context
+        params = {"shipping_line": shipping_line}
+        if bl_number:
+            params["bl_number"] = bl_number
+        if vessel_name:
+            params["vessel_name"] = vessel_name
+        if voyage_number:
+            params["voyage_number"] = voyage_number
+
         try:
             async with httpx.AsyncClient(follow_redirects=True) as client:
                 response = await client.get(
                     f"{self.base_url}/containers/{container_number}",
-                    params={"shipping_line": shipping_line},
+                    params=params,
                     headers=self.headers,
                     timeout=30.0
                 )

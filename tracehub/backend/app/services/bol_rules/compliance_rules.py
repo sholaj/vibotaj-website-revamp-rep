@@ -12,11 +12,21 @@ Works with ALL product types:
 - Horn & Hoof (HS 0506/0507)
 - Agricultural products
 - General cargo
+
+Product-Specific Rules:
+- BOL-HH-*: Horn & Hoof specific (TRACES, vet cert validation)
+- BOL-EUDR-*: EUDR applicable products (cocoa, etc.)
 """
 
-from typing import List
+from typing import List, Union
 
 from .engine import ComplianceRule, ConditionType, RuleResult
+
+# Import ProductType for type checking (avoid circular import at runtime)
+try:
+    from ...models.shipment import ProductType
+except ImportError:
+    ProductType = None  # type: ignore
 
 
 # Standard BoL compliance rules
@@ -130,6 +140,65 @@ STANDARD_BOL_RULES: List[ComplianceRule] = [
         severity="INFO",
         message="Low parser confidence - manual review recommended",
     ),
+
+    # Weight Tolerance Rule (BOL-012)
+    ComplianceRule(
+        id="BOL-012",
+        name="Weight Tolerance Check",
+        field="containers[0].weight_kg",
+        condition=ConditionType.CUSTOM,
+        value="weight_tolerance",  # Custom validator will check cargo vs container weight
+        severity="WARNING",
+        message="Container weight differs from cargo weight by more than 5%",
+    ),
+]
+
+
+# =============================================================================
+# Horn & Hoof Specific Rules (HS 0506/0507)
+# =============================================================================
+
+HORN_HOOF_RULES: List[ComplianceRule] = [
+    ComplianceRule(
+        id="BOL-HH-001",
+        name="TRACES Reference Required",
+        field="traces_reference",
+        condition=ConditionType.NOT_NULL,
+        severity="ERROR",
+        message="EU TRACES reference is required for Horn & Hoof products (HS 0506/0507)",
+    ),
+
+    ComplianceRule(
+        id="BOL-HH-002",
+        name="Veterinary Certificate Date Valid",
+        field="vet_cert_date",
+        condition=ConditionType.CUSTOM,
+        value="vet_cert_before_etd",  # Custom validator: vet_cert_date <= shipped_on_board_date
+        severity="ERROR",
+        message="Veterinary certificate date must be on or before vessel departure (ETD)",
+    ),
+
+    ComplianceRule(
+        id="BOL-HH-003",
+        name="Approved Consignee Required",
+        field="consignee.name",
+        condition=ConditionType.CUSTOM,
+        value="approved_consignee",  # Custom validator: consignee in approved list
+        severity="WARNING",
+        message="Consignee should be in the approved importer list for Horn & Hoof",
+    ),
+]
+
+
+# Approved consignees for Horn & Hoof products
+APPROVED_HORN_HOOF_CONSIGNEES = [
+    "HAGES",
+    "HAGES GMBH",
+    "WITATRADE",
+    "WITATRADE GMBH",
+    "BECKMANN",
+    "BECKMANN GBH",
+    "DE LOCHTING",
 ]
 
 
@@ -164,22 +233,43 @@ def get_compliance_decision(results: List[RuleResult]) -> str:
     return "APPROVE"
 
 
-def get_rules_for_product_type(product_type: str = None) -> List[ComplianceRule]:
+def get_rules_for_product_type(
+    product_type: Union[str, "ProductType", None] = None
+) -> List[ComplianceRule]:
     """Get applicable rules for a specific product type.
 
-    Currently all product types use the same standard rules.
-    This function exists for future extensibility when product-specific
-    rules may be needed.
+    Combines standard rules with product-specific rules based on the
+    product type. Horn & Hoof products get additional TRACES and
+    veterinary certificate validation.
 
     Args:
-        product_type: Optional product type (e.g., "horn_hoof", "agricultural")
+        product_type: Product type enum or string (e.g., "horn_hoof", ProductType.HORN_HOOF)
 
     Returns:
-        List of applicable compliance rules
+        List of applicable compliance rules (standard + product-specific)
     """
-    # For now, all products use the same rules
-    # Future: Add product-specific rules for EUDR compliance, etc.
-    return STANDARD_BOL_RULES
+    # Start with standard rules
+    rules = list(STANDARD_BOL_RULES)
+
+    if product_type is None:
+        return rules
+
+    # Normalize product type to string for comparison
+    if hasattr(product_type, 'value'):
+        product_type_str = product_type.value
+    else:
+        product_type_str = str(product_type).lower()
+
+    # Add product-specific rules
+    if product_type_str in ("horn_hoof", "horn & hoof"):
+        # Horn & Hoof: Add TRACES, vet cert, approved consignee rules
+        rules.extend(HORN_HOOF_RULES)
+
+    # EUDR products (cocoa, coffee, etc.) would add different rules
+    # elif product_type_str == "cocoa":
+    #     rules.extend(EUDR_RULES)
+
+    return rules
 
 
 def format_compliance_report(results: List[RuleResult]) -> str:

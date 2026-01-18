@@ -39,6 +39,7 @@ class ConditionType(str, Enum):
     RANGE = "RANGE"  # Field value must be within range
     DATE_ORDER = "DATE_ORDER"  # Date must be before another date
     REGEX = "REGEX"  # Field must match regex pattern
+    CUSTOM = "CUSTOM"  # Custom validator function (value = validator name)
 
 
 class ComplianceRule(BaseModel):
@@ -72,6 +73,7 @@ class RuleResult(BaseModel):
         passed: Whether the rule passed
         message: Explanation message
         severity: Severity level of the rule
+        field_path: The field that was evaluated
     """
 
     rule_id: str = Field(..., description="Rule identifier")
@@ -79,6 +81,41 @@ class RuleResult(BaseModel):
     passed: bool = Field(..., description="Whether the rule passed")
     message: str = Field(..., description="Result message")
     severity: str = Field(..., description="Rule severity level")
+    field_path: str = Field(default="", description="Field path evaluated")
+
+
+class ComplianceEvaluationResult(BaseModel):
+    """Result of evaluating all compliance rules.
+
+    Attributes:
+        decision: Overall compliance decision (APPROVE, HOLD, REJECT)
+        results: Individual rule results
+
+    Note:
+        This class implements list-like behavior for backward compatibility
+        with code that expects evaluate() to return a list of RuleResult.
+    """
+
+    decision: str = Field(..., description="APPROVE, HOLD, or REJECT")
+    results: List[RuleResult] = Field(..., description="Individual rule results")
+
+    def __iter__(self):
+        """Allow iterating over results for backward compatibility."""
+        return iter(self.results)
+
+    def __len__(self):
+        """Return number of results for backward compatibility."""
+        return len(self.results)
+
+    def __getitem__(self, index):
+        """Allow indexing results for backward compatibility."""
+        return self.results[index]
+
+    def __eq__(self, other):
+        """Allow comparison with list for backward compatibility."""
+        if isinstance(other, list):
+            return self.results == other
+        return super().__eq__(other)
 
 
 class RulesEngine:
@@ -89,30 +126,41 @@ class RulesEngine:
     plus an overall compliance decision.
 
     Usage:
+        # Option 1: Rules at construction
         engine = RulesEngine(rules)
         results = engine.evaluate(bol)
+
+        # Option 2: Rules at evaluation
+        engine = RulesEngine()
+        results = engine.evaluate(bol, rules)
+
+        # Get decision
         decision = engine.get_compliance_decision(results)
     """
 
-    def __init__(self, rules: List[ComplianceRule]):
+    def __init__(self, rules: Optional[List[ComplianceRule]] = None):
         """Initialize the rules engine.
 
         Args:
-            rules: List of compliance rules to evaluate
+            rules: Optional list of compliance rules (can also be passed to evaluate)
         """
-        self.rules = rules
+        self.rules = rules or []
 
-    def evaluate(self, bol: CanonicalBoL) -> List[RuleResult]:
+    def evaluate(
+        self, bol: CanonicalBoL, rules: Optional[List[ComplianceRule]] = None
+    ) -> "ComplianceEvaluationResult":
         """Evaluate all rules against BoL data.
 
         Args:
             bol: Parsed Bill of Lading data
+            rules: Optional rules to use (overrides constructor rules)
 
         Returns:
-            List of RuleResult for each rule evaluated
+            ComplianceEvaluationResult with results and decision
         """
+        rules_to_use = rules if rules is not None else self.rules
         results = []
-        for rule in self.rules:
+        for rule in rules_to_use:
             try:
                 result = self._evaluate_rule(rule, bol)
                 results.append(result)
@@ -125,9 +173,14 @@ class RulesEngine:
                         passed=False,
                         message=f"Rule evaluation error: {str(e)}",
                         severity=rule.severity,
+                        field_path=rule.field,
                     )
                 )
-        return results
+
+        # Calculate decision
+        decision = self.get_compliance_decision(results)
+
+        return ComplianceEvaluationResult(decision=decision, results=results)
 
     def _evaluate_rule(self, rule: ComplianceRule, bol: CanonicalBoL) -> RuleResult:
         """Evaluate a single rule against BoL data.
@@ -148,6 +201,7 @@ class RulesEngine:
             ConditionType.RANGE: self._eval_range,
             ConditionType.DATE_ORDER: self._eval_date_order,
             ConditionType.REGEX: self._eval_regex,
+            ConditionType.CUSTOM: self._eval_custom,
         }
 
         evaluator = evaluators.get(rule.condition)
@@ -158,6 +212,7 @@ class RulesEngine:
                 passed=False,
                 message=f"Unknown condition type: {rule.condition}",
                 severity=rule.severity,
+                field_path=rule.field,
             )
 
         passed, message = evaluator(field_value, rule.value, bol)
@@ -168,6 +223,7 @@ class RulesEngine:
             passed=passed,
             message=message if not passed else f"{rule.name}: OK",
             severity=rule.severity,
+            field_path=rule.field,
         )
 
     def _get_field_value(self, bol: CanonicalBoL, field_path: str) -> Any:
@@ -367,3 +423,98 @@ class RulesEngine:
         if warning_failures:
             return "HOLD"
         return "APPROVE"
+
+    def _eval_custom(
+        self, value: Any, validator_name: str, bol: CanonicalBoL
+    ) -> tuple[bool, str]:
+        """Evaluate CUSTOM condition using named validators.
+
+        Args:
+            value: The field value
+            validator_name: Name of the custom validator to use
+            bol: The full BoL for cross-field validation
+        """
+        validators = {
+            "weight_tolerance": self._validate_weight_tolerance,
+            "vet_cert_before_etd": self._validate_vet_cert_before_etd,
+            "approved_consignee": self._validate_approved_consignee,
+        }
+
+        validator = validators.get(validator_name)
+        if not validator:
+            return False, f"Unknown custom validator: {validator_name}"
+
+        return validator(value, bol)
+
+    def _validate_weight_tolerance(
+        self, container_weight: Any, bol: CanonicalBoL
+    ) -> tuple[bool, str]:
+        """Validate weight tolerance between container and cargo.
+
+        Weight difference should be within 5% tolerance.
+        """
+        if container_weight is None:
+            return True, "No container weight to validate"
+
+        # Get total cargo weight
+        cargo_weight = bol.get_total_weight_kg()
+        if cargo_weight is None:
+            return True, "No cargo weight to compare"
+
+        try:
+            container_wt = float(container_weight)
+            cargo_wt = float(cargo_weight)
+        except (TypeError, ValueError):
+            return False, "Invalid weight values"
+
+        if cargo_wt == 0:
+            return True, "No cargo weight declared"
+
+        # Calculate percentage difference
+        diff_percent = abs(container_wt - cargo_wt) / cargo_wt * 100
+
+        if diff_percent <= 5.0:
+            return True, f"Weight within tolerance ({diff_percent:.1f}%)"
+        return False, f"Weight difference {diff_percent:.1f}% exceeds 5% tolerance"
+
+    def _validate_vet_cert_before_etd(
+        self, vet_cert_date: Any, bol: CanonicalBoL
+    ) -> tuple[bool, str]:
+        """Validate veterinary certificate date is before vessel departure.
+
+        For animal products, vet cert must be issued before vessel ETD.
+        """
+        if vet_cert_date is None:
+            return False, "Veterinary certificate date is missing"
+
+        # ETD is typically shipped_on_board_date
+        etd = bol.shipped_on_board_date
+        if etd is None:
+            # Can't validate without ETD
+            return True, "No ETD to validate against"
+
+        if not isinstance(vet_cert_date, date):
+            return False, f"Vet cert date is not a date: {type(vet_cert_date)}"
+
+        if vet_cert_date <= etd:
+            return True, f"Vet cert date {vet_cert_date} is valid (before ETD {etd})"
+        return False, f"Vet cert date {vet_cert_date} is after vessel ETD {etd}"
+
+    def _validate_approved_consignee(
+        self, consignee_name: Any, bol: CanonicalBoL
+    ) -> tuple[bool, str]:
+        """Validate consignee is in approved list for Horn & Hoof products."""
+        if consignee_name is None:
+            return False, "Consignee name is missing"
+
+        # Import the approved list (avoid circular import)
+        from .compliance_rules import APPROVED_HORN_HOOF_CONSIGNEES
+
+        # Normalize for comparison
+        name_upper = str(consignee_name).upper().strip()
+
+        for approved in APPROVED_HORN_HOOF_CONSIGNEES:
+            if approved.upper() in name_upper or name_upper in approved.upper():
+                return True, f"Consignee '{consignee_name}' is approved"
+
+        return False, f"Consignee '{consignee_name}' not in approved list"
