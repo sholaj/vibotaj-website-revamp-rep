@@ -98,6 +98,11 @@ import type {
   ShipmentValidationReport,
   ValidationRulesResponse,
   ValidationOverrideRequest,
+  // Document validation issue types
+  DocumentIssuesResponse,
+  IssueOverrideResponse,
+  DocumentVersionsResponse,
+  SetPrimaryVersionResponse,
   // Document deletion and audit status types
   DocumentDeleteRequest,
   DocumentDeleteResponse,
@@ -804,6 +809,71 @@ class ApiClient {
       method: 'GET',
       url: `documents/workflow/summary?shipment_id=${shipmentId}`,
     })
+  }
+
+  // ============================================
+  // Document Validation Issues Methods
+  // PRP: Document Validation & Compliance Enhancement
+  // ============================================
+
+  /**
+   * Get validation issues for a document
+   */
+  async getDocumentIssues(documentId: string): Promise<DocumentIssuesResponse> {
+    return this.executeWithRetry<DocumentIssuesResponse>({
+      method: 'GET',
+      url: `documents/${documentId}/issues`,
+    })
+  }
+
+  /**
+   * Override a validation issue with a reason
+   */
+  async overrideDocumentIssue(
+    documentId: string,
+    issueId: string,
+    reason: string
+  ): Promise<IssueOverrideResponse> {
+    const response = await this.client.post(
+      `documents/${documentId}/issues/${issueId}/override`,
+      { reason }
+    )
+
+    // Invalidate related caches
+    this.cache.invalidate('shipments')
+    this.cache.invalidate('documents')
+
+    return response.data
+  }
+
+  /**
+   * Get all versions of a document (for duplicate handling)
+   */
+  async getDocumentVersions(
+    shipmentId: string,
+    documentType: string
+  ): Promise<DocumentVersionsResponse> {
+    return this.executeWithRetry<DocumentVersionsResponse>({
+      method: 'GET',
+      url: `shipments/${shipmentId}/documents/versions?document_type=${documentType}`,
+    })
+  }
+
+  /**
+   * Set a specific document version as primary
+   */
+  async setPrimaryDocumentVersion(
+    documentId: string
+  ): Promise<SetPrimaryVersionResponse> {
+    const response = await this.client.post(
+      `documents/${documentId}/set-primary`
+    )
+
+    // Invalidate related caches
+    this.cache.invalidate('shipments')
+    this.cache.invalidate('documents')
+
+    return response.data
   }
 
   // ============================================

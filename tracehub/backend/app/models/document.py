@@ -3,7 +3,7 @@
 import uuid
 import enum
 from datetime import datetime
-from sqlalchemy import Column, String, DateTime, ForeignKey, Enum, Integer, Text, Float
+from sqlalchemy import Column, String, DateTime, ForeignKey, Enum, Integer, Text, Float, Boolean
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import relationship
 from ..database import Base
@@ -110,6 +110,32 @@ class Document(Base):
     compliance_status = Column(String(20), nullable=True)  # APPROVE, HOLD, REJECT
     compliance_checked_at = Column(DateTime(timezone=True), nullable=True)
 
+    # =========================================================================
+    # Document Validation Enhancement Fields (PRP: Document Validation)
+    # =========================================================================
+
+    # Canonical extracted data in standardized format
+    canonical_data = Column(JSONB, nullable=True, comment="Canonical extracted data in standardized format")
+
+    # Versioning for duplicate document handling
+    version = Column(Integer, nullable=False, default=1, comment="Document version number")
+    is_primary = Column(Boolean, nullable=False, default=True, comment="Whether this is the primary version for validation")
+    supersedes_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("documents.id", ondelete="SET NULL"),
+        nullable=True,
+        comment="ID of the document this version supersedes"
+    )
+
+    # Classification and parsing metadata
+    classification_confidence = Column(Float, nullable=True, comment="AI classification confidence (0.0-1.0)")
+    parsed_at = Column(DateTime(timezone=True), nullable=True, comment="When document was parsed")
+    parser_version = Column(String(20), nullable=True, comment="Version of parser used")
+
+    # Revalidation tracking
+    last_validated_at = Column(DateTime(timezone=True), nullable=True, comment="Last validation timestamp")
+    validation_version = Column(Integer, nullable=True, comment="Version of validation rules used")
+
     # Organization (multi-tenancy)
     organization_id = Column(
         UUID(as_uuid=True),
@@ -127,5 +153,106 @@ class Document(Base):
     contents = relationship("DocumentContent", back_populates="document", cascade="all, delete-orphan")
     compliance_results = relationship("ComplianceResult", back_populates="document", cascade="all, delete-orphan")
 
+    # Validation enhancement relationships
+    issues = relationship("DocumentIssue", back_populates="document", cascade="all, delete-orphan")
+    superseded_by = relationship(
+        "Document",
+        foreign_keys=[supersedes_id],
+        remote_side="Document.id",
+        backref="supersedes"
+    )
+
     def __repr__(self):
         return f"<Document {self.document_type.value}: {self.name}>"
+
+    @property
+    def is_draft(self) -> bool:
+        """Check if document is in draft status."""
+        return self.status == DocumentStatus.DRAFT
+
+    @property
+    def is_validated(self) -> bool:
+        """Check if document has been validated."""
+        return self.status in (
+            DocumentStatus.VALIDATED,
+            DocumentStatus.COMPLIANCE_OK,
+            DocumentStatus.LINKED
+        )
+
+    @property
+    def has_unresolved_issues(self) -> bool:
+        """Check if document has unresolved validation issues."""
+        if not hasattr(self, 'issues') or not self.issues:
+            return False
+        return any(not issue.is_overridden for issue in self.issues)
+
+
+class DocumentIssue(Base):
+    """Validation issue found during document validation.
+
+    Tracks individual validation failures with override capability.
+    Issues can be:
+    - Document-level: Single document validation failures
+    - Cross-document: Consistency failures between documents
+    """
+
+    __tablename__ = "document_issues"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    document_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("documents.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True
+    )
+    shipment_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("shipments.id", ondelete="CASCADE"),
+        nullable=True,
+        index=True
+    )
+
+    # Rule information
+    rule_id = Column(String(50), nullable=False, index=True, comment="Rule identifier (e.g., DOC-001, XD-002)")
+    rule_name = Column(String(255), nullable=False, comment="Human-readable rule name")
+    severity = Column(String(20), nullable=False, index=True, comment="ERROR, WARNING, or INFO")
+    message = Column(Text, nullable=False, comment="Validation failure message")
+
+    # Field context
+    field = Column(String(100), nullable=True, comment="Field path that failed validation")
+    expected_value = Column(Text, nullable=True, comment="Expected value (for comparison rules)")
+    actual_value = Column(Text, nullable=True, comment="Actual value found")
+
+    # Cross-document context
+    source_document_type = Column(String(50), nullable=True, comment="Source document type")
+    target_document_type = Column(String(50), nullable=True, comment="Target document type")
+
+    # Override tracking
+    is_overridden = Column(Boolean, nullable=False, default=False, index=True, comment="Whether issue has been overridden")
+    overridden_by = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+    overridden_at = Column(DateTime(timezone=True), nullable=True)
+    override_reason = Column(Text, nullable=True, comment="Reason for override")
+
+    # Organization (multi-tenancy)
+    organization_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("organizations.id"),
+        nullable=True,
+        index=True
+    )
+
+    # Timestamps
+    created_at = Column(DateTime(timezone=True), default=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+
+    # Relationships
+    document = relationship("Document", back_populates="issues")
+
+    def __repr__(self):
+        status = "overridden" if self.is_overridden else "active"
+        return f"<DocumentIssue {self.rule_id}: {self.severity} ({status})>"
+
+    @property
+    def is_blocking(self) -> bool:
+        """Check if this issue blocks document approval."""
+        return self.severity == "ERROR" and not self.is_overridden

@@ -4,7 +4,7 @@
 from .shipment import Shipment, ShipmentStatus
 from .product import Product
 from .origin import Origin, RiskLevel
-from .document import Document, DocumentType, DocumentStatus
+from .document import Document, DocumentType, DocumentStatus, DocumentIssue
 from .document_content import DocumentContent
 from .compliance_result import ComplianceResult
 from .reference_registry import ReferenceRegistry
@@ -24,6 +24,7 @@ __all__ = [
     "Document",
     "DocumentType",
     "DocumentStatus",
+    "DocumentIssue",
     "DocumentContent",
     "ComplianceResult",
     "ReferenceRegistry",

@@ -2167,3 +2167,291 @@ async def sync_bol_to_shipment(
             "atd": shipment.atd.isoformat() if shipment.atd else None
         }
     }
+
+
+# ============================================
+# Document Validation Issues Endpoints
+# PRP: Document Validation & Compliance Enhancement
+# ============================================
+
+class IssueOverrideRequest(BaseModel):
+    """Request to override a validation issue."""
+    reason: str  # Minimum 10 characters
+
+
+from ..models.document import DocumentIssue
+
+
+@router.get("/{document_id}/issues")
+async def get_document_issues(
+    document_id: UUID,
+    include_overridden: bool = Query(default=True, description="Include overridden issues"),
+    db: Session = Depends(get_db),
+    current_user: CurrentUser = Depends(get_current_active_user)
+):
+    """Get all validation issues for a document.
+
+    Returns list of issues including:
+    - Blocking errors (severity=ERROR, not overridden)
+    - Warnings (severity=WARNING)
+    - Informational issues (severity=INFO)
+    - Overridden issues (if include_overridden=True)
+    """
+    check_permission(current_user, Permission.DOCUMENTS_READ)
+
+    document = db.query(Document).filter(
+        Document.id == document_id,
+        Document.organization_id == current_user.organization_id
+    ).first()
+    if not document:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    query = db.query(DocumentIssue).filter(
+        DocumentIssue.document_id == document_id
+    )
+
+    if not include_overridden:
+        query = query.filter(DocumentIssue.is_overridden == False)
+
+    issues = query.order_by(
+        DocumentIssue.severity,
+        DocumentIssue.created_at.desc()
+    ).all()
+
+    # Calculate counts
+    blocking_count = sum(1 for i in issues if i.severity == "ERROR" and not i.is_overridden)
+    warning_count = sum(1 for i in issues if i.severity == "WARNING" and not i.is_overridden)
+    info_count = sum(1 for i in issues if i.severity == "INFO" and not i.is_overridden)
+
+    return {
+        "document_id": str(document_id),
+        "issues": [
+            {
+                "id": str(issue.id),
+                "document_id": str(issue.document_id),
+                "shipment_id": str(issue.shipment_id) if issue.shipment_id else None,
+                "rule_id": issue.rule_id,
+                "rule_name": issue.rule_name,
+                "severity": issue.severity,
+                "message": issue.message,
+                "field": issue.field,
+                "expected_value": issue.expected_value,
+                "actual_value": issue.actual_value,
+                "source_document_type": issue.source_document_type,
+                "target_document_type": issue.target_document_type,
+                "is_overridden": issue.is_overridden,
+                "overridden_by": str(issue.overridden_by) if issue.overridden_by else None,
+                "overridden_at": issue.overridden_at.isoformat() if issue.overridden_at else None,
+                "override_reason": issue.override_reason,
+                "created_at": issue.created_at.isoformat(),
+            }
+            for issue in issues
+        ],
+        "total": len(issues),
+        "blocking_count": blocking_count,
+        "warning_count": warning_count,
+        "info_count": info_count,
+        "all_blocking_resolved": blocking_count == 0,
+    }
+
+
+@router.post("/{document_id}/issues/{issue_id}/override")
+async def override_document_issue(
+    document_id: UUID,
+    issue_id: UUID,
+    request: IssueOverrideRequest,
+    db: Session = Depends(get_db),
+    current_user: CurrentUser = Depends(get_current_active_user),
+    audit_logger: AuditLogger = Depends(get_audit_logger)
+):
+    """Override a validation issue with a reason.
+
+    Requires: documents:upload permission (or higher)
+
+    The reason must be at least 10 characters explaining why
+    the issue is being overridden.
+    """
+    check_permission(current_user, Permission.DOCUMENTS_UPLOAD)
+
+    if len(request.reason.strip()) < 10:
+        raise HTTPException(
+            status_code=400,
+            detail="Override reason must be at least 10 characters"
+        )
+
+    document = db.query(Document).filter(
+        Document.id == document_id,
+        Document.organization_id == current_user.organization_id
+    ).first()
+    if not document:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    issue = db.query(DocumentIssue).filter(
+        DocumentIssue.id == issue_id,
+        DocumentIssue.document_id == document_id
+    ).first()
+    if not issue:
+        raise HTTPException(status_code=404, detail="Issue not found")
+
+    if issue.is_overridden:
+        raise HTTPException(
+            status_code=400,
+            detail="Issue is already overridden"
+        )
+
+    # Apply override
+    issue.is_overridden = True
+    issue.overridden_by = current_user.id
+    issue.overridden_at = datetime.utcnow()
+    issue.override_reason = request.reason.strip()
+
+    db.commit()
+    db.refresh(issue)
+
+    # Log to audit trail
+    audit_logger.log(
+        action="document.issue.override",
+        resource_type="document_issue",
+        resource_id=str(issue_id),
+        username=current_user.email,
+        organization_id=str(current_user.organization_id),
+        success=True,
+        details={
+            "document_id": str(document_id),
+            "rule_id": issue.rule_id,
+            "severity": issue.severity,
+            "reason": request.reason,
+        },
+        db=db
+    )
+
+    logger.info(f"Issue {issue_id} overridden by {current_user.email}: {request.reason}")
+
+    return {
+        "success": True,
+        "issue": {
+            "id": str(issue.id),
+            "rule_id": issue.rule_id,
+            "rule_name": issue.rule_name,
+            "severity": issue.severity,
+            "message": issue.message,
+            "is_overridden": True,
+            "overridden_by": str(current_user.id),
+            "overridden_at": issue.overridden_at.isoformat(),
+            "override_reason": issue.override_reason,
+        },
+        "message": f"Issue '{issue.rule_name}' has been overridden",
+    }
+
+
+@router.post("/{document_id}/set-primary")
+async def set_document_as_primary(
+    document_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: CurrentUser = Depends(get_current_active_user),
+    audit_logger: AuditLogger = Depends(get_audit_logger)
+):
+    """Set this document version as the primary version.
+
+    For duplicate document handling - when multiple versions
+    of the same document type exist, this marks one as primary.
+
+    Requires: documents:upload permission
+    """
+    check_permission(current_user, Permission.DOCUMENTS_UPLOAD)
+
+    document = db.query(Document).filter(
+        Document.id == document_id,
+        Document.organization_id == current_user.organization_id
+    ).first()
+    if not document:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    # Find the previous primary document of same type
+    previous_primary = db.query(Document).filter(
+        Document.shipment_id == document.shipment_id,
+        Document.document_type == document.document_type,
+        Document.is_primary == True,
+        Document.id != document_id
+    ).first()
+
+    previous_primary_id = None
+    if previous_primary:
+        previous_primary.is_primary = False
+        previous_primary_id = str(previous_primary.id)
+
+    # Set this document as primary
+    document.is_primary = True
+
+    db.commit()
+
+    # Log to audit trail
+    audit_logger.log(
+        action="document.set_primary",
+        resource_type="document",
+        resource_id=str(document_id),
+        username=current_user.email,
+        organization_id=str(current_user.organization_id),
+        success=True,
+        details={
+            "document_type": document.document_type.value,
+            "previous_primary_id": previous_primary_id,
+        },
+        db=db
+    )
+
+    logger.info(f"Document {document_id} set as primary by {current_user.email}")
+
+    return {
+        "success": True,
+        "message": f"Document set as primary version",
+        "previous_primary_id": previous_primary_id,
+        "new_primary_id": str(document_id),
+    }
+
+
+@router.get("/shipments/{shipment_id}/documents/versions")
+async def get_document_versions(
+    shipment_id: UUID,
+    document_type: str = Query(..., description="Document type to get versions for"),
+    db: Session = Depends(get_db),
+    current_user: CurrentUser = Depends(get_current_active_user)
+):
+    """Get all versions of a document type for a shipment.
+
+    Returns list of document versions with is_primary flag.
+    """
+    check_permission(current_user, Permission.DOCUMENTS_READ)
+
+    shipment = db.query(Shipment).filter(
+        Shipment.id == shipment_id,
+        Shipment.organization_id == current_user.organization_id
+    ).first()
+    if not shipment:
+        raise HTTPException(status_code=404, detail="Shipment not found")
+
+    try:
+        doc_type = DocumentType(document_type)
+    except ValueError:
+        raise HTTPException(status_code=400, detail=f"Invalid document type: {document_type}")
+
+    documents = db.query(Document).filter(
+        Document.shipment_id == shipment_id,
+        Document.document_type == doc_type
+    ).order_by(Document.version.desc()).all()
+
+    return {
+        "document_type": document_type,
+        "versions": [
+            {
+                "id": str(doc.id),
+                "version": doc.version or 1,
+                "is_primary": doc.is_primary if doc.is_primary is not None else True,
+                "status": doc.status.value,
+                "created_at": doc.created_at.isoformat() if doc.created_at else None,
+                "supersedes_id": str(doc.supersedes_id) if doc.supersedes_id else None,
+            }
+            for doc in documents
+        ],
+        "total": len(documents),
+    }

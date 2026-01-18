@@ -139,20 +139,38 @@ def register_default_rules(registry: Optional[RuleRegistry] = None) -> RuleRegis
         registry = RuleRegistry()
 
     # Import and register all rule modules
-    from .presence_rules import RequiredDocumentsPresentRule
+    from .presence_rules import RequiredDocumentsPresentRule, EnhancedPresenceCheckRule
     from .uniqueness_rules import NoDuplicateDocumentsRule
     from .relevance_rules import DocumentRelevanceRule
     from .horn_hoof_rules import (
         VetCertIssueDateRule,
         VetCertAuthorizedSignerRule,
     )
+    from .cross_document_rules import (
+        ContainerNumberConsistencyRule,
+        WeightConsistencyRule,
+        HSCodeConsistencyRule,
+        VetCertDateValidationRule,
+        AuthorizedSignerPresentRule,
+    )
 
     rules = [
+        # Presence rules
         RequiredDocumentsPresentRule(),
+        EnhancedPresenceCheckRule(),
+        # Uniqueness rules
         NoDuplicateDocumentsRule(),
+        # Relevance rules
         DocumentRelevanceRule(),
+        # Horn & Hoof specific rules
         VetCertIssueDateRule(),
         VetCertAuthorizedSignerRule(),
+        # Cross-document validation rules
+        ContainerNumberConsistencyRule(),
+        WeightConsistencyRule(),
+        HSCodeConsistencyRule(),
+        VetCertDateValidationRule(),
+        AuthorizedSignerPresentRule(),
     ]
 
     for rule in rules:

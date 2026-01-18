@@ -229,6 +229,16 @@ export interface Document {
   // AI-extracted container number from Bill of Lading
   extracted_container_number?: string
   extraction_confidence?: number
+  // Document Validation Enhancement fields (PRP)
+  version?: number
+  is_primary?: boolean
+  supersedes_id?: string
+  classification_confidence?: number
+  parsed_at?: string
+  parser_version?: string
+  last_validated_at?: string
+  validation_version?: number
+  canonical_data?: Record<string, unknown>
 }
 
 // Document content within a combined PDF
@@ -1381,4 +1391,82 @@ export interface ValidationRulesResponse {
 
 export interface ValidationOverrideRequest {
   reason: string
+}
+
+// ============================================
+// Document Validation Issue Types
+// PRP: Document Validation & Compliance Enhancement
+// ============================================
+
+export type IssueSeverity = 'ERROR' | 'WARNING' | 'INFO'
+
+export interface DocumentIssue {
+  id: string
+  document_id: string
+  shipment_id?: string
+  rule_id: string
+  rule_name: string
+  severity: IssueSeverity
+  message: string
+  field?: string
+  expected_value?: string
+  actual_value?: string
+  source_document_type?: string
+  target_document_type?: string
+  is_overridden: boolean
+  overridden_by?: string
+  overridden_at?: string
+  override_reason?: string
+  created_at: string
+}
+
+export interface DocumentIssuesResponse {
+  document_id: string
+  issues: DocumentIssue[]
+  total: number
+  blocking_count: number
+  warning_count: number
+  info_count: number
+  all_blocking_resolved: boolean
+}
+
+export interface IssueOverrideRequest {
+  reason: string  // Minimum 10 characters
+}
+
+export interface IssueOverrideResponse {
+  success: boolean
+  issue: DocumentIssue
+  message: string
+}
+
+export interface DocumentVersionInfo {
+  version: number
+  is_primary: boolean
+  supersedes_id?: string
+  created_at: string
+}
+
+export interface DocumentVersionsResponse {
+  document_type: string
+  versions: Array<{
+    id: string
+    version: number
+    is_primary: boolean
+    status: DocumentStatus
+    created_at: string
+    supersedes_id?: string
+  }>
+  total: number
+}
+
+export interface SetPrimaryVersionRequest {
+  document_id: string
+}
+
+export interface SetPrimaryVersionResponse {
+  success: boolean
+  message: string
+  previous_primary_id?: string
+  new_primary_id: string
 }

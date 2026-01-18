@@ -5,6 +5,8 @@ import type {
   DocumentValidationResponse,
   DocumentTransitionsResponse,
   DocumentStatus,
+  DocumentIssue,
+  IssueSeverity,
 } from '../types'
 import BolCompliancePanel from './BolCompliancePanel'
 
@@ -12,6 +14,13 @@ interface DocumentReviewPanelProps {
   document: Document
   onClose: () => void
   onUpdate: () => void
+}
+
+// Issue severity colors and icons
+const SEVERITY_CONFIG: Record<IssueSeverity, { color: string; bgColor: string; icon: string }> = {
+  ERROR: { color: 'text-red-700', bgColor: 'bg-red-50 border-red-200', icon: '⚠️' },
+  WARNING: { color: 'text-yellow-700', bgColor: 'bg-yellow-50 border-yellow-200', icon: '⚡' },
+  INFO: { color: 'text-blue-700', bgColor: 'bg-blue-50 border-blue-200', icon: 'ℹ️' },
 }
 
 const STATUS_COLORS: Record<string, string> = {
@@ -57,6 +66,11 @@ export default function DocumentReviewPanel({
   const [showDeleteForm, setShowDeleteForm] = useState(false)
   const [deleteReason, setDeleteReason] = useState('')
   const [deleteLoading, setDeleteLoading] = useState(false)
+  // Document validation issues state
+  const [issues, setIssues] = useState<DocumentIssue[]>([])
+  const [overrideIssueId, setOverrideIssueId] = useState<string | null>(null)
+  const [overrideReason, setOverrideReason] = useState('')
+  const [overrideLoading, setOverrideLoading] = useState(false)
 
   useEffect(() => {
     loadDocumentDetails()
@@ -74,12 +88,55 @@ export default function DocumentReviewPanel({
 
       setValidation(validationData)
       setTransitions(transitionsData)
+
+      // Load document issues if the API exists
+      try {
+        const issuesResponse = await api.getDocumentIssues(document.id)
+        if (issuesResponse && issuesResponse.issues) {
+          setIssues(issuesResponse.issues)
+        }
+      } catch {
+        // Issues endpoint may not exist yet, silently ignore
+        setIssues([])
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load document details')
     } finally {
       setLoading(false)
     }
   }
+
+  const handleOverrideIssue = async (issueId: string) => {
+    if (overrideReason.trim().length < 10) {
+      setError('Override reason must be at least 10 characters')
+      return
+    }
+
+    try {
+      setOverrideLoading(true)
+      setError(null)
+      await api.overrideDocumentIssue(document.id, issueId, overrideReason)
+
+      // Update the issue in local state
+      setIssues(prev => prev.map(issue =>
+        issue.id === issueId
+          ? { ...issue, is_overridden: true, override_reason: overrideReason }
+          : issue
+      ))
+
+      setOverrideIssueId(null)
+      setOverrideReason('')
+      onUpdate()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to override issue')
+    } finally {
+      setOverrideLoading(false)
+    }
+  }
+
+  const getBlockingIssues = () => issues.filter(i => i.severity === 'ERROR' && !i.is_overridden)
+  const getWarningIssues = () => issues.filter(i => i.severity === 'WARNING' && !i.is_overridden)
+  const getOverriddenIssues = () => issues.filter(i => i.is_overridden)
 
   const handleApprove = async () => {
     try {
@@ -316,6 +373,144 @@ export default function DocumentReviewPanel({
               shipmentId={document.shipment_id}
               onSyncComplete={onUpdate}
             />
+          )}
+
+          {/* Document Validation Issues */}
+          {issues.length > 0 && (
+            <div className="border border-gray-200 rounded-lg p-4">
+              <h3 className="font-medium text-gray-900 mb-3 flex items-center justify-between">
+                <span>Validation Issues</span>
+                <span className="text-sm font-normal">
+                  {getBlockingIssues().length > 0 && (
+                    <span className="text-red-600 mr-2">
+                      {getBlockingIssues().length} blocking
+                    </span>
+                  )}
+                  {getWarningIssues().length > 0 && (
+                    <span className="text-yellow-600">
+                      {getWarningIssues().length} warnings
+                    </span>
+                  )}
+                </span>
+              </h3>
+
+              <div className="space-y-3">
+                {/* Blocking errors (not overridden) */}
+                {getBlockingIssues().map((issue) => (
+                  <div
+                    key={issue.id}
+                    className={`p-3 rounded-md border ${SEVERITY_CONFIG.ERROR.bgColor}`}
+                  >
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <span>{SEVERITY_CONFIG.ERROR.icon}</span>
+                          <span className={`font-medium ${SEVERITY_CONFIG.ERROR.color}`}>
+                            {issue.rule_name}
+                          </span>
+                          <span className="text-xs bg-red-200 text-red-800 px-2 py-0.5 rounded">
+                            BLOCKING
+                          </span>
+                        </div>
+                        <p className="text-sm text-red-600 mt-1">{issue.message}</p>
+                        {issue.field && (
+                          <p className="text-xs text-red-500 mt-1">
+                            Field: {issue.field}
+                            {issue.expected_value && ` (expected: ${issue.expected_value})`}
+                            {issue.actual_value && ` (actual: ${issue.actual_value})`}
+                          </p>
+                        )}
+                      </div>
+                      {overrideIssueId !== issue.id && (
+                        <button
+                          onClick={() => setOverrideIssueId(issue.id)}
+                          className="text-xs px-2 py-1 border border-red-300 rounded text-red-700 hover:bg-red-100"
+                        >
+                          Override
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Override form for this issue */}
+                    {overrideIssueId === issue.id && (
+                      <div className="mt-3 pt-3 border-t border-red-200">
+                        <label className="block text-sm font-medium text-red-800 mb-1">
+                          Override Reason (min 10 characters)
+                        </label>
+                        <textarea
+                          value={overrideReason}
+                          onChange={(e) => setOverrideReason(e.target.value)}
+                          placeholder="Explain why this issue should be overridden..."
+                          rows={2}
+                          className="w-full px-3 py-2 border border-red-300 rounded-md text-sm"
+                        />
+                        <div className="flex gap-2 mt-2">
+                          <button
+                            onClick={() => handleOverrideIssue(issue.id)}
+                            disabled={overrideLoading || overrideReason.trim().length < 10}
+                            className="px-3 py-1 bg-red-600 text-white rounded text-sm hover:bg-red-700 disabled:opacity-50"
+                          >
+                            {overrideLoading ? 'Overriding...' : 'Confirm Override'}
+                          </button>
+                          <button
+                            onClick={() => {
+                              setOverrideIssueId(null)
+                              setOverrideReason('')
+                            }}
+                            className="px-3 py-1 border border-gray-300 rounded text-sm hover:bg-gray-50"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ))}
+
+                {/* Warnings (not overridden) */}
+                {getWarningIssues().map((issue) => (
+                  <div
+                    key={issue.id}
+                    className={`p-3 rounded-md border ${SEVERITY_CONFIG.WARNING.bgColor}`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <span>{SEVERITY_CONFIG.WARNING.icon}</span>
+                      <span className={`font-medium ${SEVERITY_CONFIG.WARNING.color}`}>
+                        {issue.rule_name}
+                      </span>
+                    </div>
+                    <p className="text-sm text-yellow-600 mt-1">{issue.message}</p>
+                  </div>
+                ))}
+
+                {/* Overridden issues (collapsed by default) */}
+                {getOverriddenIssues().length > 0 && (
+                  <details className="mt-2">
+                    <summary className="text-sm text-gray-500 cursor-pointer hover:text-gray-700">
+                      Show {getOverriddenIssues().length} overridden issue(s)
+                    </summary>
+                    <div className="mt-2 space-y-2">
+                      {getOverriddenIssues().map((issue) => (
+                        <div
+                          key={issue.id}
+                          className="p-2 rounded-md bg-gray-50 border border-gray-200 opacity-70"
+                        >
+                          <div className="flex items-center gap-2">
+                            <span className="text-gray-400 line-through">{issue.rule_name}</span>
+                            <span className="text-xs bg-gray-200 text-gray-600 px-2 py-0.5 rounded">
+                              OVERRIDDEN
+                            </span>
+                          </div>
+                          <p className="text-xs text-gray-500 mt-1">
+                            Reason: {issue.override_reason}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  </details>
+                )}
+              </div>
+            </div>
           )}
 
           {/* Validation Status */}
