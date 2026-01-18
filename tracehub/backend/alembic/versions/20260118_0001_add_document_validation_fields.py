@@ -1,7 +1,7 @@
 """Add document validation enhancement fields.
 
 Revision ID: 20260118_0001
-Revises: 20260117_0002_add_validation_override_fields
+Revises: 20260117_0002
 Create Date: 2026-01-18
 
 This migration adds fields for:
@@ -21,7 +21,7 @@ from sqlalchemy import inspect
 
 # revision identifiers, used by Alembic.
 revision = '20260118_0001'
-down_revision = '20260117_0002_add_validation_override_fields'
+down_revision = '20260117_0002'
 branch_labels = None
 depends_on = None
 
