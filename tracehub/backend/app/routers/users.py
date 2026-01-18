@@ -271,6 +271,59 @@ async def get_permissions_matrix(
     return get_permission_matrix()
 
 
+@router.get("/deleted", response_model=DeletedUsersListResponse)
+async def list_deleted_users(
+    limit: int = Query(50, ge=1, le=100, description="Items per page"),
+    offset: int = Query(0, ge=0, description="Items to skip"),
+    db: Session = Depends(get_db),
+    current_user: CurrentUser = Depends(get_current_active_user)
+):
+    """List soft-deleted users in the organization. Admin only."""
+    check_permission(current_user, Permission.USERS_LIST)
+
+    deletion_service = UserDeletionService(db)
+    deleted_users = deletion_service.get_deleted_users(
+        organization_id=current_user.organization_id,
+        limit=limit,
+        offset=offset,
+    )
+
+    # Count total deleted users
+    total = (
+        db.query(UserModel)
+        .filter(
+            UserModel.organization_id == current_user.organization_id,
+            UserModel.deleted_at.isnot(None),
+        )
+        .count()
+    )
+
+    user_responses = []
+    for user in deleted_users:
+        primary_org = get_user_primary_organization(db, user.id)
+        user_responses.append(UserResponse(
+            id=user.id,
+            email=user.email,
+            full_name=user.full_name,
+            role=user.role,
+            is_active=user.is_active,
+            created_at=user.created_at,
+            updated_at=user.updated_at,
+            last_login=user.last_login,
+            primary_organization=primary_org,
+            deleted_at=user.deleted_at,
+            deleted_by=user.deleted_by,
+            deletion_reason=user.deletion_reason,
+        ))
+
+    return DeletedUsersListResponse(
+        items=user_responses,
+        total=total,
+        limit=limit,
+        offset=offset,
+    )
+
+
 @router.get("/{user_id}", response_model=UserResponse)
 async def get_user(
     user_id: UUID,
@@ -585,59 +638,6 @@ async def restore_user(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e)
         )
-
-
-@router.get("/deleted", response_model=DeletedUsersListResponse)
-async def list_deleted_users(
-    limit: int = Query(50, ge=1, le=100, description="Items per page"),
-    offset: int = Query(0, ge=0, description="Items to skip"),
-    db: Session = Depends(get_db),
-    current_user: CurrentUser = Depends(get_current_active_user)
-):
-    """List soft-deleted users in the organization. Admin only."""
-    check_permission(current_user, Permission.USERS_LIST)
-
-    deletion_service = UserDeletionService(db)
-    deleted_users = deletion_service.get_deleted_users(
-        organization_id=current_user.organization_id,
-        limit=limit,
-        offset=offset,
-    )
-
-    # Count total deleted users
-    total = (
-        db.query(UserModel)
-        .filter(
-            UserModel.organization_id == current_user.organization_id,
-            UserModel.deleted_at.isnot(None),
-        )
-        .count()
-    )
-
-    user_responses = []
-    for user in deleted_users:
-        primary_org = get_user_primary_organization(db, user.id)
-        user_responses.append(UserResponse(
-            id=user.id,
-            email=user.email,
-            full_name=user.full_name,
-            role=user.role,
-            is_active=user.is_active,
-            created_at=user.created_at,
-            updated_at=user.updated_at,
-            last_login=user.last_login,
-            primary_organization=primary_org,
-            deleted_at=user.deleted_at,
-            deleted_by=user.deleted_by,
-            deletion_reason=user.deletion_reason,
-        ))
-
-    return DeletedUsersListResponse(
-        items=user_responses,
-        total=total,
-        limit=limit,
-        offset=offset,
-    )
 
 
 def _get_role_description(role: UserRole) -> str:

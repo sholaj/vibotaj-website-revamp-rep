@@ -325,6 +325,22 @@ async def login(
     user = authenticate_user(db, form_data.username, form_data.password)
 
     if user:
+        # Check if user is deleted
+        if user.is_deleted:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="User account has been deleted",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+
+        # Check if user is inactive
+        if not user.is_active:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="User account is inactive",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+
         # Update last login time
         user.last_login = datetime.utcnow()
         db.commit()

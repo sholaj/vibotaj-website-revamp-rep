@@ -212,7 +212,7 @@ def test_update_user(client, admin_vibotaj, db_session):
 
 def test_deactivate_user(client, admin_vibotaj, db_session):
     app.dependency_overrides[get_current_active_user] = lambda: mock_auth(admin_vibotaj)
-    
+
     # Create a user to deactivate
     user = User(
         email="deactivate@test.com",
@@ -224,12 +224,21 @@ def test_deactivate_user(client, admin_vibotaj, db_session):
     )
     db_session.add(user)
     db_session.commit()
-    
-    response = client.delete(f"/api/users/{user.id}")
+
+    # Delete endpoint now requires a body with reason and hard_delete
+    response = client.request(
+        "DELETE",
+        f"/api/users/{user.id}",
+        json={
+            "reason": "User no longer needs access to the system",
+            "hard_delete": False
+        }
+    )
     assert response.status_code == 200
-    
+
     # Verify in DB
     db_session.refresh(user)
     assert user.is_active is False
-    
+    assert user.deleted_at is not None
+
     del app.dependency_overrides[get_current_active_user]

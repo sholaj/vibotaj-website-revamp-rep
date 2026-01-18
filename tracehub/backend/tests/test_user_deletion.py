@@ -299,7 +299,7 @@ class TestCannotDeleteLastAdmin:
         # Create an organization with only one admin
         org = Organization(
             name="Single Admin Org",
-            slug="single-admin",
+            slug=f"single-admin-{uuid4().hex[:8]}",
             type=OrganizationType.BUYER,
             status=OrganizationStatus.ACTIVE,
             contact_email="single@test.com"
@@ -307,7 +307,7 @@ class TestCannotDeleteLastAdmin:
         db_session.add(org)
         db_session.commit()
 
-        # Create the only admin
+        # Create the only admin in this org
         only_admin = User(
             id=uuid4(),
             email=f"onlyadmin.{uuid4().hex[:8]}@test.com",
@@ -319,39 +319,31 @@ class TestCannotDeleteLastAdmin:
         )
         db_session.add(only_admin)
 
-        # Create another admin in a different org to do the deletion
-        deleting_admin = User(
+        # Create a super admin from VIBOTAJ org who can delete users in other orgs
+        # This admin is NOT in the same org, so they won't affect the admin count
+        super_admin = User(
             id=uuid4(),
-            email=f"deletingadmin.{uuid4().hex[:8]}@test.com",
-            full_name="Deleting Admin",
+            email=f"superadmin.{uuid4().hex[:8]}@vibotaj.com",
+            full_name="Super Admin",
             hashed_password=get_password_hash("Admin123!"),
             role=UserRole.ADMIN,
-            organization_id=org.id,
+            organization_id=org_vibotaj.id,  # Different org
             is_active=True
         )
-        db_session.add(deleting_admin)
+        db_session.add(super_admin)
         db_session.commit()
 
-        # Now delete the second admin first
+        # Try to delete the only admin in org - this should fail
         deletion_service = UserDeletionService(db_session)
-        deletion_service.soft_delete_user(
-            user_id=deleting_admin.id,
-            deleted_by=only_admin.id,
-            reason="Removing second admin",
-            organization_id=org.id,
-        )
-
-        # Now try to delete the last admin - this should fail
         with pytest.raises(CannotDeleteLastAdminError) as exc_info:
             deletion_service.soft_delete_user(
                 user_id=only_admin.id,
-                deleted_by=only_admin.id,  # This will fail for self-delete first actually
+                deleted_by=super_admin.id,  # Super admin from different org
                 reason="Trying to delete last admin",
                 organization_id=org.id,
             )
 
-        # Actually the self-delete check comes first
-        assert "cannot delete" in str(exc_info.value).lower()
+        assert "last admin" in str(exc_info.value).lower()
 
 
 class TestRoleHierarchy:
