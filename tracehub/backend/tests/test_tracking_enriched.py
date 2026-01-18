@@ -60,12 +60,15 @@ class TestEnrichedTrackingRequests:
         THEN it should accept the bl_number parameter."""
         # This test verifies the function signature accepts bl_number
 
+        # Set API key so it doesn't return mock data
+        jsoncargo_client.api_key = "test-api-key"
+
         with patch('httpx.AsyncClient') as mock_client_class:
             mock_client = AsyncMock()
             mock_client_class.return_value.__aenter__.return_value = mock_client
             mock_response = MagicMock()
             mock_response.status_code = 200
-            mock_response.json.return_value = {"events": []}
+            mock_response.json.return_value = {"data": {"container_id": "MSCU1234567"}}
             mock_client.get.return_value = mock_response
 
             # This should work after implementation
@@ -84,12 +87,15 @@ class TestEnrichedTrackingRequests:
         WHEN get_container_status is called
         THEN it should accept vessel_name and voyage_number parameters."""
 
+        # Set API key so it doesn't return mock data
+        jsoncargo_client.api_key = "test-api-key"
+
         with patch('httpx.AsyncClient') as mock_client_class:
             mock_client = AsyncMock()
             mock_client_class.return_value.__aenter__.return_value = mock_client
             mock_response = MagicMock()
             mock_response.status_code = 200
-            mock_response.json.return_value = {"events": []}
+            mock_response.json.return_value = {"data": {"container_id": "MSCU1234567"}}
             mock_client.get.return_value = mock_response
 
             # This should work after implementation
@@ -109,12 +115,15 @@ class TestEnrichedTrackingRequests:
         WHEN get_container_status is called
         THEN the API request should include all context in params/body."""
 
+        # Set API key so it doesn't return mock data
+        jsoncargo_client.api_key = "test-api-key"
+
         with patch('httpx.AsyncClient') as mock_client_class:
             mock_client = AsyncMock()
             mock_client_class.return_value.__aenter__.return_value = mock_client
             mock_response = MagicMock()
             mock_response.status_code = 200
-            mock_response.json.return_value = {"events": []}
+            mock_response.json.return_value = {"data": {"container_id": "MSCU1234567"}}
             mock_client.get.return_value = mock_response
 
             await jsoncargo_client.get_container_status(
