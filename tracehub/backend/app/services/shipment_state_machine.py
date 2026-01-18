@@ -10,6 +10,7 @@ from ..models.shipment import ShipmentStatus
 
 # Valid state transitions
 # Key: current state, Value: list of valid next states
+# Issue #35, #42: Added DOCS_PENDING -> IN_TRANSIT for logistics flexibility
 VALID_TRANSITIONS: dict[ShipmentStatus, List[ShipmentStatus]] = {
     ShipmentStatus.DRAFT: [
         ShipmentStatus.DOCS_PENDING,
@@ -17,6 +18,7 @@ VALID_TRANSITIONS: dict[ShipmentStatus, List[ShipmentStatus]] = {
     ],
     ShipmentStatus.DOCS_PENDING: [
         ShipmentStatus.DOCS_COMPLETE,
+        ShipmentStatus.IN_TRANSIT,  # Issue #35: Allow direct transition for logistics flexibility
         ShipmentStatus.DRAFT,  # Can revert to draft
         ShipmentStatus.ARCHIVED,
     ],

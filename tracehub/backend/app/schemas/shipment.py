@@ -16,9 +16,14 @@ ISO_6346_PATTERN = re.compile(r'^[A-Z]{4}[0-9]{7}$')
 
 
 class ShipmentCreate(BaseModel):
-    """Schema for creating a new shipment."""
+    """Schema for creating a new shipment.
+    
+    Issue #41: container_number is now optional to support draft shipments
+    where container details are not yet known. Container can be added later
+    via the Tracking tab or PATCH /shipments/{id}/container endpoint.
+    """
     reference: str
-    container_number: str
+    container_number: Optional[str] = None  # Issue #41: Made optional for draft shipments
     product_type: ProductType  # Required - determines document requirements
     bl_number: Optional[str] = None
     booking_ref: Optional[str] = None  # Renamed from booking_reference
@@ -48,24 +53,28 @@ class ShipmentCreate(BaseModel):
 
     @field_validator('container_number')
     @classmethod
-    def validate_container_number(cls, v: str) -> str:
-        """Validate ISO 6346 container number format.
+    def validate_container_number(cls, v: Optional[str]) -> Optional[str]:
+        """Validate ISO 6346 container number format if provided.
+
+        Issue #41: Container number is now optional for draft shipments.
+        If provided, it must match ISO 6346 format.
 
         Format: 4 letters (owner code) + 7 digits (serial + check digit)
         Pattern: ^[A-Z]{4}[0-9]{7}$
         Examples: MRSU3452572, TCNU1234567, MSKU9876543
 
         Args:
-            v: Container number to validate
+            v: Container number to validate (can be None)
 
         Returns:
-            Normalized (uppercase, trimmed) container number
+            Normalized (uppercase, trimmed) container number or None
 
         Raises:
-            ValueError: If container number doesn't match ISO 6346 format
+            ValueError: If container number is provided but doesn't match ISO 6346 format
         """
-        if not v or not v.strip():
-            raise ValueError('Container number is required')
+        # Allow None or empty string for draft shipments
+        if v is None or not v.strip():
+            return None
 
         # Normalize: strip whitespace and uppercase
         normalized = v.strip().upper()
@@ -236,7 +245,7 @@ class ShipmentResponse(BaseModel):
 
     id: UUID
     reference: str
-    container_number: str
+    container_number: Optional[str] = None  # Issue #41: Optional for draft shipments
     product_type: Optional[ProductType] = None  # Product category for compliance requirements
     bl_number: Optional[str] = None
     booking_ref: Optional[str] = None  # Renamed from booking_reference

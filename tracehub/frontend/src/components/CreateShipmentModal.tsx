@@ -3,11 +3,13 @@
  *
  * Modal dialog for creating new shipments with:
  * - Reference number with VIBO-YYYY-NNN pattern
- * - Container number with ISO 6346 validation
+ * - Container number (optional) with ISO 6346 validation when provided
  * - Product type selection (determines document requirements & EUDR applicability)
  * - Optional vessel name
  * - Buyer organization dropdown (multi-tenancy)
  * - Historical shipment checkbox
+ *
+ * Issue #41: Container number is now optional for draft shipments.
  */
 
 import { useState, useEffect, useCallback } from 'react'
@@ -100,10 +102,12 @@ export default function CreateShipmentModal({
   }
 
   // Validate container number (ISO 6346 format)
+  // Issue #41: Container number is now optional for draft shipments
   const validateContainer = (value: string): boolean => {
+    // Empty is valid - container number is optional
     if (!value) {
-      setContainerError('Container number is required')
-      return false
+      setContainerError(null)
+      return true
     }
     const normalizedValue = value.toUpperCase().replace(/\s/g, '')
     if (!CONTAINER_PATTERN.test(normalizedValue)) {
@@ -186,7 +190,7 @@ export default function CreateShipmentModal({
     try {
       const shipmentData: ShipmentCreateRequest = {
         reference: reference,
-        container_number: containerNumber,
+        container_number: containerNumber || undefined,  // Issue #41: Optional
         product_type: productType as ProductType,
         vessel_name: vesselName || undefined,
         buyer_organization_id: buyerOrgId || undefined,
@@ -277,10 +281,10 @@ export default function CreateShipmentModal({
                 )}
               </div>
 
-              {/* Container Number */}
+              {/* Container Number - Issue #41: Now optional */}
               <div>
                 <label htmlFor="containerNumber" className="block text-sm font-medium text-gray-700 mb-1">
-                  Container Number <span className="text-danger-500">*</span>
+                  Container Number <span className="text-gray-400 text-xs font-normal">(optional)</span>
                 </label>
                 <input
                   id="containerNumber"
@@ -302,7 +306,7 @@ export default function CreateShipmentModal({
                   </p>
                 )}
                 <p className="mt-1 text-xs text-gray-500">
-                  ISO 6346 format: 4 letters + 7 digits (e.g., MSCU1234567)
+                  ISO 6346 format: 4 letters + 7 digits. Can be added later.
                 </p>
               </div>
 

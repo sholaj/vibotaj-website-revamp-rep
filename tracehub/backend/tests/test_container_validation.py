@@ -242,39 +242,45 @@ class TestContainerFormatValidation:
         # Verify validation error is raised
         assert exc_info.value is not None
 
-    def test_invalid_container_empty_rejected(self):
-        """Empty container numbers should be rejected."""
+    def test_container_number_optional(self):
+        """Issue #41: Empty container numbers should be accepted (optional).
+
+        Container number is now optional to allow creating draft shipments
+        without a container assigned.
+        """
         # Arrange
         empty_container = ""
 
-        # Act & Assert
-        with pytest.raises(ValidationError) as exc_info:
-            ShipmentCreate(
-                reference="TEST-EMPTY",
-                container_number=empty_container,
-                organization_id=uuid.uuid4(),
-                product_type="horn_hoof"
-            )
+        # Act - should not raise
+        shipment = ShipmentCreate(
+            reference="TEST-EMPTY",
+            container_number=empty_container,
+            organization_id=uuid.uuid4(),
+            product_type="horn_hoof"
+        )
 
-        # Verify validation error is raised
-        assert exc_info.value is not None
+        # Assert - empty string normalizes to None
+        assert shipment.container_number is None
 
-    def test_invalid_container_whitespace_rejected(self):
-        """Container numbers with only whitespace should be rejected."""
+    def test_container_number_whitespace_normalizes_to_none(self):
+        """Issue #41: Container numbers with only whitespace normalize to None.
+
+        Whitespace-only values are treated as "not provided" and normalized
+        to None, allowing draft shipments without container assignment.
+        """
         # Arrange
         whitespace_container = "   "
 
-        # Act & Assert
-        with pytest.raises(ValidationError) as exc_info:
-            ShipmentCreate(
-                reference="TEST-WHITESPACE",
-                container_number=whitespace_container,
-                organization_id=uuid.uuid4(),
-                product_type="horn_hoof"
-            )
+        # Act - should not raise
+        shipment = ShipmentCreate(
+            reference="TEST-WHITESPACE",
+            container_number=whitespace_container,
+            organization_id=uuid.uuid4(),
+            product_type="horn_hoof"
+        )
 
-        # Verify validation error is raised
-        assert exc_info.value is not None
+        # Assert - whitespace normalizes to None
+        assert shipment.container_number is None
 
 
 # =============================================================================

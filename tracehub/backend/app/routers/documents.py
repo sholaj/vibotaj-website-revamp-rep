@@ -48,6 +48,7 @@ from ..services.bol_rules import (
 )
 from ..services.bol_shipment_sync import bol_shipment_sync
 from ..services.entity_factory import create_document
+from ..services.access_control import can_access_shipment
 from ..services.file_utils import get_full_path, delete_file, file_exists
 from ..services.compliance import get_required_documents
 from ..services.audit_log import AuditLogger, get_audit_logger
@@ -412,15 +413,30 @@ async def get_document(
     db: Session = Depends(get_db),
     current_user: CurrentUser = Depends(get_current_active_user)
 ):
-    """Get document metadata."""
-    document = db.query(Document).filter(
-        Document.id == document_id,
-        Document.organization_id == current_user.organization_id
-    ).first()
+    """Get document metadata.
+
+    Issue #37, #38, #43: Updated to allow buyer organization access.
+    Users can view documents if they are:
+    - From the document's owner organization, OR
+    - From the buyer organization assigned to the shipment
+    """
+    # First, get the document
+    document = db.query(Document).filter(Document.id == document_id).first()
     if not document:
         raise HTTPException(status_code=404, detail="Document not found")
 
-    return document
+    # Check if user has direct organization access
+    if document.organization_id == current_user.organization_id:
+        return document
+
+    # Check if user has buyer access through the shipment
+    if document.shipment_id:
+        shipment = db.query(Shipment).filter(Shipment.id == document.shipment_id).first()
+        if shipment and can_access_shipment(shipment, current_user):
+            return document
+
+    # No access
+    raise HTTPException(status_code=404, detail="Document not found")
 
 
 @router.get("/{document_id}/download")
@@ -429,12 +445,28 @@ async def download_document(
     db: Session = Depends(get_db),
     current_user: CurrentUser = Depends(get_current_active_user)
 ):
-    """Download document file."""
-    document = db.query(Document).filter(
-        Document.id == document_id,
-        Document.organization_id == current_user.organization_id
-    ).first()
+    """Download document file.
+
+    Issue #37, #38, #43: Updated to allow buyer organization access.
+    Users can download documents if they are:
+    - From the document's owner organization, OR
+    - From the buyer organization assigned to the shipment
+    """
+    # First, get the document
+    document = db.query(Document).filter(Document.id == document_id).first()
     if not document:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    # Check access: direct org access or buyer access through shipment
+    has_access = False
+    if document.organization_id == current_user.organization_id:
+        has_access = True
+    elif document.shipment_id:
+        shipment = db.query(Shipment).filter(Shipment.id == document.shipment_id).first()
+        if shipment and can_access_shipment(shipment, current_user):
+            has_access = True
+
+    if not has_access:
         raise HTTPException(status_code=404, detail="Document not found")
 
     if not document.file_path or not os.path.exists(document.file_path):

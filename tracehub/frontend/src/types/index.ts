@@ -521,9 +521,10 @@ export interface DocumentSummary {
 // ============================================
 
 // Request type for creating a shipment
+// Issue #41: container_number is now optional for draft shipments
 export interface ShipmentCreateRequest {
   reference: string
-  container_number: string
+  container_number?: string  // Optional - can be added later
   product_type: ProductType  // Required - determines document requirements
   vessel_name?: string
   voyage_number?: string

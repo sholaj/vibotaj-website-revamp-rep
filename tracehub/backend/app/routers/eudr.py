@@ -1,5 +1,6 @@
 """EUDR Router - EU Deforestation Regulation compliance endpoints."""
 
+import logging
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
@@ -468,13 +469,18 @@ async def verify_origin(
         )
         validation.checks.extend(geo_result.checks)
 
-    # Get risk level
-    risk_assessment = check_deforestation_risk(
-        origin.latitude,
-        origin.longitude,
-        origin.country
-    )
-    validation.risk_level = RiskLevel(risk_assessment["risk_level"])
+    # Get risk level - Issue #39: Handle edge cases gracefully
+    try:
+        risk_assessment = check_deforestation_risk(
+            origin.latitude,
+            origin.longitude,
+            origin.country or "UNKNOWN"  # Ensure country is never None
+        )
+        validation.risk_level = RiskLevel(risk_assessment["risk_level"])
+    except (KeyError, ValueError) as e:
+        # Fallback to UNKNOWN risk level if assessment fails
+        logging.getLogger(__name__).warning(f"Risk assessment failed for origin {origin_id}: {e}")
+        validation.risk_level = RiskLevel.UNKNOWN
 
     return OriginValidationResponse(
         origin_id=str(origin.id),

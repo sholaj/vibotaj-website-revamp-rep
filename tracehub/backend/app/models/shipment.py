@@ -50,7 +50,8 @@ class Shipment(Base):
     reference = Column(String(50), nullable=False)  # e.g., VIBO-2026-001
 
     # Container and transport details
-    container_number = Column(String(20), nullable=False)  # e.g., MSCU1234567
+    # Issue #41: container_number is nullable for draft shipments
+    container_number = Column(String(20), nullable=True)  # e.g., MSCU1234567
     bl_number = Column(String(50))  # Bill of Lading number
     booking_ref = Column(String(50))  # Renamed from booking_reference
     vessel_name = Column(String(100))
