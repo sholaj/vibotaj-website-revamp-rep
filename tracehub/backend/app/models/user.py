@@ -53,10 +53,20 @@ class User(Base):
     updated_at = Column(DateTime(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow)
     last_login = Column(DateTime(timezone=True), nullable=True)
 
+    # Deletion fields (soft delete support)
+    deleted_at = Column(DateTime(timezone=True), nullable=True)
+    deleted_by = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    deletion_reason = Column(String(500), nullable=True)
+
     # Relationships
     organization = relationship("Organization", back_populates="users", foreign_keys=[organization_id])
     memberships = relationship("OrganizationMembership", back_populates="user", foreign_keys="OrganizationMembership.user_id")
     notifications = relationship("Notification", back_populates="user", cascade="all, delete-orphan")  # Sprint 11
+
+    @property
+    def is_deleted(self) -> bool:
+        """Check if user has been soft deleted."""
+        return self.deleted_at is not None
 
     def __repr__(self):
         return f"<User {self.email} ({self.role.value})>"
@@ -69,8 +79,12 @@ class User(Base):
             "full_name": self.full_name,
             "role": self.role.value,
             "is_active": self.is_active,
+            "is_deleted": self.is_deleted,
             "organization_id": str(self.organization_id) if self.organization_id else None,
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,
             "last_login": self.last_login.isoformat() if self.last_login else None,
+            "deleted_at": self.deleted_at.isoformat() if self.deleted_at else None,
+            "deleted_by": str(self.deleted_by) if self.deleted_by else None,
+            "deletion_reason": self.deletion_reason,
         }

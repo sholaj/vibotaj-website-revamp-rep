@@ -17,7 +17,11 @@ from ..schemas.user import (
     UserResponse,
     UserListResponse,
     UserOrganizationInfo,
-    CurrentUser
+    CurrentUser,
+    UserDeleteRequest,
+    UserDeleteResponse,
+    UserRestoreResponse,
+    DeletedUsersListResponse,
 )
 from ..routers.auth import get_current_active_user, get_password_hash, verify_password
 from ..services.permissions import (
@@ -25,6 +29,16 @@ from ..services.permissions import (
     has_permission,
     can_manage_role,
     get_permission_matrix
+)
+from ..services.user_deletion import (
+    UserDeletionService,
+    CannotDeleteSelfError,
+    CannotDeleteLastAdminError,
+    CannotDeleteHigherRoleError,
+    UserNotFoundError,
+    UserAlreadyDeletedError,
+    UserNotDeletedError,
+    InvalidDeletionReasonError,
 )
 
 router = APIRouter()
@@ -416,41 +430,86 @@ async def admin_reset_password(
     return {"message": "Password reset successfully"}
 
 
-@router.delete("/{user_id}")
-async def deactivate_user(
+@router.delete("/{user_id}", response_model=UserDeleteResponse)
+async def delete_user(
     user_id: UUID,
+    deletion_request: UserDeleteRequest,
     db: Session = Depends(get_db),
     current_user: CurrentUser = Depends(get_current_active_user)
 ):
-    """Deactivate a user (soft delete). Admin only."""
+    """Delete a user (soft or hard delete).
+
+    Soft delete (default): Sets deleted_at timestamp, blocks auth, preserves record for audit.
+    Hard delete: Physically removes user record, anonymizes audit log references.
+
+    Args:
+        user_id: UUID of the user to delete
+        deletion_request: Contains reason (required, 10-500 chars) and hard_delete flag
+    """
     check_permission(current_user, Permission.USERS_DELETE)
 
-    user = db.query(UserModel).filter(UserModel.id == user_id).first()
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="User not found"
-        )
+    deletion_service = UserDeletionService(db)
 
-    # Cannot deactivate yourself
-    if user_id == current_user.id:
+    try:
+        if deletion_request.hard_delete:
+            result = deletion_service.hard_delete_user(
+                user_id=user_id,
+                deleted_by=current_user.id,
+                reason=deletion_request.reason,
+                organization_id=current_user.organization_id,
+            )
+            return UserDeleteResponse(
+                message="User permanently deleted",
+                user_id=UUID(result["user_id"]),
+                email=result["email"],
+                deletion_type="hard",
+                anonymized_audit_logs=result["anonymized_audit_logs"],
+            )
+        else:
+            deleted_user = deletion_service.soft_delete_user(
+                user_id=user_id,
+                deleted_by=current_user.id,
+                reason=deletion_request.reason,
+                organization_id=current_user.organization_id,
+            )
+            return UserDeleteResponse(
+                message="User deleted (can be restored)",
+                user_id=deleted_user.id,
+                email=deleted_user.email,
+                deletion_type="soft",
+                deleted_at=deleted_user.deleted_at,
+            )
+
+    except CannotDeleteSelfError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="You cannot deactivate your own account"
+            detail=str(e)
         )
-
-    # Check if current user can manage this user's role
-    if not can_manage_role(current_user.role, user.role):
+    except CannotDeleteLastAdminError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
+    except CannotDeleteHigherRoleError as e:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="You cannot deactivate this user"
+            detail=str(e)
         )
-
-    user.is_active = False
-    user.updated_at = datetime.utcnow()
-    db.commit()
-
-    return {"message": "User deactivated successfully"}
+    except UserNotFoundError as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(e)
+        )
+    except UserAlreadyDeletedError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
+    except InvalidDeletionReasonError as e:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=str(e)
+        )
 
 
 @router.post("/{user_id}/activate")
@@ -487,6 +546,98 @@ async def activate_user(
     db.commit()
 
     return {"message": "User activated successfully"}
+
+
+@router.post("/{user_id}/restore", response_model=UserRestoreResponse)
+async def restore_user(
+    user_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: CurrentUser = Depends(get_current_active_user)
+):
+    """Restore a soft-deleted user. Admin only.
+
+    This reverses a soft delete, making the user active again.
+    """
+    check_permission(current_user, Permission.USERS_UPDATE)
+
+    deletion_service = UserDeletionService(db)
+
+    try:
+        restored_user = deletion_service.restore_user(
+            user_id=user_id,
+            restored_by=current_user.id,
+            organization_id=current_user.organization_id,
+        )
+        return UserRestoreResponse(
+            message="User restored successfully",
+            user_id=restored_user.id,
+            email=restored_user.email,
+            restored_at=datetime.utcnow(),
+        )
+
+    except UserNotFoundError as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(e)
+        )
+    except UserNotDeletedError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
+
+
+@router.get("/deleted", response_model=DeletedUsersListResponse)
+async def list_deleted_users(
+    limit: int = Query(50, ge=1, le=100, description="Items per page"),
+    offset: int = Query(0, ge=0, description="Items to skip"),
+    db: Session = Depends(get_db),
+    current_user: CurrentUser = Depends(get_current_active_user)
+):
+    """List soft-deleted users in the organization. Admin only."""
+    check_permission(current_user, Permission.USERS_LIST)
+
+    deletion_service = UserDeletionService(db)
+    deleted_users = deletion_service.get_deleted_users(
+        organization_id=current_user.organization_id,
+        limit=limit,
+        offset=offset,
+    )
+
+    # Count total deleted users
+    total = (
+        db.query(UserModel)
+        .filter(
+            UserModel.organization_id == current_user.organization_id,
+            UserModel.deleted_at.isnot(None),
+        )
+        .count()
+    )
+
+    user_responses = []
+    for user in deleted_users:
+        primary_org = get_user_primary_organization(db, user.id)
+        user_responses.append(UserResponse(
+            id=user.id,
+            email=user.email,
+            full_name=user.full_name,
+            role=user.role,
+            is_active=user.is_active,
+            created_at=user.created_at,
+            updated_at=user.updated_at,
+            last_login=user.last_login,
+            primary_organization=primary_org,
+            deleted_at=user.deleted_at,
+            deleted_by=user.deleted_by,
+            deletion_reason=user.deletion_reason,
+        ))
+
+    return DeletedUsersListResponse(
+        items=user_responses,
+        total=total,
+        limit=limit,
+        offset=offset,
+    )
 
 
 def _get_role_description(role: UserRole) -> str:

@@ -103,6 +103,39 @@ export interface UserResponse {
   updated_at?: string
   last_login?: string
   primary_organization?: UserOrganizationInfo
+  // Deletion fields
+  deleted_at?: string | null
+  deleted_by?: string | null
+  deletion_reason?: string | null
+}
+
+// User deletion types
+export interface UserDeleteRequest {
+  reason: string
+  hard_delete: boolean
+}
+
+export interface UserDeleteResponse {
+  message: string
+  user_id: string
+  email: string
+  deletion_type: 'soft' | 'hard'
+  deleted_at?: string
+  anonymized_audit_logs?: number
+}
+
+export interface UserRestoreResponse {
+  message: string
+  user_id: string
+  email: string
+  restored_at: string
+}
+
+export interface DeletedUsersListResponse {
+  items: UserResponse[]
+  total: number
+  limit: number
+  offset: number
 }
 
 export interface UserListResponse {
@@ -1305,6 +1338,10 @@ export interface OrganizationMember {
   joined_at: string
   last_active_at?: string
   invited_by?: string
+  // Deletion fields
+  deleted_at?: string
+  deleted_by?: string
+  deletion_reason?: string
 }
 
 export interface MembershipCreate {

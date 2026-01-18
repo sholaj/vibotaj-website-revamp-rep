@@ -168,6 +168,14 @@ async def get_current_user(
             headers={"WWW-Authenticate": "Bearer"},
         )
 
+    # Check if user is deleted
+    if user.is_deleted:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="User account has been deleted",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
     return User(
         username=user.email,
         email=user.email,
@@ -240,6 +248,14 @@ async def get_current_active_user(
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="User account is deactivated",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    # Check if user is deleted
+    if user.is_deleted:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="User account has been deleted",
             headers={"WWW-Authenticate": "Bearer"},
         )
 

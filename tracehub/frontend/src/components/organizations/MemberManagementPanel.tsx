@@ -24,11 +24,13 @@ import {
   Loader2,
   AlertTriangle,
   ChevronDown,
+  RotateCcw,
 } from 'lucide-react'
 import api, { ApiClientError } from '../../api/client'
 import { useAuth } from '../../contexts/AuthContext'
 import InviteMemberModal from './InviteMemberModal'
-import type { OrganizationMember, Invitation, OrgRole } from '../../types'
+import UserDeleteModal from './UserDeleteModal'
+import type { OrganizationMember, Invitation, OrgRole, UserDeleteResponse } from '../../types'
 
 interface MemberManagementPanelProps {
   organizationId: string
@@ -80,8 +82,11 @@ export default function MemberManagementPanel({
   const [processingMemberId, setProcessingMemberId] = useState<string | null>(null)
   const [processingInvitationId, setProcessingInvitationId] = useState<string | null>(null)
 
+  // Delete modal state
+  const [memberToDelete, setMemberToDelete] = useState<OrganizationMember | null>(null)
+  const [restoringMemberId, setRestoringMemberId] = useState<string | null>(null)
+
   // Confirmation dialogs
-  const [confirmRemove, setConfirmRemove] = useState<OrganizationMember | null>(null)
   const [confirmRevoke, setConfirmRevoke] = useState<Invitation | null>(null)
 
   // Role change dropdown
@@ -155,23 +160,43 @@ export default function MemberManagementPanel({
     }
   }
 
-  // Handle member removal
-  const handleRemoveMember = async () => {
-    if (!confirmRemove) return
+  // Count active admins in the organization
+  const countActiveAdmins = useCallback(() => {
+    return members.filter(
+      (m) => m.org_role === 'admin' && !m.deleted_at
+    ).length
+  }, [members])
 
-    setProcessingMemberId(confirmRemove.user_id)
+  // Check if a member is the last active admin
+  const isLastAdmin = useCallback(
+    (member: OrganizationMember) => {
+      return member.org_role === 'admin' && countActiveAdmins() <= 1
+    },
+    [countActiveAdmins]
+  )
+
+  // Handle deletion completion
+  const handleDeleteCompleted = (response: UserDeleteResponse) => {
+    // Show success message
+    console.log('User deleted:', response)
+    // Reload members list
+    loadMembers()
+  }
+
+  // Handle user restore
+  const handleRestoreUser = async (member: OrganizationMember) => {
+    setRestoringMemberId(member.user_id)
     try {
-      await api.removeMember(organizationId, confirmRemove.user_id)
-      setConfirmRemove(null)
+      await api.restoreUser(member.user_id)
       await loadMembers()
     } catch (err) {
       if (err instanceof ApiClientError) {
         setError(err.message)
       } else {
-        setError('Failed to remove member')
+        setError('Failed to restore user')
       }
     } finally {
-      setProcessingMemberId(null)
+      setRestoringMemberId(null)
     }
   }
 
@@ -278,9 +303,14 @@ export default function MemberManagementPanel({
             >
               <div className="flex-1 min-w-0">
                 <div className="flex items-center space-x-2">
-                  <span className="font-medium text-gray-900 truncate">
+                  <span className={`font-medium truncate ${member.deleted_at ? 'text-gray-400 line-through' : 'text-gray-900'}`}>
                     {member.full_name}
                   </span>
+                  {member.deleted_at && (
+                    <span className="px-1.5 py-0.5 bg-red-100 text-red-700 text-xs rounded">
+                      Deleted
+                    </span>
+                  )}
                   {member.is_primary && (
                     <span title="Primary member">
                       <Shield className="h-4 w-4 text-purple-500" />
@@ -360,16 +390,33 @@ export default function MemberManagementPanel({
                   </span>
                 )}
 
-                {/* Remove button */}
+                {/* Delete/Restore buttons */}
                 {canManageMembers && member.user_id !== user?.id && !member.is_primary && (
-                  <button
-                    onClick={() => setConfirmRemove(member)}
-                    disabled={processingMemberId === member.user_id}
-                    className="p-1 text-gray-400 hover:text-danger-600 transition-colors disabled:opacity-50"
-                    title="Remove member"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
+                  <>
+                    {member.deleted_at ? (
+                      <button
+                        onClick={() => handleRestoreUser(member)}
+                        disabled={restoringMemberId === member.user_id}
+                        className="p-1 text-gray-400 hover:text-green-600 transition-colors disabled:opacity-50"
+                        title="Restore user"
+                      >
+                        {restoringMemberId === member.user_id ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <RotateCcw className="h-4 w-4" />
+                        )}
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => setMemberToDelete(member)}
+                        disabled={processingMemberId === member.user_id}
+                        className="p-1 text-gray-400 hover:text-danger-600 transition-colors disabled:opacity-50"
+                        title="Delete user"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    )}
+                  </>
                 )}
               </div>
             </div>
@@ -478,53 +525,15 @@ export default function MemberManagementPanel({
         }}
       />
 
-      {/* Remove Member Confirmation Dialog */}
-      {confirmRemove && (
-        <div className="fixed inset-0 z-50 overflow-y-auto">
-          <div
-            className="fixed inset-0 bg-black bg-opacity-50"
-            onClick={() => setConfirmRemove(null)}
-          />
-          <div className="flex min-h-full items-center justify-center p-4">
-            <div className="relative bg-white rounded-lg shadow-xl max-w-sm w-full p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                Remove Member
-              </h3>
-              <p className="text-gray-600 mb-4">
-                Are you sure you want to remove{' '}
-                <span className="font-medium">{confirmRemove.full_name}</span> from
-                this organization? They will lose access immediately.
-              </p>
-              <div className="flex justify-end space-x-3">
-                <button
-                  onClick={() => setConfirmRemove(null)}
-                  className="btn-secondary"
-                  disabled={processingMemberId === confirmRemove.user_id}
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleRemoveMember}
-                  disabled={processingMemberId === confirmRemove.user_id}
-                  className="bg-danger-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-danger-700 transition-colors disabled:opacity-50 flex items-center"
-                >
-                  {processingMemberId === confirmRemove.user_id ? (
-                    <>
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      Removing...
-                    </>
-                  ) : (
-                    <>
-                      <Trash2 className="h-4 w-4 mr-2" />
-                      Remove
-                    </>
-                  )}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* User Delete Modal */}
+      <UserDeleteModal
+        isOpen={memberToDelete !== null}
+        onClose={() => setMemberToDelete(null)}
+        member={memberToDelete}
+        organizationId={organizationId}
+        isLastAdmin={memberToDelete ? isLastAdmin(memberToDelete) : false}
+        onDeleted={handleDeleteCompleted}
+      />
 
       {/* Revoke Invitation Confirmation Dialog */}
       {confirmRevoke && (

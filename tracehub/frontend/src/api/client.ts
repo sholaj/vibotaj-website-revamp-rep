@@ -107,6 +107,11 @@ import type {
   DocumentDeleteRequest,
   DocumentDeleteResponse,
   ShipmentAuditStatusResponse,
+  // User deletion types
+  UserDeleteRequest,
+  UserDeleteResponse,
+  UserRestoreResponse,
+  DeletedUsersListResponse,
 } from '../types'
 
 // ============================================
@@ -1432,12 +1437,62 @@ class ApiClient {
   }
 
   /**
-   * Deactivate a user (soft delete)
+   * Delete a user (soft or hard delete)
+   * @param userId - The ID of the user to delete
+   * @param reason - Required reason for deletion (10-500 chars)
+   * @param hardDelete - If true, permanently delete the user
    */
-  async deactivateUser(userId: string): Promise<{ message: string }> {
-    const response = await this.client.delete(`users/${userId}`)
+  async deleteUser(
+    userId: string,
+    reason: string,
+    hardDelete: boolean = false
+  ): Promise<UserDeleteResponse> {
+    const response = await this.client.request<UserDeleteResponse>({
+      method: 'DELETE',
+      url: `users/${userId}`,
+      data: { reason, hard_delete: hardDelete } as UserDeleteRequest,
+    })
     this.cache.invalidate('users')
     return response.data
+  }
+
+  /**
+   * Restore a soft-deleted user
+   */
+  async restoreUser(userId: string): Promise<UserRestoreResponse> {
+    const response = await this.client.post<UserRestoreResponse>(`users/${userId}/restore`)
+    this.cache.invalidate('users')
+    return response.data
+  }
+
+  /**
+   * Get list of deleted users
+   */
+  async getDeletedUsers(params?: {
+    limit?: number
+    offset?: number
+  }): Promise<DeletedUsersListResponse> {
+    const queryParams = new URLSearchParams()
+    if (params?.limit) queryParams.append('limit', params.limit.toString())
+    if (params?.offset) queryParams.append('offset', params.offset.toString())
+
+    const queryString = queryParams.toString()
+    const url = queryString ? `users/deleted?${queryString}` : 'users/deleted'
+
+    const response = await this.client.get<DeletedUsersListResponse>(url)
+    return response.data
+  }
+
+  /**
+   * Deactivate a user (legacy - use deleteUser for new code)
+   * @deprecated Use deleteUser instead
+   */
+  async deactivateUser(userId: string): Promise<{ message: string }> {
+    const response = await this.client.delete(`users/${userId}`, {
+      data: { reason: 'Deactivated via legacy endpoint', hard_delete: false },
+    })
+    this.cache.invalidate('users')
+    return { message: response.data.message || 'User deactivated successfully' }
   }
 
   /**

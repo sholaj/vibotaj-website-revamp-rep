@@ -87,6 +87,15 @@ class UserResponse(BaseModel):
     updated_at: Optional[datetime] = None
     last_login: Optional[datetime] = None
     primary_organization: Optional[UserOrganizationInfo] = None
+    # Deletion fields
+    deleted_at: Optional[datetime] = None
+    deleted_by: Optional[UUID] = None
+    deletion_reason: Optional[str] = None
+
+    @property
+    def is_deleted(self) -> bool:
+        """Check if user has been soft deleted."""
+        return self.deleted_at is not None
 
 
 class UserListResponse(BaseModel):
@@ -127,3 +136,50 @@ class CurrentUser(BaseModel):
     def username(self) -> str:
         """Return email as username for backward compatibility."""
         return self.email
+
+
+# =============================================================================
+# User Deletion Schemas
+# =============================================================================
+
+class UserDeleteRequest(BaseModel):
+    """Schema for user deletion request."""
+    reason: str = Field(
+        ...,
+        min_length=10,
+        max_length=500,
+        description="Required reason for deletion (10-500 characters)"
+    )
+    hard_delete: bool = Field(
+        default=False,
+        description="If true, permanently delete the user and anonymize audit logs"
+    )
+
+
+class UserDeleteResponse(BaseModel):
+    """Schema for user deletion response."""
+    message: str
+    user_id: UUID
+    email: str
+    deletion_type: str = Field(description="Either 'soft' or 'hard'")
+    deleted_at: Optional[datetime] = None
+    anonymized_audit_logs: Optional[int] = Field(
+        default=None,
+        description="Number of audit logs anonymized (hard delete only)"
+    )
+
+
+class UserRestoreResponse(BaseModel):
+    """Schema for user restore response."""
+    message: str
+    user_id: UUID
+    email: str
+    restored_at: datetime
+
+
+class DeletedUsersListResponse(BaseModel):
+    """Schema for list of deleted users."""
+    items: List[UserResponse]
+    total: int
+    limit: int
+    offset: int
