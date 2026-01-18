@@ -4,12 +4,13 @@
  * Admin-only page to manage users, create new accounts, and update roles.
  */
 
-import { useState, useEffect, useCallback } from 'react'
-import { Users as UsersIcon, Plus, Search, Shield, Check, X, RefreshCw, UserPlus, Key, Lock, Edit2 } from 'lucide-react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
+import { Users as UsersIcon, Plus, Search, Shield, Check, X, RefreshCw, UserPlus, Key, Lock, Edit2, Trash2 } from 'lucide-react'
 import api, { ApiClientError } from '../api/client'
 import { useAuth, Permission } from '../contexts/AuthContext'
 import PermissionGuard from '../components/PermissionGuard'
-import type { UserResponse, UserRole, RoleInfo, UserCreate, UserUpdate, OrganizationType } from '../types'
+import UserDeleteModal from '../components/organizations/UserDeleteModal'
+import type { UserResponse, UserRole, RoleInfo, UserCreate, UserUpdate, OrganizationType, UserDeleteResponse } from '../types'
 
 // Role badge styling
 const roleBadgeStyles: Record<UserRole, string> = {
@@ -368,7 +369,7 @@ function CreateUserModal({
 }
 
 export default function Users() {
-  const { hasPermission } = useAuth()
+  const { hasPermission, user: currentUser } = useAuth()
   const [users, setUsers] = useState<UserResponse[]>([])
   const [roles, setRoles] = useState<RoleInfo[]>([])
   const [loading, setLoading] = useState(true)
@@ -378,6 +379,8 @@ export default function Users() {
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [selectedUser, setSelectedUser] = useState<UserResponse | null>(null)
   const [showEditModal, setShowEditModal] = useState(false)
+  const [showDeleteModal, setShowDeleteModal] = useState(false)
+  const [userToDelete, setUserToDelete] = useState<UserResponse | null>(null)
 
   const fetchUsers = useCallback(async () => {
     setLoading(true)
@@ -432,6 +435,26 @@ export default function Users() {
     setSelectedUser(user)
     setShowEditModal(true)
   }
+
+  // Delete user handlers
+  const handleDeleteClick = (user: UserResponse, e: React.MouseEvent) => {
+    e.stopPropagation() // Prevent row click
+    setUserToDelete(user)
+    setShowDeleteModal(true)
+  }
+
+  const handleDeleteCompleted = (_response: UserDeleteResponse) => {
+    setShowDeleteModal(false)
+    setUserToDelete(null)
+    fetchUsers() // Refresh the list
+  }
+
+  // Check if the user being deleted is the last admin
+  const isLastAdmin = useMemo(() => {
+    if (!userToDelete || userToDelete.role !== 'admin') return false
+    const adminCount = users.filter(u => u.role === 'admin' && u.is_active).length
+    return adminCount <= 1
+  }, [userToDelete, users])
 
   // Check if user has permission to view this page
   if (!hasPermission(Permission.USERS_LIST)) {
@@ -601,7 +624,7 @@ export default function Users() {
                       ? new Date(user.last_login).toLocaleDateString()
                       : 'Never'}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2">
                     <PermissionGuard permission={Permission.USERS_UPDATE}>
                       <button
                         onClick={(e) => handleToggleActive(user, e)}
@@ -612,6 +635,18 @@ export default function Users() {
                       >
                         {user.is_active ? 'Deactivate' : 'Activate'}
                       </button>
+                    </PermissionGuard>
+                    {/* Delete button - hidden for current user */}
+                    <PermissionGuard permission={Permission.USERS_UPDATE}>
+                      {user.id !== currentUser?.id && (
+                        <button
+                          onClick={(e) => handleDeleteClick(user, e)}
+                          className="text-sm px-2 py-1 rounded text-red-600 hover:bg-red-50"
+                          title="Delete user"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      )}
                     </PermissionGuard>
                   </td>
                 </tr>
@@ -639,6 +674,29 @@ export default function Users() {
         onUpdated={fetchUsers}
         user={selectedUser}
         roles={roles}
+      />
+
+      {/* Delete User Modal */}
+      <UserDeleteModal
+        isOpen={showDeleteModal}
+        onClose={() => {
+          setShowDeleteModal(false)
+          setUserToDelete(null)
+        }}
+        member={userToDelete ? {
+          id: userToDelete.id,
+          user_id: userToDelete.id,
+          organization_id: userToDelete.primary_organization?.organization_id || '',
+          email: userToDelete.email,
+          full_name: userToDelete.full_name,
+          org_role: 'member', // Map system role to org role for display
+          status: userToDelete.is_active ? 'active' : 'suspended',
+          is_primary: true,
+          joined_at: userToDelete.created_at || new Date().toISOString(),
+        } : null}
+        organizationId={currentUser?.organization_id || ''}
+        isLastAdmin={isLastAdmin}
+        onDeleted={handleDeleteCompleted}
       />
     </div>
   )
