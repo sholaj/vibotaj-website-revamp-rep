@@ -152,7 +152,8 @@ describe('CreateShipmentModal Component', () => {
       expect(containerInput.value).toBe('MSCU1234567')
     })
 
-    it('should show error when container is empty on submit', async () => {
+    it('should allow submission with empty container (Issue #41)', async () => {
+      // Issue #41: Container number is now optional for draft shipments
       const user = userEvent.setup()
       render(
         <CreateShipmentModal
@@ -163,16 +164,21 @@ describe('CreateShipmentModal Component', () => {
         />
       )
 
-      // Fill only reference
+      // Fill reference and product type, but leave container empty
       const referenceInput = screen.getByLabelText(/Reference Number/)
       await user.type(referenceInput, 'VIBO-2026-001')
 
-      // Click submit
+      // Select product type (required)
+      const productTypeSelect = screen.getByLabelText(/Product Type/)
+      await user.selectOptions(productTypeSelect, 'horn_hoof')
+
+      // Click submit - should not show container error
       const submitButton = screen.getByRole('button', { name: /Create Shipment/i })
       await user.click(submitButton)
 
+      // Should not find container error message
       await waitFor(() => {
-        expect(screen.getByText(/Container number is required/)).toBeInTheDocument()
+        expect(screen.queryByText(/Container number is required/)).not.toBeInTheDocument()
       })
     })
   })
