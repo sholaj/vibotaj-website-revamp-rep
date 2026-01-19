@@ -355,18 +355,6 @@ async def login(
         )
         return Token(access_token=access_token, token_type="bearer")
 
-    # Fall back to demo user for backward compatibility
-    if form_data.username == settings.demo_username or form_data.username == settings.demo_email:
-        if form_data.password == settings.demo_password:
-            access_token = create_access_token(
-                data={
-                    "sub": settings.demo_username,
-                    "email": settings.demo_email,
-                    "role": "admin"
-                }
-            )
-            return Token(access_token=access_token, token_type="bearer")
-
     # Return debug info for non-production environments
     from ..config import get_settings
     debug_settings = get_settings()

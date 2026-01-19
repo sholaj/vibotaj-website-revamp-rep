@@ -22,6 +22,7 @@ class Settings(BaseSettings):
     jwt_expiration_hours: int = 24
 
     # Demo User (POC only - move to database in production)
+    enable_demo_credentials: bool = False  # Set to True only in demo environments
     demo_username: str = "demo"
     demo_password: str = ""  # Set via DEMO_PASSWORD env var
     demo_email: str = "demo@vibotaj.com"

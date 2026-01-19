@@ -195,16 +195,6 @@ export default function Login({ onLogin }: LoginProps) {
               )}
             </button>
           </form>
-
-          {/* Demo credentials hint */}
-          <div className="mt-6 pt-6 border-t border-gray-200">
-            <p className="text-xs text-gray-500 text-center">
-              Demo credentials:{' '}
-              <span className="font-mono bg-gray-100 px-1 py-0.5 rounded">demo</span>
-              {' / '}
-              <span className="font-mono bg-gray-100 px-1 py-0.5 rounded">tracehub2026</span>
-            </p>
-          </div>
         </div>
 
         {/* Footer */}
