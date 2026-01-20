@@ -23,7 +23,7 @@ This document maps the recommended "super pack" SaaS stack to Azure equivalents,
 | Realtime | None (polling) | Supabase Realtime | **Azure SignalR Service** |
 | File Storage | Docker volumes | Supabase Storage | **Azure Blob Storage** |
 | Edge Functions | None | Supabase Edge Functions | **Azure Functions** |
-| Observability | Basic logging | Sentry | **Azure Application Insights** |
+| Observability | Basic logging | Sentry | **Sentry** (SaaS) |
 | CI/CD | GitHub Actions | GitHub Actions | **Azure DevOps** or **GitHub Actions** |
 | Secrets | .env files | Vault | **Azure Key Vault** |
 
@@ -695,49 +695,60 @@ async def extract_document_data(blob_content: bytes) -> dict:
 
 ---
 
-## 7. Observability (Sentry → Azure Application Insights)
+## 7. Observability (Sentry)
 
-### Azure Monitor + Application Insights Architecture
+### Why Sentry over Azure Application Insights
+
+| Factor | Sentry | Azure App Insights |
+|--------|--------|-------------------|
+| **Error Tracking** | Purpose-built, exceptional | Good, but secondary focus |
+| **Cost Predictability** | $26/mo fixed (Team) | ~$2.76/GB, can spike to $400+/mo |
+| **Setup Time** | 10 minutes | 30-60 minutes |
+| **Next.js SDK** | Official, first-class | Community-maintained |
+| **Python/FastAPI** | Official SDK | OpenCensus adapter |
+| **Release Tracking** | Automatic (commits, deploys) | Manual |
+| **Session Replay** | Built-in | Not available |
+
+### Sentry Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                    Azure Monitor                                 │
+│                         Sentry (SaaS)                            │
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                  │
 │  ┌────────────────────────────────────────────────────────────┐ │
-│  │  Application Insights (tracehub-insights)                  │ │
+│  │  TraceHub Project                                          │ │
 │  │                                                            │ │
 │  │  ┌──────────────┐  ┌──────────────┐  ┌──────────────────┐ │ │
 │  │  │ Next.js SDK  │  │ FastAPI SDK  │  │ Azure Functions  │ │ │
-│  │  │ (Browser +   │  │ (OpenCensus  │  │ (Auto-instrumented)│ │
-│  │  │  Server)     │  │  Azure)      │  │                  │ │ │
+│  │  │ (Browser +   │  │ (sentry-sdk  │  │ (sentry-sdk)     │ │ │
+│  │  │  Server)     │  │  [fastapi])  │  │                  │ │ │
 │  │  └──────────────┘  └──────────────┘  └──────────────────┘ │ │
 │  │                                                            │ │
 │  │  Collected Data:                                           │ │
-│  │  - Request traces (with user context)                      │ │
-│  │  - Exceptions (full stack traces)                          │ │
-│  │  - Dependencies (database, blob, SignalR)                  │ │
-│  │  - Custom events (document uploads, tracking syncs)        │ │
-│  │  - Performance metrics (page load, API latency)            │ │
+│  │  - Exceptions (full stack traces with source maps)         │ │
+│  │  - Performance traces (distributed tracing)                │ │
+│  │  - User context (Clerk user ID, organization)              │ │
+│  │  - Custom breadcrumbs (document uploads, tracking syncs)   │ │
+│  │  - Release health (crash-free sessions)                    │ │
 │  └────────────────────────────────────────────────────────────┘ │
 │                                                                  │
 │  ┌────────────────────────────────────────────────────────────┐ │
-│  │  Log Analytics Workspace                                   │ │
+│  │  Alerting & Notifications                                  │ │
 │  │                                                            │ │
-│  │  Queries:                                                  │ │
-│  │  - Failed document uploads by organization                 │ │
-│  │  - Tracking API latency percentiles                        │ │
-│  │  - User activity patterns                                  │ │
-│  │  - Compliance check failure rates                          │ │
+│  │  - Slack/Email alerts on new errors                        │ │
+│  │  - Issue assignment and workflow                           │ │
+│  │  - Regression detection                                    │ │
+│  │  - Performance degradation alerts                          │ │
 │  └────────────────────────────────────────────────────────────┘ │
 │                                                                  │
 │  ┌────────────────────────────────────────────────────────────┐ │
-│  │  Alerts                                                    │ │
+│  │  Integrations                                              │ │
 │  │                                                            │ │
-│  │  - API error rate > 5% (5 min window)                      │ │
-│  │  - Database connection failures                            │ │
-│  │  - Document processing queue depth > 100                   │ │
-│  │  - Tracking API unreachable                                │ │
+│  │  - GitHub (link errors to commits)                         │ │
+│  │  - Slack (real-time notifications)                         │ │
+│  │  - PagerDuty (on-call escalation)                          │ │
+│  │  - Vercel/Azure (deploy tracking)                          │ │
 │  └────────────────────────────────────────────────────────────┘ │
 │                                                                  │
 └─────────────────────────────────────────────────────────────────┘
@@ -746,111 +757,202 @@ async def extract_document_data(blob_content: bytes) -> dict:
 ### FastAPI Integration
 
 ```python
-# backend/app/middleware/telemetry.py
-from opencensus.ext.azure.trace_exporter import AzureExporter
-from opencensus.trace.samplers import ProbabilitySampler
-from opencensus.trace.tracer import Tracer
-from opencensus.ext.azure.log_exporter import AzureLogHandler
-import logging
+# backend/app/main.py
+import sentry_sdk
+from sentry_sdk.integrations.fastapi import FastApiIntegration
+from sentry_sdk.integrations.sqlalchemy import SqlalchemyIntegration
+from sentry_sdk.integrations.httpx import HttpxIntegration
 
-# Configure Application Insights
-exporter = AzureExporter(connection_string=os.environ["APPLICATIONINSIGHTS_CONNECTION_STRING"])
-tracer = Tracer(exporter=exporter, sampler=ProbabilitySampler(1.0))
+sentry_sdk.init(
+    dsn=os.environ["SENTRY_DSN"],
+    environment=os.environ.get("ENVIRONMENT", "development"),
+    traces_sample_rate=1.0,  # 100% for performance monitoring
+    profiles_sample_rate=0.1,  # 10% for profiling
+    integrations=[
+        FastApiIntegration(transaction_style="endpoint"),
+        SqlalchemyIntegration(),
+        HttpxIntegration(),  # For JSONCargo API calls
+    ],
+    # Set user context from Clerk
+    before_send=add_user_context,
+)
 
-# Configure logging to Application Insights
-logger = logging.getLogger(__name__)
-logger.addHandler(AzureLogHandler(connection_string=os.environ["APPLICATIONINSIGHTS_CONNECTION_STRING"]))
+def add_user_context(event, hint):
+    """Add Clerk user context to Sentry events."""
+    # User context is set in auth middleware
+    return event
 
-# Custom telemetry for business events
+# In auth middleware
+def set_sentry_user(current_user: CurrentUser):
+    sentry_sdk.set_user({
+        "id": current_user.id,
+        "email": current_user.email,
+        "organization_id": current_user.organization_id,
+        "organization_name": current_user.organization_name,
+    })
+```
+
+```python
+# backend/app/services/sentry_tracking.py
+import sentry_sdk
+
 def track_document_upload(org_id: str, document_type: str, file_size: int):
-    tracer.current_span().add_annotation(
-        "DocumentUpload",
-        organization_id=org_id,
-        document_type=document_type,
-        file_size_bytes=file_size
+    """Add breadcrumb for document upload."""
+    sentry_sdk.add_breadcrumb(
+        category="document",
+        message=f"Uploaded {document_type}",
+        level="info",
+        data={
+            "organization_id": org_id,
+            "document_type": document_type,
+            "file_size_bytes": file_size,
+        }
     )
 
 def track_compliance_check(shipment_id: str, result: str, issues_count: int):
-    tracer.current_span().add_annotation(
-        "ComplianceCheck",
-        shipment_id=shipment_id,
-        result=result,
-        issues_count=issues_count
+    """Track compliance check as a breadcrumb or custom event."""
+    if result == "FAILED":
+        sentry_sdk.capture_message(
+            f"Compliance check failed for shipment {shipment_id}",
+            level="warning",
+            extras={
+                "shipment_id": shipment_id,
+                "issues_count": issues_count,
+            }
+        )
+    else:
+        sentry_sdk.add_breadcrumb(
+            category="compliance",
+            message=f"Compliance check: {result}",
+            level="info",
+            data={"shipment_id": shipment_id, "issues_count": issues_count}
+        )
+
+def track_tracking_sync(container_number: str, events_count: int):
+    """Track container tracking sync."""
+    sentry_sdk.add_breadcrumb(
+        category="tracking",
+        message=f"Synced {events_count} events for {container_number}",
+        level="info",
     )
 ```
 
 ### Next.js Integration
 
 ```typescript
-// instrumentation.ts (Next.js 13+)
-import { ApplicationInsights } from '@microsoft/applicationinsights-web';
+// sentry.client.config.ts
+import * as Sentry from "@sentry/nextjs";
 
-export const appInsights = new ApplicationInsights({
-  config: {
-    connectionString: process.env.NEXT_PUBLIC_APPLICATIONINSIGHTS_CONNECTION_STRING,
-    enableAutoRouteTracking: true,
-    enableCorsCorrelation: true,
-    enableRequestHeaderTracking: true,
-    enableResponseHeaderTracking: true,
-  }
+Sentry.init({
+  dsn: process.env.NEXT_PUBLIC_SENTRY_DSN,
+  environment: process.env.NEXT_PUBLIC_ENVIRONMENT,
+  tracesSampleRate: 1.0,
+  replaysSessionSampleRate: 0.1,  // 10% session replay
+  replaysOnErrorSampleRate: 1.0,  // 100% replay on error
+  integrations: [
+    Sentry.replayIntegration({
+      maskAllText: false,
+      blockAllMedia: false,
+    }),
+  ],
 });
+```
 
-appInsights.loadAppInsights();
+```typescript
+// sentry.server.config.ts
+import * as Sentry from "@sentry/nextjs";
 
-// Track custom events
+Sentry.init({
+  dsn: process.env.SENTRY_DSN,
+  environment: process.env.ENVIRONMENT,
+  tracesSampleRate: 1.0,
+});
+```
+
+```typescript
+// lib/sentry.ts - Custom tracking helpers
+import * as Sentry from "@sentry/nextjs";
+import { useUser, useOrganization } from "@clerk/nextjs";
+
+export function useSentryUser() {
+  const { user } = useUser();
+  const { organization } = useOrganization();
+
+  if (user) {
+    Sentry.setUser({
+      id: user.id,
+      email: user.primaryEmailAddress?.emailAddress,
+      username: user.fullName || undefined,
+    });
+    Sentry.setTag("organization_id", organization?.id);
+    Sentry.setTag("organization_name", organization?.name);
+  }
+}
+
 export function trackDocumentDownload(shipmentId: string, documentType: string) {
-  appInsights.trackEvent({
-    name: 'DocumentDownload',
-    properties: {
-      shipmentId,
-      documentType,
-      timestamp: new Date().toISOString()
-    }
+  Sentry.addBreadcrumb({
+    category: "document",
+    message: `Downloaded ${documentType}`,
+    level: "info",
+    data: { shipmentId, documentType },
+  });
+}
+
+export function trackShipmentView(shipmentId: string, reference: string) {
+  Sentry.addBreadcrumb({
+    category: "navigation",
+    message: `Viewed shipment ${reference}`,
+    level: "info",
+    data: { shipmentId },
   });
 }
 ```
 
-### Dashboard: TraceHub Operations
+### Sentry Dashboard Configuration
 
-```kusto
-// Application Insights KQL queries
+**Recommended Alert Rules:**
 
-// 1. Document processing success rate by type
-requests
-| where name startswith "POST /api/documents"
-| summarize
-    total = count(),
-    success = countif(success == true),
-    success_rate = round(100.0 * countif(success == true) / count(), 2)
-    by bin(timestamp, 1h), tostring(customDimensions.document_type)
-| order by timestamp desc
+1. **New Error Alert** - Notify on first occurrence of new issues
+2. **Regression Alert** - Notify when resolved issues reappear
+3. **Spike Alert** - Notify on 200% increase in error rate (1 hour window)
+4. **Performance Alert** - P95 latency > 2s for critical endpoints
 
-// 2. Tracking sync latency
-dependencies
-| where name == "JSONCargo API"
-| summarize
-    p50 = percentile(duration, 50),
-    p95 = percentile(duration, 95),
-    p99 = percentile(duration, 99)
-    by bin(timestamp, 15m)
+**Custom Dashboards:**
 
-// 3. Compliance check failures by organization
-customEvents
-| where name == "ComplianceCheck"
-| where customDimensions.result == "FAILED"
-| summarize failure_count = count() by tostring(customDimensions.organization_id)
-| order by failure_count desc
-```
+- **Document Processing Health**: Upload success rate, processing time, OCR failures
+- **Tracking Sync Health**: API latency, sync frequency, event counts
+- **Compliance Health**: Validation pass/fail rates by organization
+- **User Activity**: Active sessions, error rates by org
 
 ### Pricing
 
-| Feature | Cost |
-|---------|------|
-| Data Ingestion | $2.76/GB |
-| Data Retention | Free (90 days), $0.12/GB/month (extended) |
-| Alerts | ~$0.10/alert rule/month |
+| Plan | Monthly Cost | Features |
+|------|--------------|----------|
+| Developer | Free | 5K errors, 10K transactions, 1 user |
+| Team | $26/month | 50K errors, 100K transactions, unlimited users |
+| Business | $80/month | 100K errors, unlimited transactions, advanced features |
 
-**Recommendation:** Set daily cap at 5GB initially (~$14/day max).
+**Recommendation:** Start with **Team plan ($26/month)** - provides:
+- 50,000 errors/month
+- 100,000 performance transactions/month
+- Unlimited team members
+- Session replay
+- Release health tracking
+
+### Azure Monitor for Infrastructure (Optional)
+
+Use Azure's free built-in monitoring for infrastructure metrics:
+
+```
+Sentry ($26/mo)                    Azure Monitor (Free)
+├── Application errors             ├── Container Apps metrics
+├── Performance traces             ├── PostgreSQL metrics
+├── User session context           ├── Blob Storage metrics
+├── Release tracking               └── Resource health
+└── Alerting
+```
+
+This hybrid approach gives you best-in-class error tracking with Sentry while leveraging Azure's free infrastructure monitoring.
 
 ---
 
@@ -1016,9 +1118,9 @@ def get_settings():
               └────────────────────────────────────────────┼────────────────────────────────────────────┘
                                                            │
                                             ┌──────────────▼──────────────┐
-                                            │   Azure Application         │
-                                            │   Insights + Log Analytics  │
-                                            │   (Observability)           │
+                                            │   Sentry (SaaS)             │
+                                            │   Error Tracking &          │
+                                            │   Performance Monitoring    │
                                             └─────────────────────────────┘
 
     ┌─────────────────────────────────────────────────────────────────────────────────────────────────────┐
@@ -1047,19 +1149,21 @@ def get_settings():
 | **Azure Front Door** | Standard tier, 100GB/month | $35 |
 | **Azure SignalR** | Standard, 1 unit | $49 |
 | **Azure Functions** | Consumption, moderate usage | $10-20 |
-| **Azure Application Insights** | 5GB/day ingestion | $14/day → ~$420 |
+| **Sentry** | Team plan | $26 |
 | **Azure Key Vault** | Standard, 10K operations | $5 |
 | **Clerk** | Pro plan (10K MAU) | $25 |
 
-**Total Estimated: $700-850/month** (production workload)
+**Total Estimated: $315-400/month** (production workload)
+
+> Note: Using Sentry instead of Azure Application Insights saves ~$400/month while providing better error tracking.
 
 ### Cost Optimization Tips
 
 1. **Reserved Instances:** 1-year reservation saves 20-30% on PostgreSQL
 2. **Spot Instances:** Use for non-critical Azure Functions
 3. **Auto-scaling:** Scale to zero during off-hours (Container Apps)
-4. **Log Sampling:** Reduce Application Insights ingestion to 10% sampling
-5. **Blob Lifecycle:** Aggressive tiering to Cool/Archive
+4. **Blob Lifecycle:** Aggressive tiering to Cool/Archive
+5. **Sentry Sampling:** Reduce traces_sample_rate if transaction limits are exceeded
 
 ---
 
@@ -1076,7 +1180,7 @@ Tasks:
 □ Configure Azure Blob Storage account
 □ Set up Azure Container Registry
 □ Deploy Azure Key Vault with secrets
-□ Configure Azure Application Insights
+□ Create Sentry project and configure alerts
 □ Set up GitHub Actions CI/CD pipeline
 □ Migrate database from Hostinger to Azure PostgreSQL
 ```
@@ -1135,7 +1239,7 @@ Tasks:
 □ Deploy Azure SignalR Service
 □ Implement realtime tracking updates
 □ Add realtime document status notifications
-□ Configure alerts in Application Insights
+□ Configure Sentry alerts and dashboards
 □ Set up Azure Front Door with WAF
 □ Performance testing and optimization
 □ Documentation and team training
@@ -1192,12 +1296,13 @@ Tasks:
 
 ### Observability Migration
 
-- [ ] Create Application Insights resource
-- [ ] Add SDK to frontend and backend
-- [ ] Configure custom events and metrics
-- [ ] Set up alert rules
-- [ ] Create operational dashboards
-- [ ] Test end-to-end tracing
+- [ ] Create Sentry project (tracehub)
+- [ ] Add Sentry SDK to Next.js frontend
+- [ ] Add Sentry SDK to FastAPI backend
+- [ ] Configure Clerk user context in Sentry
+- [ ] Set up alert rules (new errors, regressions, spikes)
+- [ ] Connect GitHub for release tracking
+- [ ] Configure Slack/email notifications
 
 ### Post-Migration
 
@@ -1224,7 +1329,7 @@ Tasks:
 | AI/ML | Azure Form Recognizer | S0 |
 | AI/ML | Azure OpenAI Service | Pay-as-you-go |
 | Secrets | Azure Key Vault | Standard |
-| Monitoring | Azure Application Insights | Pay-as-you-go |
+| Monitoring | Sentry (external SaaS) | Team ($26/mo) |
 | CI/CD | GitHub Actions | Free tier |
 | Registry | Azure Container Registry | Basic |
 
@@ -1249,8 +1354,9 @@ AZURE_STORAGE_CONTAINER_PROCESSED=processed
 # SignalR
 AZURE_SIGNALR_CONNECTION_STRING=
 
-# Application Insights
-APPLICATIONINSIGHTS_CONNECTION_STRING=
+# Sentry
+SENTRY_DSN=
+NEXT_PUBLIC_SENTRY_DSN=
 
 # Clerk
 NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=
