@@ -1396,4 +1396,378 @@ LOG_LEVEL=INFO
 
 ---
 
+## Appendix D: Existing Files Requiring Updates
+
+### GitHub Workflows (.github/workflows/)
+
+| File | Current State | Required Changes |
+|------|---------------|------------------|
+| `build-and-push.yml` | Pushes to GitHub Container Registry (GHCR) | Update to push to Azure Container Registry (ACR) |
+| `deploy-staging.yml` | SSH deployment to Hostinger VPS | Replace with Azure Container Apps deployment action |
+| `deploy-production.yml` | SSH/rsync deployment with manual approval | Replace with Azure Container Apps deployment + Key Vault |
+| `backend-ci.yml` | Linting, tests, security scan | No changes needed (continues to run before Azure deploy) |
+| `frontend-ci.yml` | ESLint, TypeScript, build validation | No changes needed |
+| `database-migrations.yml` | Validates Alembic migrations | Update DATABASE_URL to use Azure PostgreSQL |
+| `integration-tests.yml` | Full integration tests | Update to use Azure-hosted test database |
+
+### Docker Configuration
+
+| File | Current State | Required Changes |
+|------|---------------|------------------|
+| `tracehub/backend/Dockerfile` | Python 3.11 + FastAPI | No changes needed (compatible with Azure Container Apps) |
+| `tracehub/frontend/Dockerfile` | Multi-stage Node + Nginx | No changes needed |
+| `tracehub/docker-compose.yml` | Local development | No changes needed (keep for local dev) |
+| `tracehub/docker-compose.prod.yml` | Production on Hostinger | Archive; replace with Azure Container Apps |
+
+### Scripts
+
+| File | Current State | Required Changes |
+|------|---------------|------------------|
+| `tracehub/scripts/deploy.sh` | SSH deployment to VPS | Rewrite for Azure CLI + Container Apps |
+| `tracehub/scripts/rollback.sh` | SSH rollback | Rewrite using Azure Container Apps revisions |
+| `tracehub/scripts/backup.sh` | pg_dump to local | Replace with Azure Backup / azcopy |
+| `tracehub/scripts/health-check.sh` | Checks VPS endpoints | Update endpoints to Azure URLs |
+
+### Makefiles
+
+| File | Current State | Required Changes |
+|------|---------------|------------------|
+| `Makefile` (root) | Setup, test, lint, format | Add: `az-login`, `acr-login`, `deploy-azure` |
+| `tracehub/Makefile` | Docker Compose commands | Add: `deploy-to-aca`, `scale-services`, `migrate-db-azure` |
+
+### Environment Files
+
+| File | Current State | Required Changes |
+|------|---------------|------------------|
+| `tracehub/.env.example` | Local/VPS environment | Add Azure-specific variables (see Appendix B) |
+| `tracehub/backend/.env.example` | Backend config | Add Key Vault URL, Sentry DSN, Clerk keys |
+| `tracehub/frontend/.env.example` | Frontend config | Add NEXT_PUBLIC_SENTRY_DSN, NEXT_PUBLIC_CLERK_* |
+
+### Documentation to Update
+
+| File | Required Changes |
+|------|------------------|
+| `CLAUDE.md` | Add Azure deployment section and Key Vault usage |
+| `tracehub/DEPLOYMENT.md` | Major rewrite for Azure infrastructure |
+| `tracehub/DEVOPS.md` | Update CI/CD procedures for Azure |
+| `tracehub/README.md` | Update architecture diagrams and setup instructions |
+| `docs/infrastructure/ssl-configuration.md` | Update for Azure Front Door SSL |
+| `docs/infrastructure/backup-strategy.md` | Update for Azure Backup |
+
+### Configuration Files (No Changes Required)
+
+These files remain unchanged:
+
+- `.pre-commit-config.yaml` - Continue enforcing code quality
+- `tracehub/backend/alembic.ini` - Alembic works with Azure PostgreSQL
+- `tracehub/frontend/vite.config.ts` - Build config unchanged
+- `.gitignore` files - Exclusion patterns remain valid
+
+---
+
+## Appendix E: Updated GitHub Workflow Examples
+
+### build-and-push.yml (Azure Container Registry)
+
+```yaml
+name: Build and Push to ACR
+
+on:
+  push:
+    branches: [main, develop]
+
+env:
+  AZURE_CONTAINER_REGISTRY: tracehubacr.azurecr.io
+  RESOURCE_GROUP: tracehub-rg
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Login to Azure
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Login to ACR
+        run: az acr login --name tracehubacr
+
+      - name: Build and push backend
+        run: |
+          docker build -t ${{ env.AZURE_CONTAINER_REGISTRY }}/tracehub-backend:${{ github.sha }} \
+            -t ${{ env.AZURE_CONTAINER_REGISTRY }}/tracehub-backend:${{ github.ref_name }} \
+            ./tracehub/backend
+          docker push ${{ env.AZURE_CONTAINER_REGISTRY }}/tracehub-backend --all-tags
+
+      - name: Build and push frontend
+        run: |
+          docker build -t ${{ env.AZURE_CONTAINER_REGISTRY }}/tracehub-frontend:${{ github.sha }} \
+            -t ${{ env.AZURE_CONTAINER_REGISTRY }}/tracehub-frontend:${{ github.ref_name }} \
+            ./tracehub/frontend
+          docker push ${{ env.AZURE_CONTAINER_REGISTRY }}/tracehub-frontend --all-tags
+
+      - name: Scan for vulnerabilities
+        uses: azure/container-scan@v0
+        with:
+          image-name: ${{ env.AZURE_CONTAINER_REGISTRY }}/tracehub-backend:${{ github.sha }}
+```
+
+### deploy-staging.yml (Azure Container Apps)
+
+```yaml
+name: Deploy to Staging
+
+on:
+  push:
+    branches: [develop]
+
+env:
+  RESOURCE_GROUP: tracehub-rg
+  CONTAINER_APP_ENV: tracehub-staging-env
+  BACKEND_APP: tracehub-staging-backend
+  FRONTEND_APP: tracehub-staging-frontend
+  ACR: tracehubacr.azurecr.io
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: staging
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Login to Azure
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Deploy backend to Container Apps
+        uses: azure/container-apps-deploy-action@v1
+        with:
+          resourceGroup: ${{ env.RESOURCE_GROUP }}
+          containerAppName: ${{ env.BACKEND_APP }}
+          imageToDeploy: ${{ env.ACR }}/tracehub-backend:${{ github.sha }}
+
+      - name: Deploy frontend to Container Apps
+        uses: azure/container-apps-deploy-action@v1
+        with:
+          resourceGroup: ${{ env.RESOURCE_GROUP }}
+          containerAppName: ${{ env.FRONTEND_APP }}
+          imageToDeploy: ${{ env.ACR }}/tracehub-frontend:${{ github.sha }}
+
+      - name: Run database migrations
+        run: |
+          az containerapp exec \
+            --name ${{ env.BACKEND_APP }} \
+            --resource-group ${{ env.RESOURCE_GROUP }} \
+            --command "alembic upgrade head"
+
+      - name: Smoke test
+        run: |
+          BACKEND_URL=$(az containerapp show --name ${{ env.BACKEND_APP }} --resource-group ${{ env.RESOURCE_GROUP }} --query "properties.configuration.ingress.fqdn" -o tsv)
+          curl -f https://$BACKEND_URL/api/health || exit 1
+
+      - name: Notify Sentry of deployment
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+        run: |
+          curl https://sentry.io/api/0/organizations/vibotaj/releases/ \
+            -H "Authorization: Bearer $SENTRY_AUTH_TOKEN" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "version": "${{ github.sha }}",
+              "projects": ["tracehub"],
+              "environment": "staging"
+            }'
+```
+
+### deploy-production.yml (Azure Container Apps with Approval)
+
+```yaml
+name: Deploy to Production
+
+on:
+  push:
+    branches: [main]
+
+env:
+  RESOURCE_GROUP: tracehub-rg
+  BACKEND_APP: tracehub-prod-backend
+  FRONTEND_APP: tracehub-prod-frontend
+  ACR: tracehubacr.azurecr.io
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run tests
+        run: |
+          cd tracehub/backend && pip install -r requirements.txt && pytest
+          cd ../frontend && npm ci && npm test
+
+  deploy:
+    needs: test
+    runs-on: ubuntu-latest
+    environment: production  # Requires manual approval in GitHub
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Login to Azure
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Backup database before deployment
+        run: |
+          az postgres flexible-server execute \
+            --name tracehub-prod-db \
+            --resource-group ${{ env.RESOURCE_GROUP }} \
+            --admin-user ${{ secrets.DB_ADMIN_USER }} \
+            --admin-password ${{ secrets.DB_ADMIN_PASSWORD }} \
+            --file-path ./backup-$(date +%Y%m%d).sql
+
+      - name: Deploy backend
+        uses: azure/container-apps-deploy-action@v1
+        with:
+          resourceGroup: ${{ env.RESOURCE_GROUP }}
+          containerAppName: ${{ env.BACKEND_APP }}
+          imageToDeploy: ${{ env.ACR }}/tracehub-backend:${{ github.sha }}
+
+      - name: Deploy frontend
+        uses: azure/container-apps-deploy-action@v1
+        with:
+          resourceGroup: ${{ env.RESOURCE_GROUP }}
+          containerAppName: ${{ env.FRONTEND_APP }}
+          imageToDeploy: ${{ env.ACR }}/tracehub-frontend:${{ github.sha }}
+
+      - name: Run database migrations
+        run: |
+          az containerapp exec \
+            --name ${{ env.BACKEND_APP }} \
+            --resource-group ${{ env.RESOURCE_GROUP }} \
+            --command "alembic upgrade head"
+
+      - name: Verify deployment
+        run: |
+          BACKEND_URL=$(az containerapp show --name ${{ env.BACKEND_APP }} --resource-group ${{ env.RESOURCE_GROUP }} --query "properties.configuration.ingress.fqdn" -o tsv)
+          for i in {1..5}; do
+            curl -f https://$BACKEND_URL/api/health && exit 0
+            sleep 10
+          done
+          exit 1
+
+      - name: Notify Sentry of release
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+        run: |
+          curl https://sentry.io/api/0/organizations/vibotaj/releases/ \
+            -H "Authorization: Bearer $SENTRY_AUTH_TOKEN" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "version": "${{ github.sha }}",
+              "projects": ["tracehub"],
+              "environment": "production"
+            }'
+
+      - name: Rollback on failure
+        if: failure()
+        run: |
+          echo "Deployment failed, rolling back to previous revision..."
+          az containerapp revision list \
+            --name ${{ env.BACKEND_APP }} \
+            --resource-group ${{ env.RESOURCE_GROUP }} \
+            --query "[1].name" -o tsv | xargs -I {} \
+            az containerapp ingress traffic set \
+              --name ${{ env.BACKEND_APP }} \
+              --resource-group ${{ env.RESOURCE_GROUP }} \
+              --revision-weight {}=100
+```
+
+---
+
+## Appendix F: Makefile Azure Targets
+
+Add these targets to `tracehub/Makefile`:
+
+```makefile
+# =============================================================================
+# AZURE DEPLOYMENT TARGETS
+# =============================================================================
+
+AZURE_RG ?= tracehub-rg
+AZURE_ACR ?= tracehubacr
+AZURE_BACKEND_APP ?= tracehub-prod-backend
+AZURE_FRONTEND_APP ?= tracehub-prod-frontend
+
+.PHONY: az-login acr-login deploy-azure scale-backend migrate-db-azure logs-azure
+
+## Azure login
+az-login:
+	az login
+	az account set --subscription "$(AZURE_SUBSCRIPTION)"
+
+## Login to Azure Container Registry
+acr-login: az-login
+	az acr login --name $(AZURE_ACR)
+
+## Build and push to ACR
+push-azure: acr-login
+	docker build -t $(AZURE_ACR).azurecr.io/tracehub-backend:latest ./backend
+	docker build -t $(AZURE_ACR).azurecr.io/tracehub-frontend:latest ./frontend
+	docker push $(AZURE_ACR).azurecr.io/tracehub-backend:latest
+	docker push $(AZURE_ACR).azurecr.io/tracehub-frontend:latest
+
+## Deploy to Azure Container Apps
+deploy-azure: az-login
+	az containerapp update \
+		--name $(AZURE_BACKEND_APP) \
+		--resource-group $(AZURE_RG) \
+		--image $(AZURE_ACR).azurecr.io/tracehub-backend:latest
+	az containerapp update \
+		--name $(AZURE_FRONTEND_APP) \
+		--resource-group $(AZURE_RG) \
+		--image $(AZURE_ACR).azurecr.io/tracehub-frontend:latest
+
+## Scale backend replicas
+scale-backend: az-login
+	az containerapp update \
+		--name $(AZURE_BACKEND_APP) \
+		--resource-group $(AZURE_RG) \
+		--min-replicas $(MIN) \
+		--max-replicas $(MAX)
+
+## Run database migrations on Azure
+migrate-db-azure: az-login
+	az containerapp exec \
+		--name $(AZURE_BACKEND_APP) \
+		--resource-group $(AZURE_RG) \
+		--command "alembic upgrade head"
+
+## View Azure Container App logs
+logs-azure: az-login
+	az containerapp logs show \
+		--name $(AZURE_BACKEND_APP) \
+		--resource-group $(AZURE_RG) \
+		--follow
+
+## Get Azure endpoints
+endpoints-azure: az-login
+	@echo "Backend URL:"
+	@az containerapp show --name $(AZURE_BACKEND_APP) --resource-group $(AZURE_RG) --query "properties.configuration.ingress.fqdn" -o tsv
+	@echo "Frontend URL:"
+	@az containerapp show --name $(AZURE_FRONTEND_APP) --resource-group $(AZURE_RG) --query "properties.configuration.ingress.fqdn" -o tsv
+
+## Rollback to previous revision
+rollback-azure: az-login
+	@PREV_REV=$$(az containerapp revision list --name $(AZURE_BACKEND_APP) --resource-group $(AZURE_RG) --query "[1].name" -o tsv); \
+	az containerapp ingress traffic set \
+		--name $(AZURE_BACKEND_APP) \
+		--resource-group $(AZURE_RG) \
+		--revision-weight $$PREV_REV=100
+```
+
+---
+
 *Document maintained by TraceHub Engineering Team*
