@@ -58,25 +58,66 @@ def upgrade() -> None:
     user_id = user[0]
     print(f"Found user shola.jibodu@gmail.com with ID: {user_id}")
     
-    # Delete organization memberships for this user
+    # Step 1: Nullify foreign key references in invitations table
+    result = conn.execute(text(
+        "UPDATE invitations SET created_by = NULL WHERE created_by = :user_id"
+    ), {"user_id": user_id})
+    print(f"Nullified created_by in {result.rowcount} invitation(s)")
+    
+    result = conn.execute(text(
+        "UPDATE invitations SET accepted_by = NULL WHERE accepted_by = :user_id"
+    ), {"user_id": user_id})
+    print(f"Nullified accepted_by in {result.rowcount} invitation(s)")
+    
+    # Step 2: Nullify foreign key references in documents table
+    result = conn.execute(text(
+        "UPDATE documents SET validated_by = NULL WHERE validated_by = :user_id"
+    ), {"user_id": user_id})
+    print(f"Nullified validated_by in {result.rowcount} document(s)")
+    
+    # Step 3: Nullify foreign key references in document_contents table
+    result = conn.execute(text(
+        "UPDATE document_contents SET validated_by = NULL WHERE validated_by = :user_id"
+    ), {"user_id": user_id})
+    print(f"Nullified validated_by in {result.rowcount} document_content(s)")
+    
+    # Step 4: Nullify foreign key references in document_issues table
+    result = conn.execute(text(
+        "UPDATE document_issues SET overridden_by = NULL WHERE overridden_by = :user_id"
+    ), {"user_id": user_id})
+    print(f"Nullified overridden_by in {result.rowcount} document_issue(s)")
+    
+    # Step 5: Nullify foreign key references in origins table
+    result = conn.execute(text(
+        "UPDATE origins SET verified_by = NULL WHERE verified_by = :user_id"
+    ), {"user_id": user_id})
+    print(f"Nullified verified_by in {result.rowcount} origin(s)")
+    
+    # Step 6: Nullify foreign key references in users table (deleted_by)
+    result = conn.execute(text(
+        "UPDATE users SET deleted_by = NULL WHERE deleted_by = :user_id"
+    ), {"user_id": user_id})
+    print(f"Nullified deleted_by in {result.rowcount} user(s)")
+    
+    # Step 7: Delete organization memberships for this user
     result = conn.execute(text(
         "DELETE FROM organization_memberships WHERE user_id = :user_id"
     ), {"user_id": user_id})
     print(f"Deleted {result.rowcount} organization membership(s)")
     
-    # Delete notifications for this user (if any)
+    # Step 8: Delete notifications for this user (if any)
     result = conn.execute(text(
         "DELETE FROM notifications WHERE user_id = :user_id"
     ), {"user_id": user_id})
     print(f"Deleted {result.rowcount} notification(s)")
     
-    # Anonymize audit log references to this user
+    # Step 9: Anonymize audit log references to this user
     result = conn.execute(text(
         "UPDATE audit_logs SET username = '[deleted]', user_id = NULL WHERE user_id = :user_id"
-    ), {"user_id": str(user_id)})
+    ), {"user_id": user_id})
     print(f"Anonymized {result.rowcount} audit log(s)")
     
-    # Delete the user
+    # Step 10: Delete the user
     result = conn.execute(text(
         "DELETE FROM users WHERE id = :user_id"
     ), {"user_id": user_id})
