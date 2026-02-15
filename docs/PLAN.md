@@ -58,9 +58,9 @@ Users → Vercel (Next.js 15 SSR + BFF) → Railway (FastAPI + Celery) → Supab
 | 002 | [Supabase schema + RLS](prds/002-supabase-schema-rls.md) | **Done** | High | Week 1 | None |
 | 003 | [PropelAuth integration](prds/003-propelauth-integration.md) | **Done** | High | Week 3 | 001, 002 |
 | 004 | [FastAPI on Railway](prds/004-fastapi-railway.md) | **Done** | Medium | Week 2 | 002 |
-| 005 | [Supabase Storage](prds/005-supabase-storage.md) | Specified | Low-Med | Week 3 | 002, 004 |
+| 005 | [Supabase Storage](prds/005-supabase-storage.md) | **Done** | Low-Med | Week 3 | 002, 004 |
 | 006 | [Sentry integration](prds/006-sentry-integration.md) | **Done** | Low | Week 2 | 001, 004 |
-| 007 | [OpenAPI → Hey API type bridge](prds/007-openapi-heyapi-type-bridge.md) | Specified | Medium | Week 4 | 001, 004 |
+| 007 | [OpenAPI → Hey API type bridge](prds/007-openapi-heyapi-type-bridge.md) | **Done** | Medium | Week 4 | 001, 004 |
 | 008 | [v1 Frontend → v2 Infra Bridge](prds/008-v1-frontend-v2-infra-bridge.md) | Specified | Medium | Week 4 | 003, 004, 005, 006 |
 
 **Execution order:**
@@ -106,7 +106,7 @@ Users → Vercel (Next.js 15 SSR + BFF) → Railway (FastAPI + Celery) → Supab
 ---
 
 ## In Progress
-_Phase 1 Week 3 in progress. PRD-003 done. PRD-005 next._
+_Phase 1 nearing completion. PRDs 001-007 done. PRD-008 (v1 bridge) is the final Phase 1 PRD._
 
 ## Blocked
 _None_
@@ -149,9 +149,10 @@ _None_
 ### v2 (Target)
 - Total PRDs: 25 (001-025)
 - PRDs specified: 8 (001-008 — Phase 1 infrastructure + bridge)
-- PRDs remaining: 17 (009-025 — Phases 2-4)
+- PRDs completed: 7 (001-007)
+- PRDs remaining: 18 (008-025 — Phase 1 bridge + Phases 2-4)
 - Phase 0: Foundation — **Complete**
-- Phase 1: Infrastructure migration (Weeks 1-4) — **Specified, ready to implement**
+- Phase 1: Infrastructure migration (Weeks 1-4) — **7/8 done, PRD-008 remaining**
 - Phase 2: Frontend rebuild (Weeks 5-8)
 - Phase 3: Business logic enhancement (Weeks 9-12)
 - Phase 4: SaaS hardening (Weeks 13-16)
