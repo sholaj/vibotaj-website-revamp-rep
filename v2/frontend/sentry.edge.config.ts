@@ -1,0 +1,16 @@
+// TraceHub v2 — Sentry edge runtime configuration
+// Captures errors in Next.js middleware and edge API routes.
+
+import * as Sentry from "@sentry/nextjs";
+
+Sentry.init({
+  dsn: process.env.NEXT_PUBLIC_SENTRY_DSN,
+  environment: process.env.NEXT_PUBLIC_ENVIRONMENT ?? "development",
+
+  // Performance: 100% in dev, 10% in prod
+  tracesSampleRate:
+    process.env.NEXT_PUBLIC_ENVIRONMENT === "production" ? 0.1 : 1.0,
+
+  // GDPR: never send PII
+  sendDefaultPii: false,
+});

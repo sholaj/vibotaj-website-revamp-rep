@@ -16,6 +16,7 @@ from .routers import analytics, audit, eudr, organizations, invitations, documen
 from .middleware import RequestTrackingMiddleware, RateLimitMiddleware, ErrorHandlerMiddleware, RLSContextMiddleware
 from .models import ContainerEvent, Shipment, Product
 from .services.entity_factory import create_product
+from .sentry_setup import init_sentry
 
 # Configure logging
 logging.basicConfig(
@@ -169,6 +170,9 @@ async def lifespan(app: FastAPI):
     app_start_time = datetime.utcnow()
 
     logger.info("TraceHub API starting up...")
+
+    # Initialize Sentry error tracking (before anything else so we catch startup errors)
+    init_sentry(dsn=settings.sentry_dsn, environment=settings.environment)
 
     # Startup: Create tables if they don't exist (dev only)
     if settings.debug:

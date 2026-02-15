@@ -1,6 +1,6 @@
 # PRD-006: Sentry Integration
 
-**Status:** Specified
+**Status:** Done
 **Complexity:** Low
 **Target:** Week 2
 **Dependencies:** PRD-001 (Next.js frontend — for frontend DSN), PRD-004 (FastAPI on Railway — for backend DSN)

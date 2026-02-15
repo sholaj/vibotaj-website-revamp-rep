@@ -26,14 +26,24 @@ class ErrorHandlerMiddleware(BaseHTTPMiddleware):
         self.sentry_dsn = sentry_dsn
         self._sentry_initialized = False
 
-        # Initialize Sentry if DSN provided
+        # Check if Sentry is already initialized (via sentry_setup.init_sentry)
+        # or initialize here as a fallback
         if sentry_dsn:
-            self._init_sentry(sentry_dsn)
+            self._check_or_init_sentry(sentry_dsn)
 
-    def _init_sentry(self, dsn: str):
-        """Initialize Sentry error tracking."""
+    def _check_or_init_sentry(self, dsn: str):
+        """Check if Sentry is initialized or initialize as fallback."""
         try:
             import sentry_sdk
+            # If Sentry was already initialized by sentry_setup.init_sentry(),
+            # just mark as ready — don't re-initialize
+            client = sentry_sdk.get_client()
+            if client and client.dsn:
+                self._sentry_initialized = True
+                logger.info("Sentry already initialized — error handler will report exceptions")
+                return
+
+            # Fallback: initialize here (e.g. if sentry_setup wasn't called)
             from sentry_sdk.integrations.starlette import StarletteIntegration
             from sentry_sdk.integrations.fastapi import FastApiIntegration
 
@@ -43,12 +53,12 @@ class ErrorHandlerMiddleware(BaseHTTPMiddleware):
                     StarletteIntegration(),
                     FastApiIntegration(),
                 ],
-                traces_sample_rate=0.1,  # 10% of transactions
+                traces_sample_rate=0.1,
                 profiles_sample_rate=0.1,
                 environment="production",
             )
             self._sentry_initialized = True
-            logger.info("Sentry error tracking initialized")
+            logger.info("Sentry error tracking initialized (fallback)")
         except ImportError:
             logger.warning("Sentry SDK not installed. Error tracking disabled.")
         except Exception as e:

@@ -1,6 +1,6 @@
 # PRD-004: FastAPI on Railway
 
-**Status:** Specified
+**Status:** Done
 **Complexity:** Medium
 **Target:** Week 2
 **Dependencies:** PRD-002 (Supabase schema — DATABASE_URL)
