@@ -50,7 +50,7 @@ Users → Vercel (Next.js 15 SSR + BFF) → Railway (FastAPI + Celery) → Supab
 - [x] `.claude/skills/` — reusable workflows (new-feature, tdd, review, report, status, deploy, fix-issue)
 - [x] PRD-001 through PRD-007: Phase 1 infrastructure migration specifications
 
-## Phase 1: Infrastructure Migration (Weeks 1-4) — Current
+## Phase 1: Infrastructure Migration (Weeks 1-4) — Complete
 
 | PRD | Title | Status | Complexity | Target | Dependencies |
 |-----|-------|--------|-----------|--------|-------------|
@@ -61,7 +61,7 @@ Users → Vercel (Next.js 15 SSR + BFF) → Railway (FastAPI + Celery) → Supab
 | 005 | [Supabase Storage](prds/005-supabase-storage.md) | **Done** | Low-Med | Week 3 | 002, 004 |
 | 006 | [Sentry integration](prds/006-sentry-integration.md) | **Done** | Low | Week 2 | 001, 004 |
 | 007 | [OpenAPI → Hey API type bridge](prds/007-openapi-heyapi-type-bridge.md) | **Done** | Medium | Week 4 | 001, 004 |
-| 008 | [v1 Frontend → v2 Infra Bridge](prds/008-v1-frontend-v2-infra-bridge.md) | Specified | Medium | Week 4 | 003, 004, 005, 006 |
+| 008 | [v1 Frontend → v2 Infra Bridge](prds/008-v1-frontend-v2-infra-bridge.md) | **Done** | Medium | Week 4 | 003, 004, 005, 006 |
 
 **Execution order:**
 - Week 1: PRD-001 + PRD-002 (parallel — zero dependencies)
