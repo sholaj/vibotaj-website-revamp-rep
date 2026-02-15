@@ -4,6 +4,15 @@ All notable changes to the TraceHub platform are documented in this file.
 
 ## [Unreleased]
 
+### User Management
+
+**Database:**
+- Migration `20260120_0002_delete_shola_jibodu_hages.py` - Delete user shola.jibodu@gmail.com from Hages organization
+  - Removes user from production and staging environments
+  - Deletes organization memberships
+  - Anonymizes audit log references
+  - Idempotent migration (safe to run multiple times)
+
 ### Sprint 12: BoL Parsing & Compliance Engine
 
 **New Features:**
