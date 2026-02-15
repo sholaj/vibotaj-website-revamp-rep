@@ -49,6 +49,9 @@ class Settings(BaseSettings):
     ocr_timeout: int = 30  # Timeout per page in seconds
     ocr_language: str = "eng"  # Tesseract language code
 
+    # Monitoring
+    sentry_dsn: str = ""  # Sentry DSN — empty disables Sentry
+
     # CORS
     cors_origins: list[str] = ["http://localhost:3000", "http://localhost:5173", "http://localhost:5174"]
 

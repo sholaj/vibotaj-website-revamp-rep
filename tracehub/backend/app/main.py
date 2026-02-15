@@ -13,7 +13,7 @@ from .config import get_settings
 from .database import engine, Base, get_db, SessionLocal
 from .routers import shipments, documents, tracking, webhooks, auth, notifications, users
 from .routers import analytics, audit, eudr, organizations, invitations, document_validation
-from .middleware import RequestTrackingMiddleware, RateLimitMiddleware, ErrorHandlerMiddleware
+from .middleware import RequestTrackingMiddleware, RateLimitMiddleware, ErrorHandlerMiddleware, RLSContextMiddleware
 from .models import ContainerEvent, Shipment, Product
 from .services.entity_factory import create_product
 
@@ -185,8 +185,11 @@ async def lifespan(app: FastAPI):
     # Ensure Horn & Hoof shipments have products (for EUDR exemption)
     ensure_horn_hoof_products()
 
-    # Auto-seed database if no users exist (for fresh deployments)
-    auto_seed_if_empty()
+    # Auto-seed database if no users exist (skip in production)
+    if settings.environment != "production":
+        auto_seed_if_empty()
+    else:
+        logger.info("Skipping auto-seed (production environment)")
 
     # Initialize AI document classifier and log status
     try:
@@ -250,7 +253,7 @@ Use the `/api/auth/login` endpoint to obtain a token.
 # Error handling middleware (outermost)
 app.add_middleware(
     ErrorHandlerMiddleware,
-    sentry_dsn=None,  # Set SENTRY_DSN env var when ready
+    sentry_dsn=settings.sentry_dsn or None,
 )
 
 # Rate limiting
@@ -266,13 +269,22 @@ app.add_middleware(
     }
 )
 
+# RLS context (sets PostgreSQL session variables for Supabase RLS)
+app.add_middleware(RLSContextMiddleware)
+
 # Request tracking (adds request IDs and timing)
 app.add_middleware(RequestTrackingMiddleware)
 
-# CORS middleware
+# CORS middleware — includes Vercel preview deploy pattern
+_cors_origins = [
+    *settings.cors_origins,
+    "https://tracehub-v2.vercel.app",
+    "https://tracehub.vibotaj.com",
+]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.cors_origins,
+    allow_origins=_cors_origins,
+    allow_origin_regex=r"https://tracehub-v2-.*\.vercel\.app",  # Preview deploys
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -375,6 +387,7 @@ async def health_check():
         "status": overall_status,
         "timestamp": datetime.utcnow().isoformat(),
         "version": "0.2.0",
+        "environment": settings.environment,
         "components": {
             "api": {
                 "status": "healthy",
