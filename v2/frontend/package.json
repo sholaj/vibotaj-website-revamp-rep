@@ -9,11 +9,14 @@
     "lint": "eslint",
     "format": "prettier --write \"src/**/*.{ts,tsx,css}\"",
     "format:check": "prettier --check \"src/**/*.{ts,tsx,css}\"",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "generate-api": "openapi-ts"
   },
   "dependencies": {
+    "@hey-api/client-fetch": "0.13.1",
     "@propelauth/nextjs": "^0.3.16",
     "@sentry/nextjs": "^10.38.0",
+    "@tanstack/react-query": "5.90.21",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "lucide-react": "^0.564.0",
@@ -21,9 +24,11 @@
     "radix-ui": "^1.4.3",
     "react": "19.2.3",
     "react-dom": "19.2.3",
-    "tailwind-merge": "^3.4.1"
+    "tailwind-merge": "^3.4.1",
+    "zod": "4.3.6"
   },
   "devDependencies": {
+    "@hey-api/openapi-ts": "0.92.4",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",

@@ -1,0 +1,73 @@
+name: Generate API Client
+
+on:
+  push:
+    paths:
+      - "tracehub/backend/app/schemas/**"
+      - "tracehub/backend/app/routers/**"
+      - "tracehub/backend/app/main.py"
+    branches: [main]
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install backend dependencies
+        run: |
+          cd tracehub/backend
+          pip install -r requirements.txt
+
+      - name: Start FastAPI server
+        run: |
+          cd tracehub/backend
+          uvicorn app.main:app --host 0.0.0.0 --port 8000 &
+          # Wait for server to be ready
+          for i in $(seq 1 30); do
+            curl -sf http://localhost:8000/health && break || sleep 1
+          done
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          ENVIRONMENT: ci
+
+      - name: Save OpenAPI spec
+        run: |
+          curl -sf http://localhost:8000/openapi.json > v2/frontend/openapi.json
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install frontend dependencies
+        run: |
+          cd v2/frontend
+          npm ci
+
+      - name: Generate API client
+        run: |
+          cd v2/frontend
+          OPENAPI_URL=./openapi.json npx @hey-api/openapi-ts
+
+      - name: Check for changes
+        id: diff
+        run: |
+          git diff --exit-code v2/frontend/src/lib/api/generated/ || echo "changed=true" >> $GITHUB_OUTPUT
+
+      - name: Commit regenerated client
+        if: steps.diff.outputs.changed == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add v2/frontend/src/lib/api/generated/
+          git commit -m "chore(api): regenerate TypeScript client from OpenAPI spec"
+          git push
