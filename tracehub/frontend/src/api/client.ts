@@ -211,31 +211,22 @@ export class NetworkError extends ApiClientError {
 }
 
 // ============================================
-// Token Management
+// Token Management — PropelAuth (PRD-008)
 // ============================================
+// v1 JWT localStorage tokens replaced by PropelAuth SDK tokens.
+// Token retrieval is async via auth-bridge.ts.
 
-const TOKEN_KEY = 'tracehub_token'
-const TOKEN_EXPIRY_KEY = 'tracehub_token_expiry'
+import { getAccessToken } from './auth-bridge'
 
-function getStoredToken(): string | null {
-  return localStorage.getItem(TOKEN_KEY)
-}
+// Keep a synchronous cache of the last-known token for the interceptor.
+// Updated by the async token refresh in the response interceptor.
+let _cachedToken: string | null = null
 
-function setStoredToken(token: string, expiresInHours: number = 24): void {
-  const expiry = Date.now() + expiresInHours * 60 * 60 * 1000
-  localStorage.setItem(TOKEN_KEY, token)
-  localStorage.setItem(TOKEN_EXPIRY_KEY, expiry.toString())
-}
-
-function clearStoredToken(): void {
-  localStorage.removeItem(TOKEN_KEY)
-  localStorage.removeItem(TOKEN_EXPIRY_KEY)
-}
-
-function isTokenExpired(): boolean {
-  const expiry = localStorage.getItem(TOKEN_EXPIRY_KEY)
-  if (!expiry) return true
-  return Date.now() > parseInt(expiry, 10)
+/**
+ * Update the cached token (called from AuthContext on PropelAuth state change).
+ */
+export function setCachedToken(token: string | null): void {
+  _cachedToken = token
 }
 
 // ============================================
@@ -287,12 +278,11 @@ class ApiClient {
   }
 
   private setupInterceptors(): void {
-    // Request interceptor - add auth token
+    // Request interceptor - add PropelAuth token (PRD-008)
     this.client.interceptors.request.use(
       (config: InternalAxiosRequestConfig) => {
-        const token = getStoredToken()
-        if (token && !isTokenExpired()) {
-          config.headers.Authorization = `Bearer ${token}`
+        if (_cachedToken) {
+          config.headers.Authorization = `Bearer ${_cachedToken}`
         }
 
         // Log request in development
@@ -319,15 +309,22 @@ class ApiClient {
       async (error: AxiosError<ApiError>) => {
         const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean }
 
-        // Handle 401 - Unauthorized
+        // Handle 401 - Unauthorized (PropelAuth token expired/invalid)
         if (error.response?.status === 401 && !originalRequest._retry) {
-          // Token expired or invalid - clear and redirect
-          clearStoredToken()
+          _cachedToken = null
           this.cache.invalidate()
 
-          // Redirect to login if not already there
-          if (window.location.pathname !== '/login') {
-            window.location.href = '/login'
+          // Try to refresh the PropelAuth token asynchronously
+          try {
+            const newToken = await getAccessToken()
+            if (newToken) {
+              _cachedToken = newToken
+              originalRequest._retry = true
+              originalRequest.headers.Authorization = `Bearer ${newToken}`
+              return this.client(originalRequest)
+            }
+          } catch {
+            // Token refresh failed — PropelAuth will handle redirect
           }
 
           return Promise.reject(new AuthenticationError())
@@ -409,23 +406,17 @@ class ApiClient {
   // Authentication Methods
   // ============================================
 
-  async login(credentials: LoginRequest): Promise<LoginResponse> {
-    // OAuth2 password flow requires form data
-    const formData = new URLSearchParams()
-    formData.append('username', credentials.username)
-    formData.append('password', credentials.password)
-
-    const response = await this.client.post<LoginResponse>('auth/login', formData, {
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    })
-
-    // Store token with 24 hour expiry (matches backend JWT_EXPIRATION_HOURS)
-    setStoredToken(response.data.access_token, 24)
-
-    // Clear any cached data on new login
-    this.cache.invalidate()
-
-    return response.data
+  /**
+   * Login is now handled by PropelAuth (redirect-based).
+   * This method is kept for backward compatibility but is a no-op.
+   * The token comes from PropelAuth SDK, not from this endpoint.
+   *
+   * @deprecated Use PropelAuth login flow instead (PRD-008)
+   */
+  async login(_credentials: LoginRequest): Promise<LoginResponse> {
+    throw new Error(
+      'Direct login is disabled. Use PropelAuth login flow instead.'
+    )
   }
 
   async getCurrentUser(): Promise<User> {
@@ -450,12 +441,12 @@ class ApiClient {
   }
 
   logout(): void {
-    clearStoredToken()
+    _cachedToken = null
     this.cache.invalidate()
   }
 
   isAuthenticated(): boolean {
-    return !!getStoredToken() && !isTokenExpired()
+    return !!_cachedToken
   }
 
   // ============================================
@@ -696,7 +687,21 @@ class ApiClient {
     return response.data
   }
 
-  async downloadDocument(documentId: string): Promise<Blob> {
+  /**
+   * Download a document. Returns a signed URL (Supabase Storage) or falls back to blob.
+   * PRD-008: Updated for Supabase Storage signed URLs.
+   */
+  async downloadDocument(documentId: string): Promise<string | Blob> {
+    // Try JSON response first (signed URL from Supabase Storage)
+    try {
+      const response = await this.client.get(`documents/${documentId}/download`)
+      if (response.data?.url) {
+        return response.data.url as string
+      }
+    } catch {
+      // Fall through to blob download
+    }
+    // Fallback: blob download (v1 local file storage)
     const response = await this.client.get(`documents/${documentId}/download`, {
       responseType: 'blob',
     })
@@ -1168,7 +1173,19 @@ class ApiClient {
   // Audit Pack Methods
   // ============================================
 
-  async downloadAuditPack(shipmentId: string): Promise<Blob> {
+  /**
+   * Download audit pack. Returns signed URL or blob.
+   * PRD-008: Updated for Supabase Storage signed URLs.
+   */
+  async downloadAuditPack(shipmentId: string): Promise<string | Blob> {
+    try {
+      const response = await this.client.get(`shipments/${shipmentId}/audit-pack`)
+      if (response.data?.url) {
+        return response.data.url as string
+      }
+    } catch {
+      // Fall through to blob download
+    }
     const response = await this.client.get(`shipments/${shipmentId}/audit-pack`, {
       responseType: 'blob',
     })
@@ -1335,7 +1352,19 @@ class ApiClient {
   /**
    * Download EUDR report as PDF
    */
-  async downloadEUDRReport(shipmentId: string): Promise<Blob> {
+  /**
+   * Download EUDR report as PDF. Returns signed URL or blob.
+   * PRD-008: Updated for Supabase Storage signed URLs.
+   */
+  async downloadEUDRReport(shipmentId: string): Promise<string | Blob> {
+    try {
+      const response = await this.client.get(`eudr/shipment/${shipmentId}/report?format=pdf`)
+      if (response.data?.url) {
+        return response.data.url as string
+      }
+    } catch {
+      // Fall through to blob download
+    }
     const response = await this.client.get(`eudr/shipment/${shipmentId}/report?format=pdf`, {
       responseType: 'blob',
     })
@@ -1657,9 +1686,9 @@ class ApiClient {
       }
     )
 
-    // If new user with access token, store it for auto-login
+    // If new user with access token, update cached token for auto-login
     if (response.data.access_token) {
-      setStoredToken(response.data.access_token, 24)
+      setCachedToken(response.data.access_token)
       this.cache.invalidate()
     }
 
@@ -1773,4 +1802,4 @@ export const api = new ApiClient()
 export default api
 
 // Also export for testing/mocking
-export { ApiClient, getStoredToken, setStoredToken, clearStoredToken, isTokenExpired }
+export { ApiClient }

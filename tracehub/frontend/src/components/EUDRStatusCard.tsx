@@ -153,17 +153,22 @@ export default function EUDRStatusCard({
     setIsDownloading(true)
 
     try {
-      const blob = await api.downloadEUDRReport(shipmentId)
+      const result = await api.downloadEUDRReport(shipmentId)
 
-      // Create download link
-      const url = window.URL.createObjectURL(blob)
-      const link = document.createElement('a')
-      link.href = url
-      link.download = `EUDR-Report-${shipmentId}.pdf`
-      document.body.appendChild(link)
-      link.click()
-      document.body.removeChild(link)
-      window.URL.revokeObjectURL(url)
+      if (typeof result === 'string') {
+        // Signed URL — open in new tab
+        window.open(result, '_blank')
+      } else {
+        // Blob — download directly
+        const url = window.URL.createObjectURL(result)
+        const link = document.createElement('a')
+        link.href = url
+        link.download = `EUDR-Report-${shipmentId}.pdf`
+        document.body.appendChild(link)
+        link.click()
+        document.body.removeChild(link)
+        window.URL.revokeObjectURL(url)
+      }
     } catch (err) {
       console.error('Failed to download report:', err)
       setError('Failed to download report')

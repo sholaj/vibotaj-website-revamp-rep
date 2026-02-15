@@ -1,15 +1,16 @@
 /**
- * Authentication Context
+ * Authentication Context — PropelAuth Bridge (PRD-008)
  *
- * Provides authentication state and role-based access control throughout the app.
- * Includes:
- * - User state management
- * - Role and permission checking
- * - Login/logout handling
+ * Same interface as v1 AuthContext, but powered by PropelAuth.
+ * - PropelAuth manages login/logout (redirect-based)
+ * - User details hydrated from backend /auth/me/full
+ * - Permission/role helpers unchanged
  */
 
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react'
-import api from '../api/client'
+import { useAuthInfo, useLogoutFunction, useRedirectFunctions } from '@propelauth/react'
+import api, { setCachedToken } from '../api/client'
+import { setAccessTokenFn, clearLegacyTokens } from '../api/auth-bridge'
 import type { CurrentUser, UserRole, OrgRole, OrganizationType, OrgPermission } from '../types'
 
 // Permission definitions aligned with backend
@@ -88,68 +89,91 @@ interface AuthProviderProps {
 }
 
 export function AuthProvider({ children }: AuthProviderProps) {
+  const propelAuth = useAuthInfo()
+  const propelLogout = useLogoutFunction()
+  const { redirectToLoginPage } = useRedirectFunctions()
   const [user, setUser] = useState<CurrentUser | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  // Fetch full user details including permissions
-  const fetchUserDetails = useCallback(async () => {
-    try {
-      const userDetails = await api.getCurrentUserFull()
-      setUser(userDetails)
-      setError(null)
-      return true
-    } catch (err) {
-      console.error('Failed to fetch user details:', err)
-      setUser(null)
-      return false
-    }
+  // Clean up v1 JWT tokens on first load
+  useEffect(() => {
+    clearLegacyTokens()
   }, [])
 
-  // Verify authentication on mount
+  // Wire PropelAuth token into the auth bridge + API client
   useEffect(() => {
-    const verifyAuth = async () => {
+    if (propelAuth.loading) return
+
+    if (propelAuth.isLoggedIn && propelAuth.accessToken) {
+      // Update cached token for synchronous access in interceptors
+      setCachedToken(propelAuth.accessToken)
+
+      // Set async token accessor for token refresh scenarios
+      setAccessTokenFn(async () => propelAuth.accessToken ?? null)
+    } else {
+      setCachedToken(null)
+      setAccessTokenFn(async () => null)
+    }
+  }, [propelAuth.loading, propelAuth.isLoggedIn, propelAuth.accessToken])
+
+  // Fetch TraceHub user details when PropelAuth is authenticated
+  useEffect(() => {
+    const fetchUserDetails = async () => {
+      if (propelAuth.loading) return
+
+      if (!propelAuth.isLoggedIn) {
+        setUser(null)
+        setIsLoading(false)
+        return
+      }
+
       setIsLoading(true)
       try {
-        if (api.isAuthenticated()) {
-          const isValid = await api.verifyToken()
-          if (isValid) {
-            await fetchUserDetails()
-          } else {
-            api.logout()
-          }
-        }
+        const userDetails = await api.getCurrentUserFull()
+        setUser(userDetails)
+        setError(null)
       } catch (err) {
-        console.error('Auth verification failed:', err)
-        if (api.isAuthenticated()) {
-          setError('Session expired. Please log in again.')
-          api.logout()
-        }
+        console.error('Failed to fetch user details:', err)
+        setUser(null)
+        setError('Failed to load user profile. Please try again.')
       } finally {
         setIsLoading(false)
       }
     }
 
-    verifyAuth()
-  }, [fetchUserDetails])
+    fetchUserDetails()
+  }, [propelAuth.loading, propelAuth.isLoggedIn, propelAuth.accessToken])
 
-  const login = useCallback(async (_token: string) => {
-    // Token is already stored by api.login()
-    await fetchUserDetails()
-    setError(null)
-  }, [fetchUserDetails])
+  // Login: redirect to PropelAuth hosted login page
+  const login = useCallback((_token: string) => {
+    redirectToLoginPage()
+  }, [redirectToLoginPage])
 
-  const logout = useCallback(() => {
+  // Logout: PropelAuth SDK + clear local state
+  const logout = useCallback(async () => {
+    try {
+      await propelLogout(false) // false = don't redirect
+    } catch {
+      // PropelAuth logout may fail if already logged out
+    }
+    setCachedToken(null)
     api.logout()
     setUser(null)
     setError(null)
-  }, [])
+  }, [propelLogout])
 
   const refreshUser = useCallback(async () => {
-    await fetchUserDetails()
-  }, [fetchUserDetails])
+    try {
+      const userDetails = await api.getCurrentUserFull()
+      setUser(userDetails)
+      setError(null)
+    } catch (err) {
+      console.error('Failed to refresh user:', err)
+    }
+  }, [])
 
-  // Permission checking functions
+  // Permission checking functions (unchanged from v1)
   const hasPermission = useCallback((permission: PermissionKey): boolean => {
     if (!user) return false
     return user.permissions.includes(permission)
@@ -209,8 +233,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   const value: AuthContextType = {
     user,
-    isAuthenticated: !!user,
-    isLoading,
+    isAuthenticated: propelAuth.isLoggedIn === true && !!user,
+    isLoading: propelAuth.loading || isLoading,
     error,
     login,
     logout,

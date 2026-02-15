@@ -21,6 +21,8 @@
     "e2e:headed": "playwright test --headed"
   },
   "dependencies": {
+    "@propelauth/react": "^2.1.0",
+    "@sentry/react": "^10.38.0",
     "axios": "^1.6.2",
     "date-fns": "^3.0.6",
     "lucide-react": "^0.303.0",

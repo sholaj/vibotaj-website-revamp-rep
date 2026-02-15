@@ -221,17 +221,22 @@ export default function Shipment() {
     setIsDownloading(true)
 
     try {
-      const blob = await api.downloadAuditPack(id)
+      const result = await api.downloadAuditPack(id)
 
-      // Create download link
-      const url = window.URL.createObjectURL(blob)
-      const link = document.createElement('a')
-      link.href = url
-      link.download = `${shipment.reference}-audit-pack.zip`
-      document.body.appendChild(link)
-      link.click()
-      document.body.removeChild(link)
-      window.URL.revokeObjectURL(url)
+      if (typeof result === 'string') {
+        // Signed URL — open in new tab
+        window.open(result, '_blank')
+      } else {
+        // Blob — download directly
+        const url = window.URL.createObjectURL(result)
+        const link = document.createElement('a')
+        link.href = url
+        link.download = `${shipment.reference}-audit-pack.zip`
+        document.body.appendChild(link)
+        link.click()
+        document.body.removeChild(link)
+        window.URL.revokeObjectURL(url)
+      }
     } catch (err) {
       console.error('Failed to download audit pack:', err)
       // Could show a toast notification here

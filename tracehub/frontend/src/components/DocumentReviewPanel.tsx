@@ -184,15 +184,21 @@ export default function DocumentReviewPanel({
 
   const handleDownload = async () => {
     try {
-      const blob = await api.downloadDocument(document.id)
-      const url = URL.createObjectURL(blob)
-      const a = window.document.createElement('a')
-      a.href = url
-      a.download = document.file_name || document.name
-      window.document.body.appendChild(a)
-      a.click()
-      window.document.body.removeChild(a)
-      URL.revokeObjectURL(url)
+      const result = await api.downloadDocument(document.id)
+      if (typeof result === 'string') {
+        // Signed URL from Supabase Storage — open in new tab
+        window.open(result, '_blank')
+      } else {
+        // Blob from v1 local storage — download directly
+        const url = URL.createObjectURL(result)
+        const a = window.document.createElement('a')
+        a.href = url
+        a.download = document.file_name || document.name
+        window.document.body.appendChild(a)
+        a.click()
+        window.document.body.removeChild(a)
+        URL.revokeObjectURL(url)
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to download document')
     }

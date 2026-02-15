@@ -1,22 +1,20 @@
 /**
- * TraceHub Application Root Component
+ * TraceHub Application Root Component — PRD-008 v2 Infrastructure Bridge
  *
- * Implements:
- * - Protected route handling with role-based access
- * - Token validation on app load
- * - Proper authentication state management
- * - Permission-based UI rendering
- * - Code splitting with React.lazy() for bundle optimization (FE-002)
+ * Changes from v1:
+ * - Login is handled by PropelAuth (redirect to hosted page)
+ * - ProtectedRoute uses PropelAuth + AuthContext (same interface)
+ * - No login form — unauthenticated users are redirected to PropelAuth
+ * - Code splitting preserved for all page components
  */
 
-import { Routes, Route, Navigate, useLocation } from 'react-router-dom'
+import { Routes, Route, Navigate } from 'react-router-dom'
 import { lazy, Suspense, type ReactNode } from 'react'
+import { useRedirectFunctions } from '@propelauth/react'
 import Layout from './components/Layout'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
 
 // Lazy-loaded page components for code splitting (FE-002)
-// Each page is split into a separate chunk, loaded on demand
-const Login = lazy(() => import('./pages/Login'))
 const Dashboard = lazy(() => import('./pages/Dashboard'))
 const Shipment = lazy(() => import('./pages/Shipment'))
 const Analytics = lazy(() => import('./pages/Analytics'))
@@ -64,18 +62,19 @@ function AuthError({ message, onRetry }: { message: string; onRetry: () => void 
   )
 }
 
-// Protected route wrapper that uses AuthContext
+// Protected route wrapper — redirects to PropelAuth login if unauthenticated
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isLoading } = useAuth()
-  const location = useLocation()
+  const { redirectToLoginPage } = useRedirectFunctions()
 
   if (isLoading) {
     return <LoadingSpinner />
   }
 
   if (!isAuthenticated) {
-    // Redirect to login, preserving the intended destination
-    return <Navigate to="/login" state={{ from: location }} replace />
+    // Redirect to PropelAuth hosted login page
+    redirectToLoginPage()
+    return <LoadingSpinner />
   }
 
   return <>{children}</>
@@ -83,12 +82,7 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 
 // Inner app component that uses auth context
 function AppRoutes() {
-  const { isAuthenticated, isLoading, error, login, logout, refreshUser } = useAuth()
-
-  // Handle successful login
-  const handleLogin = async (token: string) => {
-    await login(token)
-  }
+  const { isAuthenticated, isLoading, error, logout, refreshUser } = useAuth()
 
   // Handle logout
   const handleLogout = () => {
@@ -112,22 +106,21 @@ function AppRoutes() {
 
   return (
     <Routes>
-      {/* Login route - redirect to dashboard if already authenticated */}
+      {/* Public invitation acceptance route */}
+      <Route path="/accept-invitation/:token" element={<PageSuspense><AcceptInvitation /></PageSuspense>} />
+
+      {/* Login route — redirect to PropelAuth or dashboard */}
       <Route
         path="/login"
         element={
           isAuthenticated ? (
             <Navigate to="/dashboard" replace />
           ) : (
-            <PageSuspense>
-              <Login onLogin={handleLogin} />
-            </PageSuspense>
+            // PropelAuth handles login — redirect there
+            <LoginRedirect />
           )
         }
       />
-
-      {/* Public invitation acceptance route */}
-      <Route path="/accept-invitation/:token" element={<PageSuspense><AcceptInvitation /></PageSuspense>} />
 
       {/* Protected routes wrapped in Layout */}
       <Route
@@ -157,19 +150,29 @@ function AppRoutes() {
         <Route path="shipment/:id" element={<PageSuspense><Shipment /></PageSuspense>} />
       </Route>
 
-      {/* Catch-all redirect to login or dashboard based on auth state */}
+      {/* Catch-all redirect to dashboard (or PropelAuth login) */}
       <Route
         path="*"
         element={
           isAuthenticated ? (
             <Navigate to="/dashboard" replace />
           ) : (
-            <Navigate to="/login" replace />
+            <LoginRedirect />
           )
         }
       />
     </Routes>
   )
+}
+
+/**
+ * Component that redirects to PropelAuth login page.
+ * Used instead of rendering the v1 login form.
+ */
+function LoginRedirect() {
+  const { redirectToLoginPage } = useRedirectFunctions()
+  redirectToLoginPage()
+  return <LoadingSpinner />
 }
 
 // Main App component wrapped in AuthProvider
