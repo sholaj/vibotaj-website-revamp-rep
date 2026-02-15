@@ -2,8 +2,8 @@
 
 > Container tracking and documentation compliance platform for agro-export operations, designed to give German buyers and African suppliers complete shipment visibility and audit-ready records.
 
-[![Project Status](https://img.shields.io/badge/status-POC%20Development-yellow)]()
-[![Phase](https://img.shields.io/badge/phase-Single%20Shipment%20POC-blue)]()
+[![Project Status](https://img.shields.io/badge/status-v2%20Migration-blue)]()
+[![Phase](https://img.shields.io/badge/phase-Phase%201%20Infrastructure-green)]()
 
 ---
 
@@ -250,19 +250,51 @@ git checkout -b feature/tracehub-backend
 
 ---
 
+## v2 Migration (Current)
+
+v1 is production-deployed on Hostinger VPS (14 sprints). v2 migrates to a managed stack:
+
+| Layer | v1 (Current) | v2 (Target) |
+|-------|-------------|-------------|
+| Frontend | React 18 + Vite (Docker/Nginx) | Next.js 15 + Tailwind v4 + Shadcn (Vercel) |
+| Backend | FastAPI (Docker on Hostinger) | FastAPI (Railway) |
+| Database | PostgreSQL 15 (Docker) | Supabase (Postgres + RLS) |
+| Auth | Custom JWT (python-jose) | PropelAuth |
+| Storage | Local disk (`./uploads/`) | Supabase Storage |
+| Monitoring | Basic logging | Sentry |
+| Type Bridge | Manual Axios client (1,777 lines) | OpenAPI + Hey API (auto-generated) |
+
+**Phase 1 Progress (PRDs 001-008):**
+- [x] PRD-001: Next.js 15 scaffold + Vercel config
+- [ ] PRD-002: Supabase schema + RLS (15 tables, 12 enums)
+- [ ] PRD-003: PropelAuth integration (6 system roles, 4 org roles)
+- [ ] PRD-004: FastAPI on Railway
+- [ ] PRD-005: Supabase Storage for documents
+- [ ] PRD-006: Sentry integration
+- [ ] PRD-007: OpenAPI to Hey API type bridge
+- [ ] PRD-008: v1 frontend to v2 infra bridge
+
+See [docs/PLAN.md](docs/PLAN.md) for full roadmap (25 PRDs across 4 phases).
+
+---
+
 ## Infrastructure
 
-**Current Setup**:
+**v1 (Hostinger VPS)**:
 - Domain Management: Squarespace DNS
-- Web Hosting: Hostinger
-- CMS: WordPress 6.4.7 + WooCommerce 8.7.2
-- PHP: 8.1.33
+- Web Hosting: Hostinger VPS (82.198.225.150)
+- Backend: FastAPI + SQLAlchemy + Alembic (Docker)
+- Database: PostgreSQL 15 (Docker)
+- Container Tracking: JSONCargo API
+- File Storage: Local disk
 
-**TraceHub Backend** (POC):
-- Runtime: Node.js 20 or Python 3.11
-- Database: PostgreSQL 15
-- Container Tracking: ShipsGo API
-- File Storage: Local (POC) / S3 (Production)
+**v2 (Managed Stack)**:
+- Frontend: Vercel (Next.js 15)
+- Backend: Railway (FastAPI)
+- Database: Supabase (PostgreSQL + RLS + Realtime)
+- Auth: PropelAuth
+- Storage: Supabase Storage
+- Monitoring: Sentry
 
 ---
 
@@ -281,5 +313,5 @@ Website: https://vibotaj.com
 
 ---
 
-**Last Updated:** January 2, 2026
-**Current Branch:** `feature/security-setup`
+**Last Updated:** February 15, 2026
+**Current Phase:** Phase 1 — Infrastructure Migration

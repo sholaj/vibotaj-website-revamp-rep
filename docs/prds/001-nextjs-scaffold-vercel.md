@@ -1,6 +1,6 @@
 # PRD-001: Next.js 15 Scaffold + Vercel Deployment
 
-**Status:** Specified
+**Status:** Done
 **Complexity:** Medium
 **Target:** Week 1
 **Dependencies:** None
