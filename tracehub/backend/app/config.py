@@ -45,6 +45,11 @@ class Settings(BaseSettings):
     # File Storage
     upload_dir: str = "./uploads"
     max_upload_size_mb: int = 50
+    storage_backend: str = "local"  # "local" or "supabase"
+
+    # Supabase Storage (PRD-005) — empty disables Supabase storage
+    supabase_url: str = ""
+    supabase_service_key: str = ""  # Service role key (bypasses RLS for server-side ops)
 
     # OCR Settings
     tesseract_cmd: str = ""  # Path to tesseract executable (leave empty to use system PATH)

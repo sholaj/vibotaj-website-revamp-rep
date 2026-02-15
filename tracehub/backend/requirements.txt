@@ -35,6 +35,9 @@ Pillow>=10.0.0
 # AI Classification (optional - for document type detection)
 anthropic>=0.40.0
 
+# Supabase Storage (PRD-005)
+supabase>=2.0.0
+
 # Monitoring
 sentry-sdk[fastapi]>=2.0.0
 
