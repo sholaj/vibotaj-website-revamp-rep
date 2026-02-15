@@ -184,6 +184,8 @@ logs/
 # DATABASE
 # ===========================================
 *.sql
+!v2/supabase/migrations/*.sql
+!v2/supabase/seed.sql
 *.sql.gz
 *.sqlite
 *.sqlite3

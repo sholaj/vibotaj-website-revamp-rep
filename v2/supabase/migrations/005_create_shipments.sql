@@ -1,0 +1,37 @@
+-- PRD-002: shipments table
+
+CREATE TABLE shipments (
+  id                          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  reference                   varchar(50) NOT NULL,
+  container_number            varchar(20),
+  bl_number                   varchar(50),
+  booking_ref                 varchar(50),
+  vessel_name                 varchar(100),
+  voyage_number               varchar(50),
+  carrier_code                varchar(10),
+  carrier_name                varchar(100),
+  etd                         timestamptz,
+  eta                         timestamptz,
+  atd                         timestamptz,
+  ata                         timestamptz,
+  pol_code                    varchar(5),
+  pol_name                    varchar(100),
+  pod_code                    varchar(5),
+  pod_name                    varchar(100),
+  incoterms                   varchar(10),
+  status                      shipmentstatus NOT NULL DEFAULT 'draft',
+  product_type                producttype,
+  exporter_name               varchar(255),
+  importer_name               varchar(255),
+  eudr_compliant              boolean DEFAULT false,
+  eudr_statement_id           varchar(100),
+  validation_override_reason  varchar(500),
+  validation_override_by      varchar(255),
+  validation_override_at      timestamptz,
+  organization_id             uuid NOT NULL REFERENCES organizations(id),
+  buyer_organization_id       uuid REFERENCES organizations(id),
+  created_at                  timestamptz DEFAULT now(),
+  updated_at                  timestamptz DEFAULT now(),
+
+  CONSTRAINT uq_shipment_org_reference UNIQUE (organization_id, reference)
+);

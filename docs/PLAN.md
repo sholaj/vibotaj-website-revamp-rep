@@ -55,7 +55,7 @@ Users → Vercel (Next.js 15 SSR + BFF) → Railway (FastAPI + Celery) → Supab
 | PRD | Title | Status | Complexity | Target | Dependencies |
 |-----|-------|--------|-----------|--------|-------------|
 | 001 | [Next.js 15 scaffold + Vercel](prds/001-nextjs-scaffold-vercel.md) | **Done** | Medium | Week 1 | None |
-| 002 | [Supabase schema + RLS](prds/002-supabase-schema-rls.md) | Specified | High | Week 1 | None |
+| 002 | [Supabase schema + RLS](prds/002-supabase-schema-rls.md) | **Done** | High | Week 1 | None |
 | 003 | [PropelAuth integration](prds/003-propelauth-integration.md) | Specified | High | Week 3 | 001, 002 |
 | 004 | [FastAPI on Railway](prds/004-fastapi-railway.md) | Specified | Medium | Week 2 | 002 |
 | 005 | [Supabase Storage](prds/005-supabase-storage.md) | Specified | Low-Med | Week 3 | 002, 004 |

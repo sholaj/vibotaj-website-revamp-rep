@@ -1,6 +1,6 @@
 # PRD-002: Supabase Setup + Schema Migration + RLS
 
-**Status:** Specified
+**Status:** Done
 **Complexity:** High
 **Target:** Week 1
 **Dependencies:** None

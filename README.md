@@ -266,7 +266,7 @@ v1 is production-deployed on Hostinger VPS (14 sprints). v2 migrates to a manage
 
 **Phase 1 Progress (PRDs 001-008):**
 - [x] PRD-001: Next.js 15 scaffold + Vercel config
-- [ ] PRD-002: Supabase schema + RLS (15 tables, 12 enums)
+- [x] PRD-002: Supabase schema + RLS (15 tables, 12 enums, 38 indexes, 30 RLS policies)
 - [ ] PRD-003: PropelAuth integration (6 system roles, 4 org roles)
 - [ ] PRD-004: FastAPI on Railway
 - [ ] PRD-005: Supabase Storage for documents
