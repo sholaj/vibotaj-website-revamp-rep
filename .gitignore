@@ -12,10 +12,10 @@
 # Hidden secrets directory
 .secrets/
 
-# Claude AI agents (local only) - but allow commands directory
+# Claude AI agents (local only)
 .claude/agents/
-.claude/skills/
-# Note: .claude/commands/ is committed for development workflow
+.claude/skills/senior-devops/
+# Note: .claude/commands/ and .claude/rules/ are committed for team workflow
 
 # MCP configuration (contains API tokens)
 .mcp.json
