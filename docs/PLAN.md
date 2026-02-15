@@ -1,8 +1,8 @@
 # TraceHub v2 — Living Plan
 
 ## Current Phase
-**Phase: 0 — Foundation**
-**Focus: Project scaffolding, AI orchestration, migration preparation**
+**Phase: 1 — Infrastructure Migration**
+**Focus: Next.js scaffold, Supabase schema + RLS, Railway deployment, auth, monitoring, type bridge**
 
 ## v1 Status (Sprints 1-14 — Complete)
 
@@ -42,27 +42,31 @@ Users → Vercel (Next.js 15 SSR + BFF) → Railway (FastAPI + Celery) → Supab
 
 ---
 
-## Phase 0: Foundation (Current)
+## Phase 0: Foundation (Complete)
 
 - [x] v2 CLAUDE.md — execution rules, stack, git flow
 - [x] v2 PLAN.md — living sprint plan with PRD roadmap
 - [x] `.claude/rules/` — domain rules (multi-tenancy, compliance, security, API, Pydantic, testing)
 - [x] `.claude/skills/` — reusable workflows (new-feature, tdd, review, report, status, deploy, fix-issue)
-- [ ] PRD-001: Next.js 15 scaffold + Vercel config
-- [ ] PRD-002: Supabase project setup + schema migration
-- [ ] PRD-003: PropelAuth integration (replacing custom JWT)
+- [x] PRD-001 through PRD-007: Phase 1 infrastructure migration specifications
 
-## Phase 1: Infrastructure Migration (Weeks 1-4)
+## Phase 1: Infrastructure Migration (Weeks 1-4) — Current
 
-| PRD | Title | Complexity | Target |
-|-----|-------|-----------|--------|
-| 001 | Next.js 15 scaffold + Vercel deployment | Medium | Week 1 |
-| 002 | Supabase setup + PostgreSQL migration + RLS | High | Week 2 |
-| 003 | PropelAuth integration (6 roles, orgs, SAML) | High | Week 3 |
-| 004 | FastAPI on Railway + Celery workers | Medium | Week 3 |
-| 005 | Supabase Storage for document uploads | Low | Week 4 |
-| 006 | Sentry integration (backend + frontend) | Low | Week 4 |
-| 007 | OpenAPI → Hey API type bridge | Medium | Week 4 |
+| PRD | Title | Status | Complexity | Target | Dependencies |
+|-----|-------|--------|-----------|--------|-------------|
+| 001 | [Next.js 15 scaffold + Vercel](prds/001-nextjs-scaffold-vercel.md) | Specified | Medium | Week 1 | None |
+| 002 | [Supabase schema + RLS](prds/002-supabase-schema-rls.md) | Specified | High | Week 1 | None |
+| 003 | [PropelAuth integration](prds/003-propelauth-integration.md) | Specified | High | Week 3 | 001, 002 |
+| 004 | [FastAPI on Railway](prds/004-fastapi-railway.md) | Specified | Medium | Week 2 | 002 |
+| 005 | [Supabase Storage](prds/005-supabase-storage.md) | Specified | Low-Med | Week 3 | 002, 004 |
+| 006 | [Sentry integration](prds/006-sentry-integration.md) | Specified | Low | Week 2 | 001, 004 |
+| 007 | [OpenAPI → Hey API type bridge](prds/007-openapi-heyapi-type-bridge.md) | Specified | Medium | Week 4 | 001, 004 |
+
+**Execution order:**
+- Week 1: PRD-001 + PRD-002 (parallel — zero dependencies)
+- Week 2: PRD-004 + PRD-006 (parallel — Railway needs Supabase DB, Sentry needs both projects)
+- Week 3: PRD-003 + PRD-005 (parallel — PropelAuth needs Next.js + Supabase, Storage needs Railway)
+- Week 4: PRD-007 (needs both Next.js and Railway running)
 
 ## Phase 2: Frontend Rebuild (Weeks 5-8)
 
@@ -99,7 +103,7 @@ Users → Vercel (Next.js 15 SSR + BFF) → Railway (FastAPI + Celery) → Supab
 ---
 
 ## In Progress
-_Phase 0 foundation_
+_Phase 1 Week 1: PRD-001 + PRD-002 ready to begin_
 
 ## Blocked
 _None_
@@ -120,6 +124,9 @@ _None_
 | 2026-02-15 | Shared DB + RLS for multi-tenancy | Defense-in-depth: application-level org_id filtering + database-level RLS |
 | 2026-02-15 | PRD-driven feature branches (iMaintain pattern) | Each feature = numbered PRD + feature branch + TDD + validation + commit |
 | 2026-02-15 | Sentry over Application Insights | Standard for SaaS; error tracking + performance + session replay |
+| 2026-02-15 | Force password reset for PropelAuth migration | v1 bcrypt hashes cannot be imported; cleanest for security |
+| 2026-02-15 | Supabase direct connection (port 5432) for SQLAlchemy | PgBouncer transaction mode (6543) breaks prepared statements |
+| 2026-02-15 | StorageBackend Protocol for file storage | Local dev + Supabase prod; Protocol pattern for dependency injection |
 | Previous | Horn & Hoof (0506/0507) NOT EUDR-covered | Regulatory fact — NEVER add geolocation/deforestation fields |
 | Previous | Custom JWT auth (v1) | Sufficient for POC; replaced by PropelAuth in v2 |
 | Previous | Hostinger VPS (v1) | Cheapest option for POC; replaced by Vercel + Railway in v2 |
@@ -137,9 +144,11 @@ _None_
 - Real shipments: Nigeria (Apapa, Lagos) → Germany (Hamburg)
 
 ### v2 (Target)
-- Open PRDs: 24 (001-024)
-- Phase 0: Foundation complete
-- Phase 1: Infrastructure migration (Weeks 1-4)
+- Total PRDs: 24 (001-024)
+- PRDs specified: 7 (001-007 — Phase 1 infrastructure)
+- PRDs remaining: 17 (008-024 — Phases 2-4)
+- Phase 0: Foundation — **Complete**
+- Phase 1: Infrastructure migration (Weeks 1-4) — **Specified, ready to implement**
 - Phase 2: Frontend rebuild (Weeks 5-8)
 - Phase 3: Business logic enhancement (Weeks 9-12)
 - Phase 4: SaaS hardening (Weeks 13-16)
