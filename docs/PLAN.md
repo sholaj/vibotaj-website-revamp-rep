@@ -61,44 +61,47 @@ Users → Vercel (Next.js 15 SSR + BFF) → Railway (FastAPI + Celery) → Supab
 | 005 | [Supabase Storage](prds/005-supabase-storage.md) | Specified | Low-Med | Week 3 | 002, 004 |
 | 006 | [Sentry integration](prds/006-sentry-integration.md) | Specified | Low | Week 2 | 001, 004 |
 | 007 | [OpenAPI → Hey API type bridge](prds/007-openapi-heyapi-type-bridge.md) | Specified | Medium | Week 4 | 001, 004 |
+| 008 | [v1 Frontend → v2 Infra Bridge](prds/008-v1-frontend-v2-infra-bridge.md) | Specified | Medium | Week 4 | 003, 004, 005, 006 |
 
 **Execution order:**
 - Week 1: PRD-001 + PRD-002 (parallel — zero dependencies)
 - Week 2: PRD-004 + PRD-006 (parallel — Railway needs Supabase DB, Sentry needs both projects)
 - Week 3: PRD-003 + PRD-005 (parallel — PropelAuth needs Next.js + Supabase, Storage needs Railway)
-- Week 4: PRD-007 (needs both Next.js and Railway running)
+- Week 4: PRD-007 + PRD-008 (parallel — type bridge needs Next.js + Railway; v1 bridge needs all infra live)
 
-## Phase 2: Frontend Rebuild (Weeks 5-8)
+## Phase 2: Next.js Frontend Rewrite (Weeks 5-8)
 
 | PRD | Title | Complexity | Target |
 |-----|-------|-----------|--------|
-| 008 | Design system (Shadcn + Tailwind tokens from UI spec) | Medium | Week 5 |
-| 009 | Auth pages (PropelAuth components + org switcher) | Medium | Week 5 |
-| 010 | Dashboard + shipment list (SSR) | Medium | Week 6 |
-| 011 | Shipment detail + document management | High | Week 6-7 |
-| 012 | Container tracking timeline (Supabase Realtime) | Medium | Week 7 |
-| 013 | Analytics dashboard (Recharts + SSR) | Medium | Week 8 |
-| 014 | User/org management (PropelAuth admin) | Medium | Week 8 |
+| 009 | Design system (Shadcn + Tailwind tokens from UI spec) | Medium | Week 5 |
+| 010 | Auth pages (PropelAuth components + org switcher) | Medium | Week 5 |
+| 011 | Dashboard + shipment list (SSR) | Medium | Week 6 |
+| 012 | Shipment detail + document management | High | Week 6-7 |
+| 013 | Container tracking timeline (Supabase Realtime) | Medium | Week 7 |
+| 014 | Analytics dashboard (Recharts + SSR) | Medium | Week 8 |
+| 015 | User/org management (PropelAuth admin) | Medium | Week 8 |
+
+**Note:** PRD-008 (v1 bridge) gives a working production app on v2 infra. Phase 2 then replaces the React SPA with Next.js 15 — SSR, better performance, modern UI. No rush since bridge is functional.
 
 ## Phase 3: Business Logic Enhancement (Weeks 9-12)
 
 | PRD | Title | Complexity | Target |
 |-----|-------|-----------|--------|
-| 015 | Enhanced compliance engine (state machine + validation) | High | Week 9 |
-| 016 | Audit pack v2 (PDF index + ZIP + Supabase Storage) | Medium | Week 10 |
-| 017 | BoL parser + auto-enrichment pipeline | Medium | Week 10 |
-| 018 | AI document classification v2 (Claude + OCR) | High | Week 11 |
-| 019 | Email notifications (Resend/SendGrid + templates) | Medium | Week 11 |
-| 020 | Third-party integrations (customs, banking) | High | Week 12 |
+| 016 | Enhanced compliance engine (state machine + validation) | High | Week 9 |
+| 017 | Audit pack v2 (PDF index + ZIP + Supabase Storage) | Medium | Week 10 |
+| 018 | BoL parser + auto-enrichment pipeline | Medium | Week 10 |
+| 019 | AI document classification v2 (Claude + OCR) | High | Week 11 |
+| 020 | Email notifications (Resend/SendGrid + templates) | Medium | Week 11 |
+| 021 | Third-party integrations (customs, banking) | High | Week 12 |
 
 ## Phase 4: SaaS Hardening (Weeks 13-16)
 
 | PRD | Title | Complexity | Target |
 |-----|-------|-----------|--------|
-| 021 | Stripe billing integration | High | Week 13 |
-| 022 | White-label branding (per-org logos, colors, domains) | Medium | Week 14 |
-| 023 | Self-service onboarding flow | Medium | Week 15 |
-| 024 | Performance optimization (edge caching, ISR, lazy loading) | Medium | Week 16 |
+| 022 | Stripe billing integration | High | Week 13 |
+| 023 | White-label branding (per-org logos, colors, domains) | Medium | Week 14 |
+| 024 | Self-service onboarding flow | Medium | Week 15 |
+| 025 | Performance optimization (edge caching, ISR, lazy loading) | Medium | Week 16 |
 
 ---
 
@@ -144,9 +147,9 @@ _None_
 - Real shipments: Nigeria (Apapa, Lagos) → Germany (Hamburg)
 
 ### v2 (Target)
-- Total PRDs: 24 (001-024)
-- PRDs specified: 7 (001-007 — Phase 1 infrastructure)
-- PRDs remaining: 17 (008-024 — Phases 2-4)
+- Total PRDs: 25 (001-025)
+- PRDs specified: 8 (001-008 — Phase 1 infrastructure + bridge)
+- PRDs remaining: 17 (009-025 — Phases 2-4)
 - Phase 0: Foundation — **Complete**
 - Phase 1: Infrastructure migration (Weeks 1-4) — **Specified, ready to implement**
 - Phase 2: Frontend rebuild (Weeks 5-8)
