@@ -17,6 +17,7 @@ from .middleware import RequestTrackingMiddleware, RateLimitMiddleware, ErrorHan
 from .models import ContainerEvent, Shipment, Product
 from .services.entity_factory import create_product
 from .sentry_setup import init_sentry
+from .auth.propelauth import init_propelauth
 
 # Configure logging
 logging.basicConfig(
@@ -173,6 +174,12 @@ async def lifespan(app: FastAPI):
 
     # Initialize Sentry error tracking (before anything else so we catch startup errors)
     init_sentry(dsn=settings.sentry_dsn, environment=settings.environment)
+
+    # Initialize PropelAuth (v2 auth — no-op if not configured)
+    init_propelauth(
+        auth_url=settings.propelauth_auth_url,
+        api_key=settings.propelauth_api_key,
+    )
 
     # Startup: Create tables if they don't exist (dev only)
     if settings.debug:

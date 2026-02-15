@@ -16,10 +16,14 @@ class Settings(BaseSettings):
     # Database
     database_url: str = "postgresql://tracehub:tracehub@localhost:5432/tracehub"
 
-    # JWT Authentication
+    # JWT Authentication (v1)
     jwt_secret: str = "your-secret-key-change-in-production"
     jwt_algorithm: str = "HS256"
     jwt_expiration_hours: int = 24
+
+    # PropelAuth (v2) — empty disables PropelAuth
+    propelauth_auth_url: str = ""
+    propelauth_api_key: str = ""
 
     # Demo User (POC only - move to database in production)
     enable_demo_credentials: bool = False  # Set to True only in demo environments

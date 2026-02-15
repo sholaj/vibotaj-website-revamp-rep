@@ -1,6 +1,6 @@
 # PRD-003: PropelAuth Integration
 
-**Status:** Specified
+**Status:** Done
 **Complexity:** High
 **Target:** Week 3
 **Dependencies:** PRD-001 (Next.js frontend), PRD-002 (Supabase schema — user/org tables)
