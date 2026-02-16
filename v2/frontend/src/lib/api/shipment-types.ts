@@ -29,6 +29,32 @@ export interface Shipment {
   organization_id: string;
 }
 
+export interface ShipmentProduct {
+  hs_code: string;
+  description: string;
+  weight_kg: number | null;
+  packaging_type: string | null;
+}
+
+export interface ShipmentDetail extends Shipment {
+  bl_number: string | null;
+  booking_ref: string | null;
+  carrier_code: string | null;
+  carrier_name: string | null;
+  atd: string | null;
+  ata: string | null;
+  incoterms: string | null;
+  exporter_name: string | null;
+  exporter_address: string | null;
+  importer_name: string | null;
+  importer_address: string | null;
+  products: ShipmentProduct[];
+  eudr_compliant: boolean | null;
+  eudr_statement_id: string | null;
+  buyer_organization_id: string | null;
+  notes: string | null;
+}
+
 export interface ShipmentListResponse {
   items: Shipment[];
   total: number;
@@ -133,6 +159,19 @@ export function computeStats(shipments: Shipment[]): DashboardStats {
     complianceTrend,
     recentShipments,
   };
+}
+
+/**
+ * Check if a shipment requires EUDR compliance.
+ * Horn & Hoof (HS 0506/0507) are NOT covered by EUDR.
+ */
+export function isEudrRequired(shipment: ShipmentDetail): boolean {
+  if (shipment.product_type === "horn_hoof") return false;
+
+  const EUDR_PREFIXES = ["1801", "0901", "1511", "4001", "1201"];
+  return shipment.products.some((p) =>
+    EUDR_PREFIXES.some((prefix) => p.hs_code.startsWith(prefix)),
+  );
 }
 
 export function formatMonth(yyyyMm: string): string {

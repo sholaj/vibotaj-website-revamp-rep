@@ -21,7 +21,10 @@ interface ConfirmDialogProps {
   cancelLabel?: string;
   onConfirm: () => void;
   loading?: boolean;
+  isLoading?: boolean;
+  disabled?: boolean;
   variant?: "default" | "destructive";
+  children?: React.ReactNode;
 }
 
 export function ConfirmDialog({
@@ -33,8 +36,14 @@ export function ConfirmDialog({
   cancelLabel = "Cancel",
   onConfirm,
   loading = false,
+  isLoading,
+  disabled,
   variant = "default",
+  children,
 }: ConfirmDialogProps) {
+  const isDisabled = disabled ?? false;
+  const isBusy = isLoading ?? loading;
+
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
       <AlertDialogContent>
@@ -42,8 +51,9 @@ export function ConfirmDialog({
           <AlertDialogTitle>{title}</AlertDialogTitle>
           <AlertDialogDescription>{description}</AlertDialogDescription>
         </AlertDialogHeader>
+        {children && <div className="py-2">{children}</div>}
         <AlertDialogFooter>
-          <AlertDialogCancel disabled={loading}>
+          <AlertDialogCancel disabled={isBusy}>
             {cancelLabel}
           </AlertDialogCancel>
           <AlertDialogAction
@@ -51,14 +61,14 @@ export function ConfirmDialog({
               e.preventDefault();
               onConfirm();
             }}
-            disabled={loading}
+            disabled={isBusy || isDisabled}
             className={
               variant === "destructive"
                 ? "bg-destructive text-destructive-foreground hover:bg-destructive/90"
                 : undefined
             }
           >
-            {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            {isBusy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             {confirmLabel}
           </AlertDialogAction>
         </AlertDialogFooter>
