@@ -19,6 +19,7 @@
     "@hookform/resolvers": "^5.2.2",
     "@propelauth/nextjs": "^0.3.16",
     "@sentry/nextjs": "^10.38.0",
+    "@supabase/supabase-js": "^2.95.3",
     "@tanstack/react-query": "5.90.21",
     "@tanstack/react-table": "^8.21.3",
     "class-variance-authority": "^0.7.1",
