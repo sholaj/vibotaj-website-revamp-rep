@@ -19,6 +19,7 @@ import { ComplianceRulesTable } from "@/components/compliance/compliance-rules-t
 import { DocumentStateStepper } from "@/components/compliance/document-state-stepper";
 import { ComplianceOverrideDialog } from "@/components/compliance/compliance-override-dialog";
 import { ShipmentComplianceCard } from "@/components/compliance/shipment-compliance-card";
+import { AuditPackCard } from "@/components/compliance/audit-pack-card";
 import { useShipmentDetail } from "@/lib/api/documents";
 import {
   useShipmentDocuments,
@@ -40,6 +41,11 @@ import {
   useTransitionHistory,
   useSubmitOverride,
 } from "@/lib/api/compliance";
+import {
+  useAuditPackStatus,
+  useDownloadAuditPack,
+  useRegenerateAuditPack,
+} from "@/lib/api/audit-pack";
 import type { Document } from "@/lib/api/document-types";
 import type { ContainerEvent } from "@/lib/api/tracking-types";
 
@@ -87,6 +93,11 @@ export default function ShipmentDetailPage() {
   const { data: complianceReport } = useComplianceReport(shipmentId);
   const { data: transitionData } = useTransitionHistory(shipmentId);
   const overrideMutation = useSubmitOverride(shipmentId);
+
+  // Audit pack data (PRD-017)
+  const { data: auditPackData } = useAuditPackStatus(shipmentId);
+  const downloadPackMutation = useDownloadAuditPack(shipmentId);
+  const regeneratePackMutation = useRegenerateAuditPack(shipmentId);
 
   // Realtime subscriptions
   const handleNewEvent = useCallback((event: ContainerEvent) => {
@@ -180,12 +191,7 @@ export default function ShipmentDetailPage() {
         shipment={shipment}
         onRefreshTracking={handleRefreshTracking}
         isRefreshing={isRefreshing}
-        onDownloadAuditPack={() => {
-          window.open(
-            `${API_BASE}/api/shipments/${shipmentId}/audit-pack`,
-            "_blank",
-          );
-        }}
+        onDownloadAuditPack={() => downloadPackMutation.mutate()}
       />
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
@@ -256,6 +262,21 @@ export default function ShipmentDetailPage() {
             isSyncing={isRefreshing}
             error={refreshError}
           />
+
+          {auditPackData && (
+            <AuditPackCard
+              status={auditPackData.status}
+              generatedAt={auditPackData.generated_at}
+              documentCount={auditPackData.document_count}
+              contents={auditPackData.contents}
+              isOutdated={auditPackData.is_outdated}
+              complianceDecision={auditPackData.compliance_decision}
+              onDownload={() => downloadPackMutation.mutate()}
+              onRegenerate={() => regeneratePackMutation.mutate()}
+              isDownloading={downloadPackMutation.isPending}
+              isRegenerating={regeneratePackMutation.isPending}
+            />
+          )}
 
           {complianceReport && (
             <ShipmentComplianceCard

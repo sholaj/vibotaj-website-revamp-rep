@@ -115,6 +115,10 @@ class Shipment(Base):
         index=True  # For efficient buyer queries
     )
 
+    # Audit pack caching (PRD-017)
+    audit_pack_generated_at = Column(DateTime(timezone=True), nullable=True)
+    audit_pack_storage_path = Column(String(500), nullable=True)
+
     # Timestamps (timezone-aware - Sprint 12)
     created_at = Column(DateTime(timezone=True), default=datetime.utcnow)
     updated_at = Column(DateTime(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow)

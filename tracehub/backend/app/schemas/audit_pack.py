@@ -2,11 +2,12 @@
 
 These schemas enforce type safety for the metadata.json structure,
 preventing bugs like accessing non-existent model attributes.
+
+PRD-017: Added compliance fields and API response schemas.
 """
 
 from pydantic import BaseModel
 from typing import Optional, List
-from datetime import datetime
 
 
 class PortInfo(BaseModel):
@@ -48,6 +49,15 @@ class ShipmentMetadata(BaseModel):
     status: str
 
 
+class ComplianceMetadata(BaseModel):
+    """Compliance status included in audit pack metadata (PRD-017)."""
+    decision: str  # APPROVE, HOLD, REJECT
+    total_rules: int = 0
+    passed: int = 0
+    failed: int = 0
+    warnings: int = 0
+
+
 class AuditPackMetadata(BaseModel):
     """Complete metadata.json schema for audit packs.
 
@@ -58,6 +68,7 @@ class AuditPackMetadata(BaseModel):
     products: List[ProductMetadata]
     buyer: PartyInfo
     exporter: PartyInfo
+    compliance: Optional[ComplianceMetadata] = None
     exported_at: str
 
     class Config:
@@ -92,6 +103,13 @@ class AuditPackMetadata(BaseModel):
                     "name": "VIBOTAJ Global Nigeria Ltd",
                     "organization_id": "uuid-here"
                 },
+                "compliance": {
+                    "decision": "APPROVE",
+                    "total_rules": 15,
+                    "passed": 15,
+                    "failed": 0,
+                    "warnings": 0
+                },
                 "exported_at": "2026-01-17T15:00:00"
             }
         }
@@ -111,3 +129,26 @@ class TrackingLog(BaseModel):
     container_number: Optional[str] = None
     exported_at: str
     events: List[TrackingEvent]
+
+
+# --- API Response Schemas (PRD-017) ---
+
+
+class AuditPackContent(BaseModel):
+    """Item in the audit pack contents list."""
+    name: str
+    type: str  # "index", "document", "tracking", "metadata"
+    document_type: Optional[str] = None
+
+
+class AuditPackStatusResponse(BaseModel):
+    """Response for audit pack status/download endpoints."""
+    shipment_id: str
+    status: str  # "ready", "generating", "outdated", "none"
+    generated_at: Optional[str] = None
+    download_url: Optional[str] = None
+    expires_at: Optional[str] = None
+    contents: List[AuditPackContent] = []
+    compliance_decision: Optional[str] = None
+    document_count: int = 0
+    is_outdated: bool = False
