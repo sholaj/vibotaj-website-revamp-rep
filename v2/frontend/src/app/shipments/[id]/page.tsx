@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { useParams } from "next/navigation";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PageHeader } from "@/components/domain/page-header";
@@ -12,6 +12,7 @@ import { DocumentList } from "@/components/documents/document-list";
 import { DocumentUploadModal } from "@/components/documents/document-upload-modal";
 import { DocumentReviewPanel } from "@/components/documents/document-review-panel";
 import { TrackingTimeline } from "@/components/tracking/tracking-timeline";
+import { LiveStatusCard } from "@/components/tracking/live-status-card";
 import { ComplianceStatus } from "@/components/compliance/compliance-status";
 import { EudrStatusCard } from "@/components/compliance/eudr-status-card";
 import { useShipmentDetail } from "@/lib/api/documents";
@@ -24,8 +25,14 @@ import {
   useDeleteDocument,
 } from "@/lib/api/documents";
 import { isEudrRequired } from "@/lib/api/shipment-types";
+import {
+  useContainerEventsRealtime,
+  useShipmentRealtime,
+  useRefreshTracking,
+} from "@/lib/supabase/use-realtime";
 import { useCurrentOrg } from "@/lib/auth/org-context";
 import type { Document } from "@/lib/api/document-types";
+import type { ContainerEvent } from "@/lib/api/tracking-types";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
@@ -60,8 +67,41 @@ export default function ShipmentDetailPage() {
   const [uploadOpen, setUploadOpen] = useState(false);
   const [selectedDoc, setSelectedDoc] = useState<Document | null>(null);
   const [reviewOpen, setReviewOpen] = useState(false);
+  const [newEventIds, setNewEventIds] = useState<Set<string>>(new Set());
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [refreshError, setRefreshError] = useState<string | null>(null);
 
   const canApprove = role === "admin" || role === "compliance_officer";
+
+  // Realtime subscriptions
+  const handleNewEvent = useCallback((event: ContainerEvent) => {
+    setNewEventIds((prev) => new Set([...prev, event.id]));
+    // Clear animation after 5 seconds
+    setTimeout(() => {
+      setNewEventIds((prev) => {
+        const next = new Set(prev);
+        next.delete(event.id);
+        return next;
+      });
+    }, 5000);
+  }, []);
+
+  useContainerEventsRealtime(shipmentId, handleNewEvent);
+  useShipmentRealtime(shipmentId);
+
+  const { refresh } = useRefreshTracking(shipmentId);
+
+  const handleRefreshTracking = useCallback(async () => {
+    setIsRefreshing(true);
+    setRefreshError(null);
+    try {
+      await refresh();
+    } catch {
+      setRefreshError("Could not refresh tracking. The carrier may not have data for this container yet.");
+    } finally {
+      setIsRefreshing(false);
+    }
+  }, [refresh]);
 
   const handleDownload = (doc: Document) => {
     if (doc.file_path) {
@@ -104,6 +144,11 @@ export default function ShipmentDetailPage() {
   const documents = docsData?.documents ?? [];
   const missingTypes = docsData?.summary.missing_types ?? [];
   const events = eventsData?.events ?? [];
+  const latestEvent = events.length > 0
+    ? [...events].sort(
+        (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime(),
+      )[0] ?? null
+    : null;
 
   return (
     <div className="space-y-6">
@@ -118,6 +163,8 @@ export default function ShipmentDetailPage() {
 
       <ShipmentHeader
         shipment={shipment}
+        onRefreshTracking={handleRefreshTracking}
+        isRefreshing={isRefreshing}
         onDownloadAuditPack={() => {
           window.open(
             `${API_BASE}/api/shipments/${shipmentId}/audit-pack`,
@@ -164,7 +211,7 @@ export default function ShipmentDetailPage() {
               {eventsLoading ? (
                 <LoadingState variant="table" />
               ) : (
-                <TrackingTimeline events={events} />
+                <TrackingTimeline events={events} newEventIds={newEventIds} />
               )}
             </TabsContent>
           </Tabs>
@@ -172,6 +219,15 @@ export default function ShipmentDetailPage() {
 
         {/* Sidebar */}
         <div className="space-y-6">
+          <LiveStatusCard
+            latestEvent={latestEvent}
+            containerNumber={shipment.container_number}
+            eta={shipment.eta}
+            onSyncTracking={handleRefreshTracking}
+            isSyncing={isRefreshing}
+            error={refreshError}
+          />
+
           {docsData?.summary && (
             <ComplianceStatus summary={docsData.summary} />
           )}
