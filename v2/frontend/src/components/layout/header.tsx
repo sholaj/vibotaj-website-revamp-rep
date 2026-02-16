@@ -1,8 +1,8 @@
-import { Package, User } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Package } from "lucide-react";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { Separator } from "@/components/ui/separator";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
+import { UserMenu } from "./user-menu";
 
 export function Header() {
   return (
@@ -22,11 +22,8 @@ export function Header() {
       {/* Theme toggle */}
       <ThemeToggle />
 
-      {/* User menu placeholder */}
-      <Button variant="ghost" size="icon" className="rounded-full">
-        <User className="h-5 w-5" />
-        <span className="sr-only">User menu</span>
-      </Button>
+      {/* User menu */}
+      <UserMenu />
     </header>
   );
 }
