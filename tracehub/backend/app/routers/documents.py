@@ -47,6 +47,13 @@ from ..services.bol_rules import (
     get_compliance_decision,
 )
 from ..services.bol_shipment_sync import bol_shipment_sync
+from ..services.bol_auto_parse import (
+    auto_parse_bol,
+    get_parsed_bol_data,
+    get_enhanced_sync_preview,
+    cross_validate_weights,
+)
+from ..schemas.bol_parse_result import BolParsedResponse, BolSyncPreviewResponse
 from ..services.entity_factory import create_document
 from ..services.access_control import can_access_shipment
 from ..services.file_utils import get_full_path, delete_file, file_exists
@@ -362,6 +369,21 @@ async def upload_document(
             # Log but don't fail the upload
             logger.warning(f"Container extraction failed: {e}")
 
+    # PRD-018: Auto-parse BoL on upload
+    bol_parse_result = None
+    if final_document_type == DocumentType.BILL_OF_LADING and is_pdf:
+        try:
+            bol_parse_result = auto_parse_bol(document, db, auto_sync=True)
+            logger.info(
+                "Auto-parsed BoL for document %s (status=%s, confidence=%.2f, auto_synced=%s)",
+                document.id,
+                bol_parse_result.parse_status,
+                bol_parse_result.confidence_score,
+                bol_parse_result.auto_synced,
+            )
+        except Exception as e:
+            logger.warning(f"BoL auto-parse failed (non-blocking): {e}")
+
     db.commit()
     db.refresh(document)
 
@@ -403,6 +425,19 @@ async def upload_document(
     # Include extracted container from BOL (for suggesting container update)
     if extracted_container:
         response["extracted_container"] = extracted_container
+
+    # PRD-018: Include BoL auto-parse results
+    if bol_parse_result:
+        response["bol_parse"] = {
+            "parse_status": bol_parse_result.parse_status,
+            "confidence_score": bol_parse_result.confidence_score,
+            "auto_synced": bol_parse_result.auto_synced,
+            "compliance_decision": (
+                bol_parse_result.compliance.decision
+                if bol_parse_result.compliance
+                else None
+            ),
+        }
 
     return response
 
@@ -1661,6 +1696,85 @@ async def preview_extraction(
             "existing_hs_codes": [p.hs_code for p in shipment.products] if shipment else []
         },
         "raw_fields": extracted.raw_fields
+    }
+
+
+# ============ Bill of Lading Endpoints (PRD-018 enhanced) ============
+
+
+@router.get("/{document_id}/bol/parsed", response_model=BolParsedResponse)
+async def get_bol_parsed_data(
+    document_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: CurrentUser = Depends(get_current_active_user)
+):
+    """Get parsed BoL data with field-level confidence scores.
+
+    PRD-018: Returns structured parse results including per-field
+    confidence and compliance status.
+    """
+    document = db.query(Document).filter(
+        Document.id == document_id,
+        Document.organization_id == current_user.organization_id
+    ).first()
+    if not document:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    return get_parsed_bol_data(document, db)
+
+
+@router.get("/{document_id}/bol/sync-preview-v2", response_model=BolSyncPreviewResponse)
+async def preview_bol_sync_v2(
+    document_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: CurrentUser = Depends(get_current_active_user)
+):
+    """Enhanced sync preview with placeholder detection.
+
+    PRD-018: Returns detailed change list showing which fields will
+    be updated, whether current values are placeholders, etc.
+    """
+    document = db.query(Document).filter(
+        Document.id == document_id,
+        Document.organization_id == current_user.organization_id
+    ).first()
+    if not document:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    return get_enhanced_sync_preview(document, db)
+
+
+@router.get("/{document_id}/bol/cross-validation")
+async def get_cross_document_validation(
+    document_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: CurrentUser = Depends(get_current_active_user)
+):
+    """Cross-validate BoL weight against Packing List.
+
+    PRD-018: Checks if BoL gross weight matches Packing List
+    within 5% tolerance.
+    """
+    document = db.query(Document).filter(
+        Document.id == document_id,
+        Document.organization_id == current_user.organization_id
+    ).first()
+    if not document:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    shipment = db.query(Shipment).filter(
+        Shipment.id == document.shipment_id,
+        Shipment.organization_id == current_user.organization_id,
+    ).first()
+    if not shipment:
+        raise HTTPException(status_code=404, detail="Shipment not found")
+
+    issues = cross_validate_weights(shipment, db)
+    return {
+        "document_id": str(document_id),
+        "shipment_id": str(shipment.id),
+        "issues": issues,
+        "has_issues": len(issues) > 0,
     }
 
 

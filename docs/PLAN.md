@@ -89,7 +89,7 @@ Users → Vercel (Next.js 15 SSR + BFF) → Railway (FastAPI + Celery) → Supab
 |-----|-------|--------|-----------|--------|
 | 016 | [Enhanced compliance engine (state machine + validation)](prds/016-enhanced-compliance-engine.md) | **Done** | High | Week 9 |
 | 017 | [Audit pack v2 (PDF index + ZIP + Supabase Storage)](prds/017-audit-pack-v2.md) | **Done** | Medium | Week 10 |
-| 018 | BoL parser + auto-enrichment pipeline | Medium | Week 10 |
+| 018 | [BoL parser + auto-enrichment pipeline](prds/018-bol-parser-auto-enrichment.md) | **Done** | Medium | Week 10 |
 | 019 | AI document classification v2 (Claude + OCR) | High | Week 11 |
 | 020 | Email notifications (Resend/SendGrid + templates) | Medium | Week 11 |
 | 021 | Third-party integrations (customs, banking) | High | Week 12 |
@@ -106,7 +106,7 @@ Users → Vercel (Next.js 15 SSR + BFF) → Railway (FastAPI + Celery) → Supab
 ---
 
 ## In Progress
-_Phase 3 in progress. PRD-016 + PRD-017 done. PRD-018 (BoL parser) next._
+_Phase 3 in progress. PRD-016 + PRD-017 + PRD-018 done. PRD-019 (AI doc classification v2) next._
 
 ## Blocked
 _None_
@@ -148,9 +148,9 @@ _None_
 
 ### v2 (Target)
 - Total PRDs: 25 (001-025)
-- PRDs specified: 17 (001-017 — Phase 1 + Phase 2 + Phase 3)
-- PRDs completed: 17 (001-017)
-- PRDs remaining: 9 (017-025 — Phases 3-4)
+- PRDs specified: 18 (001-018 — Phase 1 + Phase 2 + Phase 3)
+- PRDs completed: 18 (001-018)
+- PRDs remaining: 7 (019-025 — Phases 3-4)
 - Phase 0: Foundation — **Complete**
 - Phase 1: Infrastructure migration (Weeks 1-4) — **Complete**
 - Phase 2: Frontend rebuild (Weeks 5-8) — **Complete**
