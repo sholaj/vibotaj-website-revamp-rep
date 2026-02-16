@@ -7,6 +7,7 @@ from functools import lru_cache
 
 class Settings(BaseSettings):
     """Application settings loaded from environment variables."""
+
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
 
     # Application
@@ -39,7 +40,9 @@ class Settings(BaseSettings):
 
     # LLM Provider (PRD-019)
     llm_provider: str = "anthropic"  # "anthropic", "openai", "mock"
-    llm_model: str = "claude-haiku-4-5-20251001"  # Model name for the configured provider
+    llm_model: str = (
+        "claude-haiku-4-5-20251001"  # Model name for the configured provider
+    )
     anthropic_api_key: SecretStr = SecretStr("")  # Anthropic API key
     classification_confidence_threshold: float = 0.70  # Auto-upgrade threshold
 
@@ -49,6 +52,18 @@ class Settings(BaseSettings):
     resend_api_key: SecretStr = SecretStr("")
     email_from_address: str = "notifications@tracehub.vibotaj.com"
     email_from_name: str = "TraceHub"
+
+    # Customs Integration (PRD-021)
+    customs_provider: str = "mock"  # "ncs", "son", "mock"
+    customs_enabled: bool = False  # Master switch
+    customs_api_key: SecretStr = SecretStr("")
+    customs_api_url: str = ""
+
+    # Banking Integration (PRD-021)
+    banking_provider: str = "mock"  # "gtbank", "uba", "mock"
+    banking_enabled: bool = False  # Master switch
+    banking_api_key: SecretStr = SecretStr("")
+    banking_api_url: str = ""
 
     # Webhook Security
     webhook_secret: str = ""  # HMAC secret for webhook signature verification
@@ -60,10 +75,14 @@ class Settings(BaseSettings):
 
     # Supabase Storage (PRD-005) — empty disables Supabase storage
     supabase_url: str = ""
-    supabase_service_key: str = ""  # Service role key (bypasses RLS for server-side ops)
+    supabase_service_key: str = (
+        ""  # Service role key (bypasses RLS for server-side ops)
+    )
 
     # OCR Settings
-    tesseract_cmd: str = ""  # Path to tesseract executable (leave empty to use system PATH)
+    tesseract_cmd: str = (
+        ""  # Path to tesseract executable (leave empty to use system PATH)
+    )
     ocr_enabled: bool = True  # Enable/disable OCR fallback for scanned PDFs
     ocr_dpi: int = 300  # DPI for PDF to image conversion
     ocr_timeout: int = 30  # Timeout per page in seconds
@@ -73,7 +92,11 @@ class Settings(BaseSettings):
     sentry_dsn: str = ""  # Sentry DSN — empty disables Sentry
 
     # CORS
-    cors_origins: list[str] = ["http://localhost:3000", "http://localhost:5173", "http://localhost:5174"]
+    cors_origins: list[str] = [
+        "http://localhost:3000",
+        "http://localhost:5173",
+        "http://localhost:5174",
+    ]
 
     # Frontend URL (for invitation links)
     frontend_url: str = "https://tracehub.vibotaj.com"
