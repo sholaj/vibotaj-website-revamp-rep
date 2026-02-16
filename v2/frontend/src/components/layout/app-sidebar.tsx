@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Package } from "lucide-react";
+import { Package, ChevronDown } from "lucide-react";
 import {
   Sidebar,
   SidebarContent,
@@ -20,24 +20,27 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
-import { ChevronDown } from "lucide-react";
-import { getNavGroupsForRole, type UserRole } from "@/lib/navigation";
+import { getNavGroupsForRole } from "@/lib/navigation";
+import { useCurrentOrg } from "@/lib/auth/org-context";
+import { OrgSwitcher } from "./org-switcher";
 
-interface AppSidebarProps {
-  role?: UserRole;
-}
-
-export function AppSidebar({ role = "viewer" }: AppSidebarProps) {
+export function AppSidebar() {
   const pathname = usePathname();
+  const { role } = useCurrentOrg();
   const groups = getNavGroupsForRole(role);
 
   return (
     <Sidebar>
-      <SidebarHeader className="border-b px-4 py-3">
-        <Link href="/dashboard" className="flex items-center gap-2">
-          <Package className="text-primary h-6 w-6" />
-          <span className="text-lg font-bold">TraceHub</span>
-        </Link>
+      <SidebarHeader className="gap-0">
+        <div className="border-b px-4 py-3">
+          <Link href="/dashboard" className="flex items-center gap-2">
+            <Package className="text-primary h-6 w-6" />
+            <span className="text-lg font-bold">TraceHub</span>
+          </Link>
+        </div>
+        <div className="border-b px-2 py-2">
+          <OrgSwitcher />
+        </div>
       </SidebarHeader>
 
       <SidebarContent>
