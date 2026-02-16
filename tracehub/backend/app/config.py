@@ -43,6 +43,13 @@ class Settings(BaseSettings):
     anthropic_api_key: SecretStr = SecretStr("")  # Anthropic API key
     classification_confidence_threshold: float = 0.70  # Auto-upgrade threshold
 
+    # Email (PRD-020)
+    email_provider: str = "console"  # "resend", "console"
+    email_enabled: bool = False  # Master switch for email delivery
+    resend_api_key: SecretStr = SecretStr("")
+    email_from_address: str = "notifications@tracehub.vibotaj.com"
+    email_from_name: str = "TraceHub"
+
     # Webhook Security
     webhook_secret: str = ""  # HMAC secret for webhook signature verification
 
