@@ -38,6 +38,8 @@ const EVENT_ICONS: Record<ContainerEventType, LucideIcon> = {
 
 interface TrackingTimelineProps {
   events: ContainerEvent[];
+  /** IDs of events that arrived via Realtime (for animation) */
+  newEventIds?: Set<string>;
 }
 
 function formatDate(iso: string): string {
@@ -50,7 +52,7 @@ function formatDate(iso: string): string {
   });
 }
 
-export function TrackingTimeline({ events }: TrackingTimelineProps) {
+export function TrackingTimeline({ events, newEventIds }: TrackingTimelineProps) {
   const sorted = [...events].sort(
     (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime(),
   );
@@ -74,9 +76,13 @@ export function TrackingTimeline({ events }: TrackingTimelineProps) {
             {sorted.map((event, index) => {
               const Icon = EVENT_ICONS[event.event_type];
               const isLatest = index === 0;
+              const isNew = newEventIds?.has(event.id) ?? false;
 
               return (
-                <div key={event.id} className="relative flex gap-4 pb-6">
+                <div
+                  key={event.id}
+                  className={`relative flex gap-4 pb-6 ${isNew ? "animate-pulse" : ""}`}
+                >
                   {/* Vertical line */}
                   {index < sorted.length - 1 && (
                     <div className="bg-border absolute left-[15px] top-8 h-full w-px" />
@@ -102,6 +108,11 @@ export function TrackingTimeline({ events }: TrackingTimelineProps) {
                       {isLatest && (
                         <Badge variant="secondary" className="text-xs">
                           Latest
+                        </Badge>
+                      )}
+                      {isNew && (
+                        <Badge className="bg-success/10 text-success border-success/20 text-xs" variant="outline">
+                          New
                         </Badge>
                       )}
                     </div>
