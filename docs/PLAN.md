@@ -69,7 +69,7 @@ Users → Vercel (Next.js 15 SSR + BFF) → Railway (FastAPI + Celery) → Supab
 - Week 3: PRD-003 + PRD-005 (parallel — PropelAuth needs Next.js + Supabase, Storage needs Railway)
 - Week 4: PRD-007 + PRD-008 (parallel — type bridge needs Next.js + Railway; v1 bridge needs all infra live)
 
-## Phase 2: Next.js Frontend Rewrite (Weeks 5-8) — In Progress
+## Phase 2: Next.js Frontend Rewrite (Weeks 5-8) — Complete
 
 | PRD | Title | Status | Complexity | Target | Dependencies |
 |-----|-------|--------|-----------|--------|-------------|
@@ -79,7 +79,7 @@ Users → Vercel (Next.js 15 SSR + BFF) → Railway (FastAPI + Celery) → Supab
 | 012 | [Shipment detail + document management](prds/012-shipment-detail-document-management.md) | **Done** | High | Week 6-7 | 009, 010, 011 |
 | 013 | [Container tracking + Supabase Realtime](prds/013-container-tracking-realtime.md) | **Done** | Medium | Week 7 | 002, 012 |
 | 014 | [Analytics dashboard (Recharts + React Query)](prds/014-analytics-dashboard.md) | **Done** | Medium | Week 8 | 009, 011 |
-| 015 | User/org management (PropelAuth admin) | Medium | Week 8 |
+| 015 | [User/org management](prds/015-user-org-management.md) | **Done** | Medium | Week 8 | 009, 010 |
 
 **Note:** PRD-008 (v1 bridge) gives a working production app on v2 infra. Phase 2 then replaces the React SPA with Next.js 15 — SSR, better performance, modern UI. No rush since bridge is functional.
 
@@ -106,7 +106,7 @@ Users → Vercel (Next.js 15 SSR + BFF) → Railway (FastAPI + Celery) → Supab
 ---
 
 ## In Progress
-_Phase 2 in progress. PRD-009 through PRD-014 done. PRD-015 (user/org management) next._
+_Phase 2 complete. PRD-009 through PRD-015 done. Phase 3 (business logic enhancement) next._
 
 ## Blocked
 _None_
@@ -148,12 +148,12 @@ _None_
 
 ### v2 (Target)
 - Total PRDs: 25 (001-025)
-- PRDs specified: 14 (001-014 — Phase 1 + Phase 2 Weeks 5-8)
-- PRDs completed: 14 (001-014)
-- PRDs remaining: 11 (015-025 — Phase 2 remainder + Phases 3-4)
+- PRDs specified: 15 (001-015 — Phase 1 + Phase 2)
+- PRDs completed: 15 (001-015)
+- PRDs remaining: 10 (016-025 — Phases 3-4)
 - Phase 0: Foundation — **Complete**
 - Phase 1: Infrastructure migration (Weeks 1-4) — **Complete**
-- Phase 2: Frontend rebuild (Weeks 5-8) — **6/7 done, PRD-015 next**
+- Phase 2: Frontend rebuild (Weeks 5-8) — **Complete**
 - Phase 3: Business logic enhancement (Weeks 9-12)
 - Phase 4: SaaS hardening (Weeks 13-16)
 
