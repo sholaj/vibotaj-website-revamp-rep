@@ -2,6 +2,7 @@ import { Package, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { Separator } from "@/components/ui/separator";
+import { ThemeToggle } from "@/components/theme/theme-toggle";
 
 export function Header() {
   return (
@@ -17,6 +18,9 @@ export function Header() {
 
       {/* Spacer */}
       <div className="flex-1" />
+
+      {/* Theme toggle */}
+      <ThemeToggle />
 
       {/* User menu placeholder */}
       <Button variant="ghost" size="icon" className="rounded-full">

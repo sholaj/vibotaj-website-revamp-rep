@@ -69,12 +69,12 @@ Users → Vercel (Next.js 15 SSR + BFF) → Railway (FastAPI + Celery) → Supab
 - Week 3: PRD-003 + PRD-005 (parallel — PropelAuth needs Next.js + Supabase, Storage needs Railway)
 - Week 4: PRD-007 + PRD-008 (parallel — type bridge needs Next.js + Railway; v1 bridge needs all infra live)
 
-## Phase 2: Next.js Frontend Rewrite (Weeks 5-8)
+## Phase 2: Next.js Frontend Rewrite (Weeks 5-8) — In Progress
 
-| PRD | Title | Complexity | Target |
-|-----|-------|-----------|--------|
-| 009 | Design system (Shadcn + Tailwind tokens from UI spec) | Medium | Week 5 |
-| 010 | Auth pages (PropelAuth components + org switcher) | Medium | Week 5 |
+| PRD | Title | Status | Complexity | Target | Dependencies |
+|-----|-------|--------|-----------|--------|-------------|
+| 009 | [Design system (Shadcn + domain composites)](prds/009-design-system.md) | **Done** | Medium | Week 5 | 001, 008 |
+| 010 | Auth pages (PropelAuth components + org switcher) | Pending | Medium | Week 5 | 009 |
 | 011 | Dashboard + shipment list (SSR) | Medium | Week 6 |
 | 012 | Shipment detail + document management | High | Week 6-7 |
 | 013 | Container tracking timeline (Supabase Realtime) | Medium | Week 7 |
@@ -106,7 +106,7 @@ Users → Vercel (Next.js 15 SSR + BFF) → Railway (FastAPI + Celery) → Supab
 ---
 
 ## In Progress
-_Phase 1 nearing completion. PRDs 001-007 done. PRD-008 (v1 bridge) is the final Phase 1 PRD._
+_Phase 2 started. PRD-009 (design system) done. PRD-010 (auth pages) next._
 
 ## Blocked
 _None_
@@ -148,12 +148,12 @@ _None_
 
 ### v2 (Target)
 - Total PRDs: 25 (001-025)
-- PRDs specified: 8 (001-008 — Phase 1 infrastructure + bridge)
-- PRDs completed: 7 (001-007)
-- PRDs remaining: 18 (008-025 — Phase 1 bridge + Phases 2-4)
+- PRDs specified: 9 (001-009 — Phase 1 + Phase 2 start)
+- PRDs completed: 9 (001-009)
+- PRDs remaining: 16 (010-025 — Phase 2 remainder + Phases 3-4)
 - Phase 0: Foundation — **Complete**
-- Phase 1: Infrastructure migration (Weeks 1-4) — **7/8 done, PRD-008 remaining**
-- Phase 2: Frontend rebuild (Weeks 5-8)
+- Phase 1: Infrastructure migration (Weeks 1-4) — **Complete**
+- Phase 2: Frontend rebuild (Weeks 5-8) — **1/7 done, PRD-010 next**
 - Phase 3: Business logic enhancement (Weeks 9-12)
 - Phase 4: SaaS hardening (Weeks 13-16)
 
