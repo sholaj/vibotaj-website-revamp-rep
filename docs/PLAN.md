@@ -78,7 +78,7 @@ Users → Vercel (Next.js 15 SSR + BFF) → Railway (FastAPI + Celery) → Supab
 | 011 | [Dashboard + shipment list](prds/011-dashboard-shipment-list.md) | **Done** | Medium | Week 6 | 009, 010 |
 | 012 | [Shipment detail + document management](prds/012-shipment-detail-document-management.md) | **Done** | High | Week 6-7 | 009, 010, 011 |
 | 013 | [Container tracking + Supabase Realtime](prds/013-container-tracking-realtime.md) | **Done** | Medium | Week 7 | 002, 012 |
-| 014 | Analytics dashboard (Recharts + SSR) | Medium | Week 8 |
+| 014 | [Analytics dashboard (Recharts + React Query)](prds/014-analytics-dashboard.md) | **Done** | Medium | Week 8 | 009, 011 |
 | 015 | User/org management (PropelAuth admin) | Medium | Week 8 |
 
 **Note:** PRD-008 (v1 bridge) gives a working production app on v2 infra. Phase 2 then replaces the React SPA with Next.js 15 — SSR, better performance, modern UI. No rush since bridge is functional.
@@ -106,7 +106,7 @@ Users → Vercel (Next.js 15 SSR + BFF) → Railway (FastAPI + Celery) → Supab
 ---
 
 ## In Progress
-_Phase 2 in progress. PRD-009 through PRD-013 done. PRD-014 (analytics dashboard) next._
+_Phase 2 in progress. PRD-009 through PRD-014 done. PRD-015 (user/org management) next._
 
 ## Blocked
 _None_
@@ -148,12 +148,12 @@ _None_
 
 ### v2 (Target)
 - Total PRDs: 25 (001-025)
-- PRDs specified: 13 (001-013 — Phase 1 + Phase 2 Weeks 5-7)
-- PRDs completed: 13 (001-013)
-- PRDs remaining: 12 (014-025 — Phase 2 remainder + Phases 3-4)
+- PRDs specified: 14 (001-014 — Phase 1 + Phase 2 Weeks 5-8)
+- PRDs completed: 14 (001-014)
+- PRDs remaining: 11 (015-025 — Phase 2 remainder + Phases 3-4)
 - Phase 0: Foundation — **Complete**
 - Phase 1: Infrastructure migration (Weeks 1-4) — **Complete**
-- Phase 2: Frontend rebuild (Weeks 5-8) — **5/7 done, PRD-014 next**
+- Phase 2: Frontend rebuild (Weeks 5-8) — **6/7 done, PRD-015 next**
 - Phase 3: Business logic enhancement (Weeks 9-12)
 - Phase 4: SaaS hardening (Weeks 13-16)
 
