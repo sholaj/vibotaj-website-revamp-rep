@@ -1,6 +1,6 @@
 "use client";
 
-import { Download, Upload, XCircle, Clock } from "lucide-react";
+import { Download, Upload, XCircle, Clock, FileSearch } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -11,17 +11,25 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
 import { StatusBadge } from "@/components/domain/status-badge";
 import type { DocumentStatus as BadgeDocumentStatus } from "@/components/domain/status-badge";
+import { cn } from "@/lib/utils";
 import {
   DOCUMENT_TYPE_LABELS,
   type Document,
   type DocumentType,
 } from "@/lib/api/document-types";
+import {
+  PARSE_STATUS_LABELS,
+  PARSE_STATUS_COLORS,
+} from "@/lib/api/bol-types";
+import type { BolParseStatus } from "@/lib/api/bol-types";
 
 interface DocumentListProps {
   documents: Document[];
   missingTypes: DocumentType[];
+  bolParseStatuses?: Record<string, BolParseStatus>;
   onUpload: () => void;
   onSelect: (doc: Document) => void;
   onDownload: (doc: Document) => void;
@@ -39,6 +47,7 @@ function formatDate(iso: string | null): string {
 export function DocumentList({
   documents,
   missingTypes,
+  bolParseStatuses,
   onUpload,
   onSelect,
   onDownload,
@@ -67,14 +76,33 @@ export function DocumentList({
               </TableRow>
             </TableHeader>
             <TableBody>
-              {documents.map((doc) => (
+              {documents.map((doc) => {
+                const bolStatus =
+                  doc.document_type === "bill_of_lading"
+                    ? bolParseStatuses?.[doc.id]
+                    : undefined;
+                return (
                 <TableRow
                   key={doc.id}
                   className="cursor-pointer"
                   onClick={() => onSelect(doc)}
                 >
                   <TableCell className="font-medium">
-                    {DOCUMENT_TYPE_LABELS[doc.document_type]}
+                    <span className="flex items-center gap-2">
+                      {DOCUMENT_TYPE_LABELS[doc.document_type]}
+                      {bolStatus && (
+                        <Badge
+                          variant="outline"
+                          className={cn(
+                            "text-xs",
+                            PARSE_STATUS_COLORS[bolStatus],
+                          )}
+                        >
+                          <FileSearch className="mr-1 h-3 w-3" />
+                          {PARSE_STATUS_LABELS[bolStatus]}
+                        </Badge>
+                      )}
+                    </span>
                   </TableCell>
                   <TableCell className="font-mono text-sm">
                     {doc.reference_number ?? "—"}
@@ -101,7 +129,8 @@ export function DocumentList({
                     )}
                   </TableCell>
                 </TableRow>
-              ))}
+                );
+              })}
               {documents.length === 0 && (
                 <TableRow>
                   <TableCell

@@ -20,6 +20,8 @@ import { DocumentStateStepper } from "@/components/compliance/document-state-ste
 import { ComplianceOverrideDialog } from "@/components/compliance/compliance-override-dialog";
 import { ShipmentComplianceCard } from "@/components/compliance/shipment-compliance-card";
 import { AuditPackCard } from "@/components/compliance/audit-pack-card";
+import { BolParsedFields } from "@/components/documents/bol-parsed-fields";
+import { BolSyncPreview } from "@/components/documents/bol-sync-preview";
 import { useShipmentDetail } from "@/lib/api/documents";
 import {
   useShipmentDocuments,
@@ -46,6 +48,14 @@ import {
   useDownloadAuditPack,
   useRegenerateAuditPack,
 } from "@/lib/api/audit-pack";
+import {
+  useBolParsedData,
+  useBolSyncPreview,
+  useBolCrossValidation,
+  useApplyBolSync,
+  useReParseBol,
+} from "@/lib/api/bol";
+import type { BolParseStatus } from "@/lib/api/bol-types";
 import type { Document } from "@/lib/api/document-types";
 import type { ContainerEvent } from "@/lib/api/tracking-types";
 
@@ -98,6 +108,14 @@ export default function ShipmentDetailPage() {
   const { data: auditPackData } = useAuditPackStatus(shipmentId);
   const downloadPackMutation = useDownloadAuditPack(shipmentId);
   const regeneratePackMutation = useRegenerateAuditPack(shipmentId);
+
+  // BoL parse data (PRD-018)
+  const [selectedBolDocId, setSelectedBolDocId] = useState<string | null>(null);
+  const { data: bolParsedData } = useBolParsedData(selectedBolDocId ?? "");
+  const { data: bolSyncPreview } = useBolSyncPreview(selectedBolDocId ?? "");
+  const { data: bolCrossValidation } = useBolCrossValidation(selectedBolDocId ?? "");
+  const applyBolSyncMutation = useApplyBolSync(selectedBolDocId ?? "");
+  const reParseBolMutation = useReParseBol(selectedBolDocId ?? "");
 
   // Realtime subscriptions
   const handleNewEvent = useCallback((event: ContainerEvent) => {
@@ -170,6 +188,18 @@ export default function ShipmentDetailPage() {
   const documents = docsData?.documents ?? [];
   const missingTypes = docsData?.summary.missing_types ?? [];
   const events = eventsData?.events ?? [];
+
+  // Auto-select first BoL document for parse panel (PRD-018)
+  const firstBolDoc = documents.find((d) => d.document_type === "bill_of_lading");
+  if (firstBolDoc && !selectedBolDocId) {
+    setSelectedBolDocId(firstBolDoc.id);
+  }
+
+  // Build parse status map for document list badges
+  const bolParseStatuses: Record<string, BolParseStatus> = {};
+  if (bolParsedData && selectedBolDocId) {
+    bolParseStatuses[selectedBolDocId] = bolParsedData.parse_status;
+  }
   const latestEvent = events.length > 0
     ? [...events].sort(
         (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime(),
@@ -221,6 +251,7 @@ export default function ShipmentDetailPage() {
                 <DocumentList
                   documents={documents}
                   missingTypes={missingTypes}
+                  bolParseStatuses={bolParseStatuses}
                   onUpload={() => setUploadOpen(true)}
                   onSelect={(doc) => {
                     setSelectedDoc(doc);
@@ -275,6 +306,26 @@ export default function ShipmentDetailPage() {
               onRegenerate={() => regeneratePackMutation.mutate()}
               isDownloading={downloadPackMutation.isPending}
               isRegenerating={regeneratePackMutation.isPending}
+            />
+          )}
+
+          {/* BoL Parse Results (PRD-018) */}
+          {bolParsedData && bolParsedData.parse_status !== "not_bol" && (
+            <BolParsedFields
+              data={bolParsedData}
+              onReparse={() => reParseBolMutation.mutate()}
+              isReparsing={reParseBolMutation.isPending}
+            />
+          )}
+
+          {/* BoL Sync Preview (PRD-018) */}
+          {bolSyncPreview && bolSyncPreview.changes.length > 0 && (
+            <BolSyncPreview
+              preview={bolSyncPreview}
+              crossValidation={bolCrossValidation}
+              onApplySync={() => applyBolSyncMutation.mutate()}
+              isSyncing={applyBolSyncMutation.isPending}
+              syncSuccess={applyBolSyncMutation.isSuccess}
             />
           )}
 
