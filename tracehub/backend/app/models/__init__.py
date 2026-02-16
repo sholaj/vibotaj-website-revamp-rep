@@ -7,6 +7,7 @@ from .origin import Origin, RiskLevel
 from .document import Document, DocumentType, DocumentStatus, DocumentIssue
 from .document_content import DocumentContent
 from .compliance_result import ComplianceResult
+from .document_transition import DocumentTransition
 from .reference_registry import ReferenceRegistry
 from .container_event import ContainerEvent, EventStatus
 from .notification import Notification, NotificationType
@@ -27,6 +28,7 @@ __all__ = [
     "DocumentIssue",
     "DocumentContent",
     "ComplianceResult",
+    "DocumentTransition",
     "ReferenceRegistry",
     "ContainerEvent",
     "EventStatus",

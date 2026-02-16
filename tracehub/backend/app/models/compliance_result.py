@@ -33,6 +33,17 @@ class ComplianceResult(Base):
     severity = Column(String(20), nullable=False)  # ERROR, WARNING, INFO
     field_path = Column(String(100), nullable=True)  # Field that was evaluated
 
+    # Shipment-level result (PRD-016: shipment compliance aggregation)
+    shipment_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("shipments.id", ondelete="CASCADE"),
+        nullable=True,
+        index=True,
+    )
+
+    # Document type tracking (PRD-016: generalize beyond BoL)
+    document_type = Column(String(50), nullable=True)
+
     # Timestamps
     checked_at = Column(DateTime(timezone=True), default=datetime.utcnow, nullable=False)
     created_at = Column(DateTime(timezone=True), default=datetime.utcnow, nullable=False)

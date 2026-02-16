@@ -85,10 +85,10 @@ Users → Vercel (Next.js 15 SSR + BFF) → Railway (FastAPI + Celery) → Supab
 
 ## Phase 3: Business Logic Enhancement (Weeks 9-12)
 
-| PRD | Title | Complexity | Target |
-|-----|-------|-----------|--------|
-| 016 | Enhanced compliance engine (state machine + validation) | High | Week 9 |
-| 017 | Audit pack v2 (PDF index + ZIP + Supabase Storage) | Medium | Week 10 |
+| PRD | Title | Status | Complexity | Target |
+|-----|-------|--------|-----------|--------|
+| 016 | [Enhanced compliance engine (state machine + validation)](prds/016-enhanced-compliance-engine.md) | **Done** | High | Week 9 |
+| 017 | Audit pack v2 (PDF index + ZIP + Supabase Storage) | | Medium | Week 10 |
 | 018 | BoL parser + auto-enrichment pipeline | Medium | Week 10 |
 | 019 | AI document classification v2 (Claude + OCR) | High | Week 11 |
 | 020 | Email notifications (Resend/SendGrid + templates) | Medium | Week 11 |
@@ -106,7 +106,7 @@ Users → Vercel (Next.js 15 SSR + BFF) → Railway (FastAPI + Celery) → Supab
 ---
 
 ## In Progress
-_Phase 2 complete. PRD-009 through PRD-015 done. Phase 3 (business logic enhancement) next._
+_Phase 3 started. PRD-016 (enhanced compliance engine) done. PRD-017 (audit pack v2) next._
 
 ## Blocked
 _None_
@@ -148,9 +148,9 @@ _None_
 
 ### v2 (Target)
 - Total PRDs: 25 (001-025)
-- PRDs specified: 15 (001-015 — Phase 1 + Phase 2)
-- PRDs completed: 15 (001-015)
-- PRDs remaining: 10 (016-025 — Phases 3-4)
+- PRDs specified: 16 (001-016 — Phase 1 + Phase 2 + Phase 3 start)
+- PRDs completed: 16 (001-016)
+- PRDs remaining: 9 (017-025 — Phases 3-4)
 - Phase 0: Foundation — **Complete**
 - Phase 1: Infrastructure migration (Weeks 1-4) — **Complete**
 - Phase 2: Frontend rebuild (Weeks 5-8) — **Complete**
