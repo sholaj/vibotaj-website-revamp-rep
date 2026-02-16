@@ -19,7 +19,9 @@ from ..schemas.shipment import ShipmentResponse, ShipmentDetailResponse, Shipmen
 from ..schemas.user import CurrentUser
 from ..routers.auth import get_current_active_user
 from ..services.compliance import get_required_documents, check_document_completeness
-from ..services.audit_pack import generate_audit_pack
+from ..services.audit_pack import generate_audit_pack, get_or_generate_audit_pack, get_audit_pack_status
+from ..services.storage_factory import get_storage
+from ..schemas.audit_pack import AuditPackStatusResponse
 from ..services.permissions import Permission, has_permission
 from ..services.access_control import get_accessible_shipments_filter, get_accessible_shipment, user_is_shipment_owner
 from ..services.shipment_state_machine import validate_transition, get_transition_error_message
@@ -574,28 +576,57 @@ async def get_shipment_events(
     return {"events": transformed_events}
 
 
-@router.get("/{shipment_id}/audit-pack")
+@router.get("/{shipment_id}/audit-pack", response_model=AuditPackStatusResponse)
 async def download_audit_pack(
     shipment_id: UUID,
     db: Session = Depends(get_db),
     current_user: CurrentUser = Depends(get_current_active_user)
 ):
-    """Download audit pack ZIP for a shipment.
+    """Get or generate audit pack for a shipment (returns signed URL).
 
-    Sprint 11: Buyers can also download audit packs for shipments assigned to them.
+    PRD-017: Returns a signed download URL from Supabase Storage
+    instead of streaming the blob directly. Caches the pack and
+    only regenerates when documents have changed.
     """
-    # Filter by organization for multi-tenancy security (owner OR buyer)
     shipment = get_accessible_shipment(db, shipment_id, current_user)
     if not shipment:
         raise HTTPException(status_code=404, detail="Shipment not found")
 
-    # Generate audit pack
-    zip_buffer = generate_audit_pack(shipment, db)
+    storage = get_storage()
+    return await get_or_generate_audit_pack(shipment, db, storage)
 
-    return StreamingResponse(
-        io.BytesIO(zip_buffer.getvalue()),
-        media_type="application/zip",
-        headers={
-            "Content-Disposition": f"attachment; filename={shipment.reference}-audit-pack.zip"
-        }
-    )
+
+@router.get("/{shipment_id}/audit-pack/status", response_model=AuditPackStatusResponse)
+async def audit_pack_status(
+    shipment_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: CurrentUser = Depends(get_current_active_user)
+):
+    """Get audit pack status without generating.
+
+    PRD-017: Lightweight check to see if pack is ready, outdated, or missing.
+    """
+    shipment = get_accessible_shipment(db, shipment_id, current_user)
+    if not shipment:
+        raise HTTPException(status_code=404, detail="Shipment not found")
+
+    documents = db.query(Document).filter(Document.shipment_id == shipment.id).all()
+    return get_audit_pack_status(shipment, documents, db)
+
+
+@router.post("/{shipment_id}/audit-pack/regenerate", response_model=AuditPackStatusResponse)
+async def regenerate_audit_pack(
+    shipment_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: CurrentUser = Depends(get_current_active_user)
+):
+    """Force regenerate audit pack.
+
+    PRD-017: Regenerates even if a cached version exists.
+    """
+    shipment = get_accessible_shipment(db, shipment_id, current_user)
+    if not shipment:
+        raise HTTPException(status_code=404, detail="Shipment not found")
+
+    storage = get_storage()
+    return await get_or_generate_audit_pack(shipment, db, storage, force=True)
