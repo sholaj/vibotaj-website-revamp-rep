@@ -75,7 +75,7 @@ Users → Vercel (Next.js 15 SSR + BFF) → Railway (FastAPI + Celery) → Supab
 |-----|-------|--------|-----------|--------|-------------|
 | 009 | [Design system (Shadcn + domain composites)](prds/009-design-system.md) | **Done** | Medium | Week 5 | 001, 008 |
 | 010 | [Auth pages (PropelAuth UI + org switcher)](prds/010-auth-pages.md) | **Done** | Medium | Week 5 | 009 |
-| 011 | Dashboard + shipment list (SSR) | Medium | Week 6 |
+| 011 | [Dashboard + shipment list](prds/011-dashboard-shipment-list.md) | **Done** | Medium | Week 6 | 009, 010 |
 | 012 | Shipment detail + document management | High | Week 6-7 |
 | 013 | Container tracking timeline (Supabase Realtime) | Medium | Week 7 |
 | 014 | Analytics dashboard (Recharts + SSR) | Medium | Week 8 |
@@ -106,7 +106,7 @@ Users → Vercel (Next.js 15 SSR + BFF) → Railway (FastAPI + Celery) → Supab
 ---
 
 ## In Progress
-_Phase 2 in progress. PRD-009 + PRD-010 done. PRD-011 (dashboard + shipment list) next._
+_Phase 2 in progress. PRD-009 + PRD-010 + PRD-011 done. PRD-012 (shipment detail + document management) next._
 
 ## Blocked
 _None_
@@ -148,12 +148,12 @@ _None_
 
 ### v2 (Target)
 - Total PRDs: 25 (001-025)
-- PRDs specified: 10 (001-010 — Phase 1 + Phase 2 Week 5)
-- PRDs completed: 10 (001-010)
-- PRDs remaining: 15 (011-025 — Phase 2 remainder + Phases 3-4)
+- PRDs specified: 11 (001-011 — Phase 1 + Phase 2 Weeks 5-6)
+- PRDs completed: 11 (001-011)
+- PRDs remaining: 14 (012-025 — Phase 2 remainder + Phases 3-4)
 - Phase 0: Foundation — **Complete**
 - Phase 1: Infrastructure migration (Weeks 1-4) — **Complete**
-- Phase 2: Frontend rebuild (Weeks 5-8) — **2/7 done, PRD-011 next**
+- Phase 2: Frontend rebuild (Weeks 5-8) — **3/7 done, PRD-012 next**
 - Phase 3: Business logic enhancement (Weeks 9-12)
 - Phase 4: SaaS hardening (Weeks 13-16)
 
