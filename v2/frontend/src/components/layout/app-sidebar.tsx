@@ -1,4 +1,8 @@
-import { Package, BarChart3, Users, Building2 } from "lucide-react";
+"use client";
+
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { Package, ChevronDown } from "lucide-react";
 import {
   Sidebar,
   SidebarContent,
@@ -11,42 +15,74 @@ import {
   SidebarMenuItem,
   SidebarFooter,
 } from "@/components/ui/sidebar";
-
-const navigation = [
-  { name: "Shipments", href: "/shipments", icon: Package },
-  { name: "Dashboard", href: "/dashboard", icon: BarChart3 },
-  { name: "Users", href: "/users", icon: Users },
-  { name: "Organizations", href: "/organizations", icon: Building2 },
-];
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
+import { getNavGroupsForRole } from "@/lib/navigation";
+import { useCurrentOrg } from "@/lib/auth/org-context";
+import { OrgSwitcher } from "./org-switcher";
 
 export function AppSidebar() {
+  const pathname = usePathname();
+  const { role } = useCurrentOrg();
+  const groups = getNavGroupsForRole(role);
+
   return (
     <Sidebar>
-      <SidebarHeader className="border-b px-4 py-3">
-        <div className="flex items-center gap-2">
-          <Package className="text-primary h-6 w-6" />
-          <span className="text-lg font-bold">TraceHub</span>
+      <SidebarHeader className="gap-0">
+        <div className="border-b px-4 py-3">
+          <Link href="/dashboard" className="flex items-center gap-2">
+            <Package className="text-primary h-6 w-6" />
+            <span className="text-lg font-bold">TraceHub</span>
+          </Link>
+        </div>
+        <div className="border-b px-2 py-2">
+          <OrgSwitcher />
         </div>
       </SidebarHeader>
 
       <SidebarContent>
-        <SidebarGroup>
-          <SidebarGroupLabel>Navigation</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {navigation.map((item) => (
-                <SidebarMenuItem key={item.name}>
-                  <SidebarMenuButton asChild>
-                    <a href={item.href}>
-                      <item.icon className="h-4 w-4" />
-                      <span>{item.name}</span>
-                    </a>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+        {groups.map((group) => (
+          <Collapsible
+            key={group.label}
+            defaultOpen
+            className="group/collapsible"
+          >
+            <SidebarGroup>
+              <CollapsibleTrigger asChild>
+                <SidebarGroupLabel className="cursor-pointer">
+                  {group.label}
+                  <ChevronDown className="ml-auto h-4 w-4 transition-transform group-data-[state=open]/collapsible:rotate-180" />
+                </SidebarGroupLabel>
+              </CollapsibleTrigger>
+              <CollapsibleContent>
+                <SidebarGroupContent>
+                  <SidebarMenu>
+                    {group.items.map((item) => {
+                      const isActive =
+                        pathname === item.href ||
+                        (item.href !== "/dashboard" &&
+                          pathname.startsWith(item.href));
+
+                      return (
+                        <SidebarMenuItem key={item.name}>
+                          <SidebarMenuButton asChild isActive={isActive}>
+                            <Link href={item.href}>
+                              <item.icon className="h-4 w-4" />
+                              <span>{item.name}</span>
+                            </Link>
+                          </SidebarMenuButton>
+                        </SidebarMenuItem>
+                      );
+                    })}
+                  </SidebarMenu>
+                </SidebarGroupContent>
+              </CollapsibleContent>
+            </SidebarGroup>
+          </Collapsible>
+        ))}
       </SidebarContent>
 
       <SidebarFooter className="border-t px-4 py-3">
