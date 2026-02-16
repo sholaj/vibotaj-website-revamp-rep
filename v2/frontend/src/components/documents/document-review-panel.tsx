@@ -1,8 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { Download, Trash2, CheckCircle, XCircle } from "lucide-react";
+import { Download, Trash2, CheckCircle, XCircle, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import {
@@ -15,6 +16,14 @@ import { StatusBadge } from "@/components/domain/status-badge";
 import { ConfirmDialog } from "@/components/domain/confirm-dialog";
 import type { DocumentStatus as BadgeDocumentStatus } from "@/components/domain/status-badge";
 import { DOCUMENT_TYPE_LABELS, type Document } from "@/lib/api/document-types";
+import { useReclassifyDocument } from "@/lib/api/classification";
+import {
+  METHOD_LABELS,
+  METHOD_COLORS,
+  formatClassificationConfidence,
+  getDocTypeLabel,
+  type ClassificationMethod,
+} from "@/lib/api/classification-types";
 
 interface DocumentReviewPanelProps {
   document: Document | null;
@@ -28,6 +37,8 @@ interface DocumentReviewPanelProps {
   isRejecting?: boolean;
   isDeleting?: boolean;
   canApprove?: boolean;
+  classificationMethod?: ClassificationMethod | null;
+  classificationConfidence?: number | null;
 }
 
 function formatDate(iso: string | null): string {
@@ -51,12 +62,16 @@ export function DocumentReviewPanel({
   isRejecting,
   isDeleting,
   canApprove = false,
+  classificationMethod,
+  classificationConfidence,
 }: DocumentReviewPanelProps) {
   const [approvalNotes, setApprovalNotes] = useState("");
   const [rejectionReason, setRejectionReason] = useState("");
   const [deleteReason, setDeleteReason] = useState("");
   const [showReject, setShowReject] = useState(false);
   const [showDelete, setShowDelete] = useState(false);
+
+  const reclassifyMutation = useReclassifyDocument(doc?.id ?? "");
 
   if (!doc) return null;
 
@@ -122,7 +137,59 @@ export function DocumentReviewPanel({
                   <span className="text-sm">{doc.file_name}</span>
                 </div>
               )}
+              {classificationMethod && (
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground text-sm">
+                    Classification
+                  </span>
+                  <div className="flex items-center gap-1.5">
+                    <Badge
+                      variant="outline"
+                      className={METHOD_COLORS[classificationMethod]}
+                    >
+                      {METHOD_LABELS[classificationMethod]}
+                    </Badge>
+                    {classificationConfidence != null && (
+                      <span className="text-xs text-muted-foreground">
+                        {formatClassificationConfidence(classificationConfidence)}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
+
+            {/* Reclassify */}
+            {(doc.status === "uploaded" || doc.status === "under_review") && (
+              <div>
+                {reclassifyMutation.isSuccess && reclassifyMutation.data && (
+                  <div className="mb-2 rounded-lg border bg-muted/30 p-3 text-sm">
+                    <p className="font-medium">Reclassification Result</p>
+                    <p className="mt-1 text-muted-foreground">
+                      {getDocTypeLabel(reclassifyMutation.data.previous_type)}
+                      {" → "}
+                      {getDocTypeLabel(reclassifyMutation.data.new_type)}
+                      {reclassifyMutation.data.auto_applied && (
+                        <span className="ml-1 text-green-600">(auto-applied)</span>
+                      )}
+                    </p>
+                  </div>
+                )}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => reclassifyMutation.mutate()}
+                  disabled={reclassifyMutation.isPending}
+                >
+                  <RefreshCw
+                    className={`mr-2 h-4 w-4 ${reclassifyMutation.isPending ? "animate-spin" : ""}`}
+                  />
+                  {reclassifyMutation.isPending
+                    ? "Reclassifying..."
+                    : "Re-classify with AI"}
+                </Button>
+              </div>
+            )}
 
             {/* Actions */}
             <div className="flex gap-2">

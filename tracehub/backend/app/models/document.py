@@ -129,6 +129,7 @@ class Document(Base):
 
     # Classification and parsing metadata
     classification_confidence = Column(Float, nullable=True, comment="AI classification confidence (0.0-1.0)")
+    classification_method = Column(String(20), nullable=True, comment="Classification method: ai, keyword, manual")
     parsed_at = Column(DateTime(timezone=True), nullable=True, comment="When document was parsed")
     parser_version = Column(String(20), nullable=True, comment="Version of parser used")
 

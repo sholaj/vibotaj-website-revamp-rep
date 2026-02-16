@@ -37,6 +37,14 @@ from ..services.notifications import (
 from ..services.permissions import Permission, has_permission
 from ..services.pdf_processor import pdf_processor
 from ..services.document_classifier import document_classifier
+from ..services.document_classifier_v2 import document_classifier_v2
+from ..services.llm_factory import get_llm
+from ..schemas.classification import (
+    ClassificationResponse,
+    ClassificationAlternative,
+    ClassificationInUpload,
+    ReclassifyResponse,
+)
 from ..services.shipment_enrichment import shipment_enrichment_service
 from ..services.compliance import validate_document_content as validate_compliance
 from ..services.shipment_data_extractor import ShipmentDataExtractor
@@ -218,20 +226,33 @@ async def upload_document(
     # Determine if this is a combined document
     is_combined = len(detected_contents) > 1
 
-    # If user selected "other" and AI detected a specific type with high confidence, use the AI result
+    # PRD-019: Classification with configurable threshold
     final_document_type = document_type
+    classification_info = None
+    confidence_threshold = settings.classification_confidence_threshold
+
     if document_type == DocumentType.OTHER and detected_contents:
         # Find the highest confidence detection that's not "other"
         best_detection = None
         for dc in detected_contents:
-            if dc["document_type"] != "other" and dc["confidence"] >= 0.7:
+            if dc["document_type"] != "other" and dc["confidence"] >= confidence_threshold:
                 if best_detection is None or dc["confidence"] > best_detection["confidence"]:
                     best_detection = dc
 
         if best_detection:
             try:
                 final_document_type = DocumentType(best_detection["document_type"])
-                logger.info(f"AI auto-classified document as {final_document_type.value} (confidence: {best_detection['confidence']:.2f})")
+                classification_info = ClassificationInUpload(
+                    suggested_type=final_document_type.value,
+                    confidence=best_detection["confidence"],
+                    method=best_detection.get("detection_method", "keyword"),
+                    auto_applied=True,
+                )
+                logger.info(
+                    "Auto-classified document as %s (confidence: %.2f)",
+                    final_document_type.value,
+                    best_detection["confidence"],
+                )
             except ValueError:
                 pass  # Keep user's selection if AI type is invalid
 
@@ -248,6 +269,13 @@ async def upload_document(
         reference_number=reference_number,
         uploaded_by=current_user.id
     )
+
+    # PRD-019: Store classification metadata
+    if classification_info:
+        document.classification_confidence = classification_info.confidence
+        document.classification_method = classification_info.method
+    else:
+        document.classification_method = "manual"
 
     db.add(document)
     db.flush()  # Get document.id
@@ -421,6 +449,10 @@ async def upload_document(
             "warnings": enrichment_result.warnings,
             "extracted_data": enrichment_result.extracted_data
         }
+
+    # PRD-019: Include classification info
+    if classification_info:
+        response["classification"] = classification_info.model_dump()
 
     # Include extracted container from BOL (for suggesting container update)
     if extracted_container:
@@ -2601,3 +2633,169 @@ async def get_document_versions(
         ],
         "total": len(documents),
     }
+
+
+# =============================================================================
+# PRD-019: AI Document Classification v2
+# =============================================================================
+
+
+@router.post("/classify", response_model=ClassificationResponse)
+async def classify_document_endpoint(
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_user: CurrentUser = Depends(get_current_active_user),
+):
+    """Classify a document without creating a document record.
+
+    Accepts a file upload and returns the classification result
+    including document type, confidence, and reasoning.
+    Uses the configured LLM backend with keyword fallback.
+    """
+    check_permission(current_user, Permission.DOCUMENTS_UPLOAD)
+
+    is_pdf = (
+        file.content_type == "application/pdf"
+        or (file.filename or "").lower().endswith(".pdf")
+    )
+    if not is_pdf:
+        raise HTTPException(
+            status_code=400,
+            detail="Only PDF files can be classified",
+        )
+
+    # Save to temp path
+    import tempfile
+
+    with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tmp:
+        shutil.copyfileobj(file.file, tmp)
+        tmp_path = tmp.name
+
+    try:
+        # Extract text
+        text = None
+        if pdf_processor.is_available():
+            pages = pdf_processor.extract_text(tmp_path)
+            if pages:
+                text = "\n".join(page.text for page in pages)
+
+        if not text:
+            raise HTTPException(
+                status_code=422,
+                detail="Could not extract text from PDF",
+            )
+
+        # Classify
+        result = document_classifier_v2.classify(text, prefer_ai=True)
+
+        alternatives = [
+            ClassificationAlternative(
+                document_type=str(a.get("document_type", "other")),
+                confidence=float(a.get("confidence", 0)),
+            )
+            for a in result.alternatives
+        ]
+
+        return ClassificationResponse(
+            document_type=result.document_type.value,
+            confidence=result.confidence,
+            method=result.method,
+            provider=result.provider,
+            reference_number=result.reference_number,
+            key_fields=result.key_fields,
+            reasoning=result.reasoning,
+            alternatives=alternatives,
+        )
+    finally:
+        os.unlink(tmp_path)
+
+
+@router.post("/{document_id}/reclassify", response_model=ReclassifyResponse)
+async def reclassify_document(
+    document_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: CurrentUser = Depends(get_current_active_user),
+):
+    """Re-classify an existing document using the AI classifier.
+
+    Extracts text from the stored file and runs classification.
+    Updates document_type if confidence meets threshold.
+    """
+    check_permission(current_user, Permission.DOCUMENTS_UPLOAD)
+
+    document = db.query(Document).filter(
+        Document.id == document_id,
+        Document.organization_id == current_user.organization_id,
+    ).first()
+    if not document:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    # Get file path
+    full_path = get_full_path(document.file_path) if document.file_path else None
+    if not full_path or not os.path.exists(full_path):
+        if document.file_path and os.path.exists(document.file_path):
+            full_path = document.file_path
+        else:
+            raise HTTPException(
+                status_code=422,
+                detail="Document file not found for reclassification",
+            )
+
+    # Extract text
+    text = None
+    if pdf_processor.is_available():
+        pages = pdf_processor.extract_text(full_path)
+        if pages:
+            text = "\n".join(page.text for page in pages)
+
+    if not text:
+        raise HTTPException(
+            status_code=422,
+            detail="Could not extract text from document",
+        )
+
+    # Classify
+    result = document_classifier_v2.classify(text, prefer_ai=True)
+    previous_type = document.document_type.value
+
+    alternatives = [
+        ClassificationAlternative(
+            document_type=str(a.get("document_type", "other")),
+            confidence=float(a.get("confidence", 0)),
+        )
+        for a in result.alternatives
+    ]
+
+    classification = ClassificationResponse(
+        document_type=result.document_type.value,
+        confidence=result.confidence,
+        method=result.method,
+        provider=result.provider,
+        reference_number=result.reference_number,
+        key_fields=result.key_fields,
+        reasoning=result.reasoning,
+        alternatives=alternatives,
+    )
+
+    # Auto-apply if confidence meets threshold
+    auto_applied = False
+    threshold = settings.classification_confidence_threshold
+    if (
+        result.confidence >= threshold
+        and result.document_type != DocumentType.OTHER
+    ):
+        document.document_type = result.document_type
+        document.classification_confidence = result.confidence
+        document.classification_method = result.method
+        if result.reference_number and not document.reference_number:
+            document.reference_number = result.reference_number
+        auto_applied = True
+        db.commit()
+
+    return ReclassifyResponse(
+        document_id=str(document.id),
+        previous_type=previous_type,
+        new_type=document.document_type.value,
+        classification=classification,
+        auto_applied=auto_applied,
+    )

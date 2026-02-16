@@ -1,5 +1,6 @@
 """Application configuration using Pydantic settings."""
 
+from pydantic import SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from functools import lru_cache
 
@@ -36,8 +37,11 @@ class Settings(BaseSettings):
     jsoncargo_api_key: str = ""
     jsoncargo_api_url: str = "https://api.jsoncargo.com/api/v1"
 
-    # AI Document Classification (Anthropic Claude)
-    anthropic_api_key: str = ""
+    # LLM Provider (PRD-019)
+    llm_provider: str = "anthropic"  # "anthropic", "openai", "mock"
+    llm_model: str = "claude-haiku-4-5-20251001"  # Model name for the configured provider
+    anthropic_api_key: SecretStr = SecretStr("")  # Anthropic API key
+    classification_confidence_threshold: float = 0.70  # Auto-upgrade threshold
 
     # Webhook Security
     webhook_secret: str = ""  # HMAC secret for webhook signature verification
