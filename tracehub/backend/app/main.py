@@ -12,7 +12,7 @@ from sqlalchemy import text
 from .config import get_settings
 from .database import engine, Base, get_db, SessionLocal
 from .routers import shipments, documents, tracking, webhooks, auth, notifications, users
-from .routers import analytics, audit, eudr, organizations, invitations, document_validation
+from .routers import analytics, audit, eudr, organizations, invitations, document_validation, integrations
 from .middleware import RequestTrackingMiddleware, RateLimitMiddleware, ErrorHandlerMiddleware, RLSContextMiddleware
 from .models import ContainerEvent, Shipment, Product
 from .services.entity_factory import create_product
@@ -322,6 +322,7 @@ app.include_router(users.router, prefix="/api/users", tags=["Users"])
 app.include_router(organizations.router, prefix="/api/organizations", tags=["Organizations"])
 app.include_router(invitations.router, prefix="/api/invitations", tags=["Invitations"])
 app.include_router(document_validation.router, prefix="/api", tags=["Document Validation"])
+app.include_router(integrations.router, prefix="/api/integrations", tags=["Integrations"])
 
 
 @app.get("/", tags=["Health"])

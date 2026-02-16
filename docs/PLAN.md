@@ -83,7 +83,7 @@ Users → Vercel (Next.js 15 SSR + BFF) → Railway (FastAPI + Celery) → Supab
 
 **Note:** PRD-008 (v1 bridge) gives a working production app on v2 infra. Phase 2 then replaces the React SPA with Next.js 15 — SSR, better performance, modern UI. No rush since bridge is functional.
 
-## Phase 3: Business Logic Enhancement (Weeks 9-12)
+## Phase 3: Business Logic Enhancement (Weeks 9-12) — Complete
 
 | PRD | Title | Status | Complexity | Target |
 |-----|-------|--------|-----------|--------|
@@ -92,7 +92,7 @@ Users → Vercel (Next.js 15 SSR + BFF) → Railway (FastAPI + Celery) → Supab
 | 018 | [BoL parser + auto-enrichment pipeline](prds/018-bol-parser-auto-enrichment.md) | **Done** | Medium | Week 10 |
 | 019 | [AI document classification v2 (LLM abstraction + auto-detect)](prds/019-ai-document-classification-v2.md) | **Done** | High | Week 11 |
 | 020 | [Email notifications (Resend + EmailBackend Protocol)](prds/020-email-notifications.md) | **Done** | Medium | Week 11 |
-| 021 | Third-party integrations (customs, banking) | High | Week 12 |
+| 021 | [Third-party integrations (customs + banking APIs)](prds/021-third-party-integrations.md) | **Done** | High | Week 12 |
 
 ## Phase 4: SaaS Hardening (Weeks 13-16)
 
@@ -106,7 +106,7 @@ Users → Vercel (Next.js 15 SSR + BFF) → Railway (FastAPI + Celery) → Supab
 ---
 
 ## In Progress
-_Phase 3 in progress. PRD-016 through PRD-020 done. PRD-021 (third-party integrations) next._
+_Phase 3 complete. All PRDs 016-021 done. Phase 4 (SaaS Hardening) next._
 
 ## Blocked
 _None_
@@ -132,6 +132,7 @@ _None_
 | 2026-02-15 | StorageBackend Protocol for file storage | Local dev + Supabase prod; Protocol pattern for dependency injection |
 | 2026-02-16 | LLMBackend Protocol for AI classification | Provider-agnostic; swap Claude/OpenAI/etc. via config. Same pattern as StorageBackend |
 | 2026-02-16 | EmailBackend Protocol for notifications | Resend default; swap providers via config. Console backend for dev/test. Same Protocol pattern |
+| 2026-02-16 | CustomsBackend + BankingBackend Protocols for integrations | Mock backends now; real NCS/GTBank when API access obtained. Same Protocol pattern |
 | Previous | Horn & Hoof (0506/0507) NOT EUDR-covered | Regulatory fact — NEVER add geolocation/deforestation fields |
 | Previous | Custom JWT auth (v1) | Sufficient for POC; replaced by PropelAuth in v2 |
 | Previous | Hostinger VPS (v1) | Cheapest option for POC; replaced by Vercel + Railway in v2 |
@@ -150,13 +151,13 @@ _None_
 
 ### v2 (Target)
 - Total PRDs: 25 (001-025)
-- PRDs specified: 20 (001-020 — Phase 1 + Phase 2 + Phase 3)
-- PRDs completed: 20 (001-020)
-- PRDs remaining: 5 (021-025 — Phases 3-4)
+- PRDs specified: 21 (001-021 — Phase 1 + Phase 2 + Phase 3)
+- PRDs completed: 21 (001-021)
+- PRDs remaining: 4 (022-025 — Phase 4)
 - Phase 0: Foundation — **Complete**
 - Phase 1: Infrastructure migration (Weeks 1-4) — **Complete**
 - Phase 2: Frontend rebuild (Weeks 5-8) — **Complete**
-- Phase 3: Business logic enhancement (Weeks 9-12)
+- Phase 3: Business logic enhancement (Weeks 9-12) — **Complete**
 - Phase 4: SaaS hardening (Weeks 13-16)
 
 ---
