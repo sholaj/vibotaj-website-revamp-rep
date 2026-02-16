@@ -15,6 +15,10 @@ import { TrackingTimeline } from "@/components/tracking/tracking-timeline";
 import { LiveStatusCard } from "@/components/tracking/live-status-card";
 import { ComplianceStatus } from "@/components/compliance/compliance-status";
 import { EudrStatusCard } from "@/components/compliance/eudr-status-card";
+import { ComplianceRulesTable } from "@/components/compliance/compliance-rules-table";
+import { DocumentStateStepper } from "@/components/compliance/document-state-stepper";
+import { ComplianceOverrideDialog } from "@/components/compliance/compliance-override-dialog";
+import { ShipmentComplianceCard } from "@/components/compliance/shipment-compliance-card";
 import { useShipmentDetail } from "@/lib/api/documents";
 import {
   useShipmentDocuments,
@@ -31,6 +35,11 @@ import {
   useRefreshTracking,
 } from "@/lib/supabase/use-realtime";
 import { useCurrentOrg } from "@/lib/auth/org-context";
+import {
+  useComplianceReport,
+  useTransitionHistory,
+  useSubmitOverride,
+} from "@/lib/api/compliance";
 import type { Document } from "@/lib/api/document-types";
 import type { ContainerEvent } from "@/lib/api/tracking-types";
 
@@ -70,8 +79,14 @@ export default function ShipmentDetailPage() {
   const [newEventIds, setNewEventIds] = useState<Set<string>>(new Set());
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [refreshError, setRefreshError] = useState<string | null>(null);
+  const [overrideOpen, setOverrideOpen] = useState(false);
 
   const canApprove = role === "admin" || role === "compliance_officer";
+
+  // Compliance data (PRD-016)
+  const { data: complianceReport } = useComplianceReport(shipmentId);
+  const { data: transitionData } = useTransitionHistory(shipmentId);
+  const overrideMutation = useSubmitOverride(shipmentId);
 
   // Realtime subscriptions
   const handleNewEvent = useCallback((event: ContainerEvent) => {
@@ -186,6 +201,9 @@ export default function ShipmentDetailPage() {
               <TabsTrigger value="tracking">
                 Tracking ({events.length})
               </TabsTrigger>
+              <TabsTrigger value="compliance">
+                Compliance
+              </TabsTrigger>
             </TabsList>
 
             <TabsContent value="documents" className="mt-4">
@@ -214,6 +232,17 @@ export default function ShipmentDetailPage() {
                 <TrackingTimeline events={events} newEventIds={newEventIds} />
               )}
             </TabsContent>
+
+            <TabsContent value="compliance" className="mt-4 space-y-6">
+              {complianceReport && (
+                <ComplianceRulesTable results={complianceReport.results} />
+              )}
+              {transitionData && (
+                <DocumentStateStepper
+                  transitions={transitionData.transitions}
+                />
+              )}
+            </TabsContent>
           </Tabs>
         </div>
 
@@ -227,6 +256,16 @@ export default function ShipmentDetailPage() {
             isSyncing={isRefreshing}
             error={refreshError}
           />
+
+          {complianceReport && (
+            <ShipmentComplianceCard
+              decision={complianceReport.decision}
+              summary={complianceReport.summary}
+              override={complianceReport.override}
+              canOverride={canApprove}
+              onOverride={() => setOverrideOpen(true)}
+            />
+          )}
 
           {docsData?.summary && (
             <ComplianceStatus summary={docsData.summary} />
@@ -248,6 +287,18 @@ export default function ShipmentDetailPage() {
             { file, documentType: type, referenceNumber: ref },
             { onSuccess: () => setUploadOpen(false) },
           );
+        }}
+      />
+
+      {/* Compliance Override Dialog (PRD-016) */}
+      <ComplianceOverrideDialog
+        open={overrideOpen}
+        onOpenChange={setOverrideOpen}
+        isSubmitting={overrideMutation.isPending}
+        onSubmit={(reason) => {
+          overrideMutation.mutate(reason, {
+            onSuccess: () => setOverrideOpen(false),
+          });
         }}
       />
 

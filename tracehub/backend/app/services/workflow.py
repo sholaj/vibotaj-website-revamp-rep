@@ -10,7 +10,10 @@ from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
 
+from sqlalchemy.orm import Session
+
 from ..models import Document, DocumentStatus
+from ..models.document_transition import DocumentTransition
 from .validation import validate_document, ValidationResult
 
 
@@ -213,13 +216,50 @@ class TransitionResult:
         return result
 
 
+def persist_transition(
+    db: Session,
+    document: Document,
+    from_state: DocumentStatus,
+    to_state: DocumentStatus,
+    actor_id: Optional[UUID] = None,
+    reason: Optional[str] = None,
+    metadata: Optional[Dict[str, Any]] = None,
+) -> DocumentTransition:
+    """Persist a document state transition to the database.
+
+    Args:
+        db: Database session
+        document: The document that transitioned
+        from_state: Previous document status
+        to_state: New document status
+        actor_id: UUID of the user who performed the transition
+        reason: Optional reason for the transition
+        metadata: Optional extra metadata
+
+    Returns:
+        The created DocumentTransition record
+    """
+    transition_record = DocumentTransition(
+        document_id=document.id,
+        from_state=from_state.value,
+        to_state=to_state.value,
+        actor_id=actor_id,
+        reason=reason,
+        metadata=metadata or {},
+        organization_id=document.organization_id,
+    )
+    db.add(transition_record)
+    return transition_record
+
+
 def transition_document(
     document: Document,
     target_status: DocumentStatus,
     user_id: Optional[UUID] = None,
     user_email: str = "system",
     user_role: str = "admin",
-    notes: Optional[str] = None
+    notes: Optional[str] = None,
+    db: Optional[Session] = None,
 ) -> TransitionResult:
     """Attempt to transition a document to a new status.
 
@@ -230,11 +270,13 @@ def transition_document(
         user_email: Email of the user (for display/logging)
         user_role: Role of the user
         notes: Optional notes for the transition
+        db: Optional database session for persisting transition history
 
     Returns:
         TransitionResult with outcome details
 
-    Note: This does not persist the change - caller must save to database
+    Note: If db is provided, the transition is persisted to document_transitions.
+          Caller must still commit the session.
     """
     previous_status = document.status
     validation_result = None
@@ -277,6 +319,17 @@ def transition_document(
         document.validated_by = user_id  # UUID foreign key
         if notes:
             document.validation_notes = notes
+
+    # Persist transition history (PRD-016)
+    if db is not None:
+        persist_transition(
+            db=db,
+            document=document,
+            from_state=previous_status,
+            to_state=target_status,
+            actor_id=user_id,
+            reason=notes,
+        )
 
     return TransitionResult(
         success=True,
@@ -345,6 +398,46 @@ def get_status_info(status: DocumentStatus) -> Dict[str, Any]:
         "status": status.value,
         **info
     }
+
+
+def get_transition_history(
+    db: Session,
+    document_id: UUID,
+    organization_id: UUID,
+) -> List[Dict[str, Any]]:
+    """Get the transition history for a document.
+
+    Args:
+        db: Database session
+        document_id: The document UUID
+        organization_id: Organization UUID for multi-tenancy
+
+    Returns:
+        List of transition records ordered by created_at
+    """
+    transitions = (
+        db.query(DocumentTransition)
+        .filter(
+            DocumentTransition.document_id == document_id,
+            DocumentTransition.organization_id == organization_id,
+        )
+        .order_by(DocumentTransition.created_at.asc())
+        .all()
+    )
+
+    return [
+        {
+            "id": str(t.id),
+            "document_id": str(t.document_id),
+            "from_state": t.from_state,
+            "to_state": t.to_state,
+            "actor_id": str(t.actor_id) if t.actor_id else None,
+            "reason": t.reason,
+            "metadata": t.metadata or {},
+            "created_at": t.created_at.isoformat() if t.created_at else None,
+        }
+        for t in transitions
+    ]
 
 
 def get_workflow_summary(documents: List[Document]) -> Dict[str, Any]:

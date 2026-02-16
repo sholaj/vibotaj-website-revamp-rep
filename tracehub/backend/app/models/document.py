@@ -155,6 +155,8 @@ class Document(Base):
 
     # Validation enhancement relationships
     issues = relationship("DocumentIssue", back_populates="document", cascade="all, delete-orphan")
+    transitions = relationship("DocumentTransition", back_populates="document", cascade="all, delete-orphan",
+                               order_by="DocumentTransition.created_at")
     superseded_by = relationship(
         "Document",
         foreign_keys=[supersedes_id],

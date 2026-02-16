@@ -19,6 +19,7 @@ from ..database import get_db
 from ..routers.auth import get_current_active_user
 from ..schemas.user import CurrentUser
 from ..models import Shipment, Document
+from ..models.document_transition import DocumentTransition
 from ..models.shipment import ProductType
 from ..services.document_rules import (
     ValidationRunner,
@@ -28,6 +29,8 @@ from ..services.document_rules import (
     RuleSeverity,
     RuleCategory,
 )
+from ..services.compliance_aggregation import get_compliance_summary
+from ..services.workflow import get_transition_history
 
 router = APIRouter(prefix="/validation", tags=["Document Validation"])
 logger = logging.getLogger(__name__)
@@ -245,6 +248,98 @@ async def get_validation_status(
         "missing_documents": [dt.value for dt in missing],
         "has_duplicates": len(duplicates) > 0,
         "duplicate_types": duplicates,
+    }
+
+
+@router.get("/shipments/{shipment_id}/compliance")
+async def get_shipment_compliance(
+    shipment_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: CurrentUser = Depends(get_current_active_user),
+):
+    """
+    Get aggregate compliance report for a shipment.
+
+    Returns the compliance decision (APPROVE/HOLD/REJECT), rule results
+    summary, and override status. PRD-016.
+    """
+    shipment = db.query(Shipment).filter(
+        Shipment.id == shipment_id,
+        (
+            (Shipment.organization_id == current_user.organization_id) |
+            (Shipment.buyer_organization_id == current_user.organization_id)
+        )
+    ).first()
+
+    if not shipment:
+        raise HTTPException(status_code=404, detail="Shipment not found")
+
+    documents = db.query(Document).filter(
+        Document.shipment_id == shipment_id
+    ).all()
+
+    return get_compliance_summary(shipment, documents, db)
+
+
+@router.get("/shipments/{shipment_id}/transitions")
+async def get_shipment_transitions(
+    shipment_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: CurrentUser = Depends(get_current_active_user),
+):
+    """
+    Get document transition history for all documents in a shipment.
+
+    Returns a list of state transitions grouped by document, ordered by
+    timestamp. PRD-016.
+    """
+    shipment = db.query(Shipment).filter(
+        Shipment.id == shipment_id,
+        (
+            (Shipment.organization_id == current_user.organization_id) |
+            (Shipment.buyer_organization_id == current_user.organization_id)
+        )
+    ).first()
+
+    if not shipment:
+        raise HTTPException(status_code=404, detail="Shipment not found")
+
+    # Get all documents for this shipment
+    documents = db.query(Document).filter(
+        Document.shipment_id == shipment_id
+    ).all()
+
+    # Get transitions for all documents
+    doc_ids = [doc.id for doc in documents]
+    transitions = []
+    if doc_ids:
+        transition_records = (
+            db.query(DocumentTransition)
+            .filter(
+                DocumentTransition.document_id.in_(doc_ids),
+                DocumentTransition.organization_id == current_user.organization_id,
+            )
+            .order_by(DocumentTransition.created_at.asc())
+            .all()
+        )
+
+        transitions = [
+            {
+                "id": str(t.id),
+                "document_id": str(t.document_id),
+                "from_state": t.from_state,
+                "to_state": t.to_state,
+                "actor_id": str(t.actor_id) if t.actor_id else None,
+                "reason": t.reason,
+                "metadata": t.metadata or {},
+                "created_at": t.created_at.isoformat() if t.created_at else None,
+            }
+            for t in transition_records
+        ]
+
+    return {
+        "shipment_id": str(shipment_id),
+        "transitions": transitions,
     }
 
 
