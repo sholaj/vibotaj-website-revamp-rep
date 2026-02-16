@@ -1,4 +1,8 @@
-import { Package, BarChart3, Users, Building2 } from "lucide-react";
+"use client";
+
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { Package } from "lucide-react";
 import {
   Sidebar,
   SidebarContent,
@@ -11,42 +15,71 @@ import {
   SidebarMenuItem,
   SidebarFooter,
 } from "@/components/ui/sidebar";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
+import { ChevronDown } from "lucide-react";
+import { getNavGroupsForRole, type UserRole } from "@/lib/navigation";
 
-const navigation = [
-  { name: "Shipments", href: "/shipments", icon: Package },
-  { name: "Dashboard", href: "/dashboard", icon: BarChart3 },
-  { name: "Users", href: "/users", icon: Users },
-  { name: "Organizations", href: "/organizations", icon: Building2 },
-];
+interface AppSidebarProps {
+  role?: UserRole;
+}
 
-export function AppSidebar() {
+export function AppSidebar({ role = "viewer" }: AppSidebarProps) {
+  const pathname = usePathname();
+  const groups = getNavGroupsForRole(role);
+
   return (
     <Sidebar>
       <SidebarHeader className="border-b px-4 py-3">
-        <div className="flex items-center gap-2">
+        <Link href="/dashboard" className="flex items-center gap-2">
           <Package className="text-primary h-6 w-6" />
           <span className="text-lg font-bold">TraceHub</span>
-        </div>
+        </Link>
       </SidebarHeader>
 
       <SidebarContent>
-        <SidebarGroup>
-          <SidebarGroupLabel>Navigation</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {navigation.map((item) => (
-                <SidebarMenuItem key={item.name}>
-                  <SidebarMenuButton asChild>
-                    <a href={item.href}>
-                      <item.icon className="h-4 w-4" />
-                      <span>{item.name}</span>
-                    </a>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+        {groups.map((group) => (
+          <Collapsible
+            key={group.label}
+            defaultOpen
+            className="group/collapsible"
+          >
+            <SidebarGroup>
+              <CollapsibleTrigger asChild>
+                <SidebarGroupLabel className="cursor-pointer">
+                  {group.label}
+                  <ChevronDown className="ml-auto h-4 w-4 transition-transform group-data-[state=open]/collapsible:rotate-180" />
+                </SidebarGroupLabel>
+              </CollapsibleTrigger>
+              <CollapsibleContent>
+                <SidebarGroupContent>
+                  <SidebarMenu>
+                    {group.items.map((item) => {
+                      const isActive =
+                        pathname === item.href ||
+                        (item.href !== "/dashboard" &&
+                          pathname.startsWith(item.href));
+
+                      return (
+                        <SidebarMenuItem key={item.name}>
+                          <SidebarMenuButton asChild isActive={isActive}>
+                            <Link href={item.href}>
+                              <item.icon className="h-4 w-4" />
+                              <span>{item.name}</span>
+                            </Link>
+                          </SidebarMenuButton>
+                        </SidebarMenuItem>
+                      );
+                    })}
+                  </SidebarMenu>
+                </SidebarGroupContent>
+              </CollapsibleContent>
+            </SidebarGroup>
+          </Collapsible>
+        ))}
       </SidebarContent>
 
       <SidebarFooter className="border-t px-4 py-3">
