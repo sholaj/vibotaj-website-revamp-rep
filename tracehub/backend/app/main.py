@@ -11,9 +11,31 @@ from sqlalchemy import text
 
 from .config import get_settings
 from .database import engine, Base, get_db, SessionLocal
-from .routers import shipments, documents, tracking, webhooks, auth, notifications, users
-from .routers import analytics, audit, eudr, organizations, invitations, document_validation, integrations
-from .middleware import RequestTrackingMiddleware, RateLimitMiddleware, ErrorHandlerMiddleware, RLSContextMiddleware
+from .routers import (
+    shipments,
+    documents,
+    tracking,
+    webhooks,
+    auth,
+    notifications,
+    users,
+)
+from .routers import (
+    analytics,
+    audit,
+    eudr,
+    organizations,
+    invitations,
+    document_validation,
+    integrations,
+    onboarding,
+)
+from .middleware import (
+    RequestTrackingMiddleware,
+    RateLimitMiddleware,
+    ErrorHandlerMiddleware,
+    RLSContextMiddleware,
+)
 from .models import ContainerEvent, Shipment, Product
 from .services.entity_factory import create_product
 from .sentry_setup import init_sentry
@@ -21,8 +43,7 @@ from .auth.propelauth import init_propelauth
 
 # Configure logging
 logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
 logger = logging.getLogger(__name__)
 
@@ -43,22 +64,27 @@ def ensure_document_type_enum():
     try:
         # New document types added in Sprint 7
         new_types = [
-            'SANITARY_CERTIFICATE',
-            'EUDR_DUE_DILIGENCE',
-            'QUALITY_CERTIFICATE',
-            'EU_TRACES_CERTIFICATE',
-            'VETERINARY_HEALTH_CERTIFICATE',
-            'EXPORT_DECLARATION',
+            "SANITARY_CERTIFICATE",
+            "EUDR_DUE_DILIGENCE",
+            "QUALITY_CERTIFICATE",
+            "EU_TRACES_CERTIFICATE",
+            "VETERINARY_HEALTH_CERTIFICATE",
+            "EXPORT_DECLARATION",
         ]
 
         for doc_type in new_types:
             try:
                 # Check if the enum value exists
-                result = db.execute(text("""
+                result = db.execute(
+                    text(
+                        """
                     SELECT 1 FROM pg_enum
                     WHERE enumlabel = :doc_type
                     AND enumtypid = (SELECT oid FROM pg_type WHERE typname = 'documenttype')
-                """), {"doc_type": doc_type}).fetchone()
+                """
+                    ),
+                    {"doc_type": doc_type},
+                ).fetchone()
 
                 if not result:
                     # Add the enum value
@@ -88,24 +114,32 @@ def ensure_horn_hoof_products():
         # Find shipments that look like Horn & Hoof (bovine hooves, horns)
         # These are VIBO-2026-001 and VIBO-2026-002
         horn_hoof_refs = ["VIBO-2026-001", "VIBO-2026-002"]
-        horn_hoof_shipments = db.query(Shipment).filter(
-            Shipment.reference.in_(horn_hoof_refs)
-        ).all()
+        horn_hoof_shipments = (
+            db.query(Shipment).filter(Shipment.reference.in_(horn_hoof_refs)).all()
+        )
 
-        logger.info(f"Found {len(horn_hoof_shipments)} Horn & Hoof shipments (looking for {horn_hoof_refs})")
+        logger.info(
+            f"Found {len(horn_hoof_shipments)} Horn & Hoof shipments (looking for {horn_hoof_refs})"
+        )
 
         for shipment in horn_hoof_shipments:
             # Check if shipment already has products
-            existing_products = db.query(Product).filter(
-                Product.shipment_id == shipment.id
-            ).count()
+            existing_products = (
+                db.query(Product).filter(Product.shipment_id == shipment.id).count()
+            )
 
-            logger.info(f"Shipment {shipment.reference} has {existing_products} existing products")
+            logger.info(
+                f"Shipment {shipment.reference} has {existing_products} existing products"
+            )
 
             if existing_products == 0:
                 # Add Horn & Hoof product (HS 0506.90.00)
                 # Use entity factory to ensure organization_id is always set
-                product_name = "Bovine Hooves (Dried)" if "001" in shipment.reference else "Crushed Cow Horns"
+                product_name = (
+                    "Bovine Hooves (Dried)"
+                    if "001" in shipment.reference
+                    else "Crushed Cow Horns"
+                )
                 product = create_product(
                     shipment=shipment,
                     name=product_name,
@@ -116,12 +150,18 @@ def ensure_horn_hoof_products():
                     packaging="25kg bags",
                 )
                 db.add(product)
-                logger.info(f"Added Horn & Hoof product (HS 0506.90.00) to shipment {shipment.reference}")
+                logger.info(
+                    f"Added Horn & Hoof product (HS 0506.90.00) to shipment {shipment.reference}"
+                )
             else:
                 # Log existing product HS codes
-                products = db.query(Product).filter(Product.shipment_id == shipment.id).all()
+                products = (
+                    db.query(Product).filter(Product.shipment_id == shipment.id).all()
+                )
                 hs_codes = [p.hs_code for p in products]
-                logger.info(f"Shipment {shipment.reference} already has products with HS codes: {hs_codes}")
+                logger.info(
+                    f"Shipment {shipment.reference} already has products with HS codes: {hs_codes}"
+                )
 
         db.commit()
         logger.info("Horn & Hoof product initialization complete")
@@ -135,6 +175,7 @@ def ensure_horn_hoof_products():
 def auto_seed_if_empty():
     """Auto-seed database with test users if empty (for staging/dev environments)."""
     from .models.user import User
+
     db = SessionLocal()
     try:
         user_count = db.query(User).count()
@@ -143,12 +184,13 @@ def auto_seed_if_empty():
             try:
                 # Import and run seed_data module
                 import subprocess
+
                 result = subprocess.run(
                     ["python", "-m", "seed_data"],
                     cwd="/app",
                     capture_output=True,
                     text=True,
-                    timeout=60
+                    timeout=60,
                 )
                 if result.returncode == 0:
                     logger.info(f"Database seeded successfully: {result.stdout}")
@@ -188,6 +230,7 @@ async def lifespan(app: FastAPI):
 
     # Import audit log model to ensure table is created
     from .models.audit_log import AuditLog
+
     Base.metadata.create_all(bind=engine)
 
     # Ensure new document types are in the PostgreSQL enum (Sprint 7)
@@ -205,6 +248,7 @@ async def lifespan(app: FastAPI):
     # Initialize AI document classifier and log status
     try:
         from .services.document_classifier import document_classifier
+
         ai_status = document_classifier.get_ai_status()
         logger.info(f"Document classifier status: {ai_status}")
     except Exception as e:
@@ -243,20 +287,38 @@ Use the `/api/auth/login` endpoint to obtain a token.
     docs_url="/docs",
     redoc_url="/redoc",
     openapi_tags=[
-        {"name": "Authentication", "description": "User authentication and token management"},
+        {
+            "name": "Authentication",
+            "description": "User authentication and token management",
+        },
         {"name": "Shipments", "description": "Shipment CRUD and document management"},
-        {"name": "Documents", "description": "Document upload, validation, and lifecycle"},
-        {"name": "Container Tracking", "description": "Real-time container tracking from carriers"},
-        {"name": "EUDR Compliance", "description": "EU Deforestation Regulation compliance and validation"},
+        {
+            "name": "Documents",
+            "description": "Document upload, validation, and lifecycle",
+        },
+        {
+            "name": "Container Tracking",
+            "description": "Real-time container tracking from carriers",
+        },
+        {
+            "name": "EUDR Compliance",
+            "description": "EU Deforestation Regulation compliance and validation",
+        },
         {"name": "Analytics", "description": "Metrics and statistics dashboard"},
         {"name": "Audit", "description": "Audit log access (admin)"},
         {"name": "Webhooks", "description": "Webhook endpoints for carrier updates"},
         {"name": "Notifications", "description": "User notifications"},
         {"name": "Users", "description": "User management"},
-        {"name": "Organizations", "description": "Organization management and listings"},
-        {"name": "Invitations", "description": "Invitation management for organizations"},
+        {
+            "name": "Organizations",
+            "description": "Organization management and listings",
+        },
+        {
+            "name": "Invitations",
+            "description": "Invitation management for organizations",
+        },
         {"name": "Health", "description": "Health check and status endpoints"},
-    ]
+    ],
 )
 
 # Add middleware in reverse order (last added runs first)
@@ -277,7 +339,8 @@ app.add_middleware(
         "/api/tracking/": (50, 60),  # 50 tracking requests per minute
         "/api/documents/upload": (20, 60),  # 20 uploads per minute
         "/api/analytics/": (30, 60),  # 30 analytics requests per minute
-    }
+        "/api/public/signup": (5, 3600),  # 5 signups per hour per IP
+    },
 )
 
 # RLS context (sets PostgreSQL session variables for Supabase RLS)
@@ -317,12 +380,21 @@ app.include_router(analytics.router, prefix="/api/analytics", tags=["Analytics"]
 app.include_router(audit.router, prefix="/api/audit-log", tags=["Audit"])
 app.include_router(eudr.router, prefix="/api/eudr", tags=["EUDR Compliance"])
 app.include_router(webhooks.router, prefix="/api/webhooks", tags=["Webhooks"])
-app.include_router(notifications.router, prefix="/api/notifications", tags=["Notifications"])
+app.include_router(
+    notifications.router, prefix="/api/notifications", tags=["Notifications"]
+)
 app.include_router(users.router, prefix="/api/users", tags=["Users"])
-app.include_router(organizations.router, prefix="/api/organizations", tags=["Organizations"])
+app.include_router(
+    organizations.router, prefix="/api/organizations", tags=["Organizations"]
+)
 app.include_router(invitations.router, prefix="/api/invitations", tags=["Invitations"])
-app.include_router(document_validation.router, prefix="/api", tags=["Document Validation"])
-app.include_router(integrations.router, prefix="/api/integrations", tags=["Integrations"])
+app.include_router(
+    document_validation.router, prefix="/api", tags=["Document Validation"]
+)
+app.include_router(
+    integrations.router, prefix="/api/integrations", tags=["Integrations"]
+)
+app.include_router(onboarding.router, prefix="/api", tags=["Onboarding"])
 
 
 @app.get("/", tags=["Health"])
@@ -356,6 +428,7 @@ async def health_check():
     db_latency_ms = None
     try:
         from .database import SessionLocal
+
         db = SessionLocal()
         start = datetime.utcnow()
         db.execute(text("SELECT 1"))
@@ -369,10 +442,11 @@ async def health_check():
     last_sync = None
     try:
         from .database import SessionLocal
+
         db = SessionLocal()
-        latest_event = db.query(ContainerEvent).order_by(
-            ContainerEvent.created_at.desc()
-        ).first()
+        latest_event = (
+            db.query(ContainerEvent).order_by(ContainerEvent.created_at.desc()).first()
+        )
         if latest_event:
             last_sync = latest_event.created_at.isoformat()
         db.close()
@@ -383,6 +457,7 @@ async def health_check():
     ocr_status = {"available": False}
     try:
         from .services.pdf_processor import pdf_processor
+
         ocr_status = pdf_processor.get_ocr_status()
     except Exception as e:
         logger.warning(f"Could not get OCR status: {e}")
@@ -413,7 +488,7 @@ async def health_check():
                 "last_sync": last_sync,
             },
             "ocr": ocr_status,
-        }
+        },
     }
 
 
@@ -426,12 +501,14 @@ async def readiness_check():
     """
     try:
         from .database import SessionLocal
+
         db = SessionLocal()
         db.execute(text("SELECT 1"))
         db.close()
         return {"ready": True}
     except Exception:
         from fastapi import HTTPException
+
         raise HTTPException(status_code=503, detail="Not ready")
 
 

@@ -34,19 +34,31 @@ class RLSContextMiddleware(BaseHTTPMiddleware):
     """
 
     # Paths that skip RLS context (no auth required)
-    SKIP_PATHS = frozenset({
-        "/",
-        "/health",
-        "/health/ready",
-        "/health/live",
-        "/docs",
-        "/redoc",
-        "/openapi.json",
-    })
+    SKIP_PATHS = frozenset(
+        {
+            "/",
+            "/health",
+            "/health/ready",
+            "/health/live",
+            "/docs",
+            "/redoc",
+            "/openapi.json",
+            "/api/public/signup",
+            "/api/public/check-slug",
+        }
+    )
+
+    # Path prefixes that skip RLS context
+    SKIP_PATH_PREFIXES = (
+        "/api/public/",
+        "/api/invitations/accept/",
+    )
 
     async def dispatch(self, request: Request, call_next) -> Response:
-        # Skip RLS setup for health/docs endpoints
-        if request.url.path in self.SKIP_PATHS:
+        # Skip RLS setup for health/docs/public endpoints
+        if request.url.path in self.SKIP_PATHS or request.url.path.startswith(
+            self.SKIP_PATH_PREFIXES
+        ):
             return await call_next(request)
 
         # Try to extract user context from request state

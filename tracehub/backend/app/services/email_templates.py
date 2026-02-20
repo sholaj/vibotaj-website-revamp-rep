@@ -226,6 +226,31 @@ def render_invitation_accepted(
     return subject, _base_layout(body, branding)
 
 
+def render_welcome_signup(
+    org_name: str,
+    user_name: str,
+    dashboard_url: str,
+    plan_tier: str = "free",
+    branding: OrgBranding = OrgBranding(),
+) -> tuple[str, str]:
+    """Render welcome email after self-service signup."""
+    subject = f"Welcome to TraceHub — {org_name} is ready"
+    plan_html = ""
+    if plan_tier != "free":
+        plan_html = (
+            f'<p style="color:#374151;">You\'re on the <strong>{plan_tier.title()}</strong> '
+            f"plan with a 14-day free trial.</p>"
+        )
+    body = f"""
+<h2 style="margin:0 0 16px;font-size:18px;color:#111827;">Welcome to TraceHub, {user_name}!</h2>
+<p style="color:#374151;">Your organization <strong>{org_name}</strong> has been created. Complete the onboarding wizard to get started.</p>
+{plan_html}
+<a href="{dashboard_url}" style="display:inline-block;margin-top:16px;padding:12px 32px;background-color:{branding.primary_color};color:#FFFFFF;text-decoration:none;border-radius:6px;font-weight:600;font-size:16px;">Go to Dashboard</a>
+<p style="color:#6B7280;font-size:12px;margin-top:16px;">If you did not create this account, please contact support.</p>
+"""
+    return subject, _base_layout(body, branding)
+
+
 def render_expiry_warning(
     doc_type: str,
     shipment_ref: str,
