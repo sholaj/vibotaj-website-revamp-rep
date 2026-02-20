@@ -100,13 +100,13 @@ Users → Vercel (Next.js 15 SSR + BFF) → Railway (FastAPI + Celery) → Supab
 |-----|-------|-----------|--------|
 | 022 | Stripe billing integration | High | Week 13 |
 | 023 | White-label branding (per-org logos, colors, domains) | Medium | Week 14 |
-| 024 | Self-service onboarding flow | Medium | Week 15 |
+| 024 | [Self-service onboarding flow](prds/024-self-service-onboarding.md) | **Done** | Week 15 |
 | 025 | Performance optimization (edge caching, ISR, lazy loading) | Medium | Week 16 |
 
 ---
 
 ## In Progress
-_Phase 3 complete. All PRDs 016-021 done. Phase 4 (SaaS Hardening) next._
+_PRD-024 (self-service onboarding) done. PRDs 022, 023, 025 remaining in Phase 4._
 
 ## Blocked
 _None_
@@ -152,8 +152,8 @@ _None_
 ### v2 (Target)
 - Total PRDs: 25 (001-025)
 - PRDs specified: 21 (001-021 — Phase 1 + Phase 2 + Phase 3)
-- PRDs completed: 21 (001-021)
-- PRDs remaining: 4 (022-025 — Phase 4)
+- PRDs completed: 22 (001-021, 024)
+- PRDs remaining: 3 (022, 023, 025 — Phase 4)
 - Phase 0: Foundation — **Complete**
 - Phase 1: Infrastructure migration (Weeks 1-4) — **Complete**
 - Phase 2: Frontend rebuild (Weeks 5-8) — **Complete**

@@ -1,15 +1,8 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import { SidebarProvider } from "@/components/ui/sidebar";
-import { TooltipProvider } from "@/components/ui/tooltip";
-import { AppSidebar } from "@/components/layout/app-sidebar";
-import { Header } from "@/components/layout/header";
-import { MainContent } from "@/components/layout/main-content";
-import { AuthProvider } from "@/lib/auth/provider";
-import { OrgProvider } from "@/lib/auth/org-context";
-import { QueryProvider } from "@/lib/api/query-provider";
 import { ThemeProvider } from "@/components/theme/theme-provider";
+import { QueryProvider } from "@/lib/api/query-provider";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -38,21 +31,7 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         <ThemeProvider>
-          <AuthProvider>
-            <OrgProvider>
-              <QueryProvider>
-                <TooltipProvider>
-                  <SidebarProvider>
-                    <AppSidebar />
-                    <div className="flex min-h-screen flex-1 flex-col">
-                      <Header />
-                      <MainContent>{children}</MainContent>
-                    </div>
-                  </SidebarProvider>
-                </TooltipProvider>
-              </QueryProvider>
-            </OrgProvider>
-          </AuthProvider>
+          <QueryProvider>{children}</QueryProvider>
         </ThemeProvider>
       </body>
     </html>
