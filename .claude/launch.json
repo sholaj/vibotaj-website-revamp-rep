@@ -1,0 +1,26 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "v2-frontend",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "cwd": "v2/frontend",
+      "port": 3000
+    },
+    {
+      "name": "v1-backend",
+      "runtimeExecutable": "poetry",
+      "runtimeArgs": ["run", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"],
+      "cwd": "tracehub/backend",
+      "port": 8000
+    },
+    {
+      "name": "v1-frontend",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "cwd": "tracehub/frontend",
+      "port": 5173
+    }
+  ]
+}
