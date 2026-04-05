@@ -8,15 +8,15 @@ TraceHub v2 code is built (22/25 PRDs done) but needs external accounts created,
 
 ## Step 1: Create External Accounts (~30 min)
 
-| # | Service | URL | What to Do |
-|---|---------|-----|-----------|
-| 1 | **Supabase** | supabase.com | Create project → note Project URL, Service Role Key, Anon Key, Direct DB URL (port 5432) |
-| 2 | **PropelAuth** | propelauth.com | Create project → configure 6 roles (admin, compliance_officer, logistics, buyer, supplier, viewer) → note Auth URL + API Key |
-| 3 | **Railway** | railway.app | Sign up → connect GitHub repo → create project from `tracehub/backend/` |
-| 4 | **Vercel** | vercel.com | Sign up → connect GitHub repo → set root to `v2/frontend/` |
-| 5 | **Sentry** | sentry.io | Create org `vibotaj` → 2 projects: `tracehub-backend` (Python) + `tracehub-frontend` (JavaScript) → note DSNs + Auth Token |
-| 6 | **Resend** | resend.com | Sign up → verify `vibotaj.com` domain → note API Key |
-| 7 | **Stripe** | stripe.com | Sign up (needed for PRD-022) → note Publishable Key + Secret Key |
+| # | Service | URL | Status | What to Do |
+|---|---------|-----|--------|-----------|
+| 1 | **Supabase** | supabase.com | **Done** | Project: `tracehub` · Ref: `kwwzdfiyvxhvklutoltm` · URL: `https://kwwzdfiyvxhvklutoltm.supabase.co` |
+| 2 | **PropelAuth** | propelauth.com | **Done** | Project: `tracehub` · Auth URL: `https://7545259.propelauthtest.com` (test) · 6 roles configured · API Key + Verifier Key obtained · **Pre-launch:** Click "Go Live" for prod URL + new keys, update Railway/Vercel env vars |
+| 3 | **Railway** | railway.app | Pending | Sign up → connect GitHub repo → create project from `tracehub/backend/` |
+| 4 | **Vercel** | vercel.com | Pending | Sign up → connect GitHub repo → set root to `v2/frontend/` |
+| 5 | **Sentry** | sentry.io | Pending | Create org `vibotaj` → 2 projects: `tracehub-backend` (Python) + `tracehub-frontend` (JavaScript) → note DSNs + Auth Token |
+| 6 | **Resend** | resend.com | Pending | Sign up → verify `vibotaj.com` domain → note API Key |
+| 7 | **Stripe** | stripe.com | Deferred | Not needed for launch (PRD-022 not built yet) |
 
 **Reuse from v1:** JSONCargo API key, Anthropic API key, GitHub repo access.
 
@@ -237,8 +237,8 @@ After **2-week monitoring period** with no issues:
 
 | Service | Credentials Needed | Count |
 |---------|-------------------|-------|
-| Supabase | Project URL, Service Key, Anon Key, DB URL | 4 |
-| PropelAuth | Auth URL, API Key, Verifier Key | 3 |
+| Supabase | Project URL (**have**), Service Key (**need**), Anon Key (**have**), DB URL (**need**) | 4 |
+| PropelAuth | Auth URL (**have**), API Key (**have**), Verifier Key (**have**) | 3 |
 | Sentry | Backend DSN, Frontend DSN, Auth Token | 3 |
 | Resend | API Key | 1 |
 | Stripe | Publishable Key, Secret Key | 2 |
@@ -254,7 +254,7 @@ After **2-week monitoring period** with no issues:
 
 | Item | Status | Blocker? |
 |------|--------|----------|
-| Account creation (6 services) | Manual | Yes |
+| Account creation (6 services) | **Supabase + PropelAuth done** — 4 remaining | Yes |
 | Supabase migrations | Run once | Yes |
 | Railway env vars | Manual config | Yes |
 | Vercel env vars | Manual config | Yes |
