@@ -32,6 +32,9 @@ PREFIX_TO_CARRIER = {
     "MRSU": "maersk",  # Maersk
     "MSKU": "maersk",
     "MAEU": "maersk",
+    "TGBU": "maersk",
+    "TCLU": "maersk",
+    "GESU": "maersk",
     "MSCU": "msc",     # MSC
     "MEDU": "msc",
     "HLCU": "hapag-lloyd",  # Hapag-Lloyd
